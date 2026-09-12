@@ -34,12 +34,17 @@ internal class TtsEngineFacade<
     val voices: Set<V>
         get() = engine.voices
 
-    suspend fun speak(text: String, language: Language?, onRange: (IntRange) -> Unit): E? =
+    suspend fun speak(
+        text: String,
+        language: Language?,
+        onStart: () -> Unit,
+        onRange: (IntRange) -> Unit,
+    ): E? =
         suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { engine.stop() }
             currentTask?.continuation?.cancel()
             val id = TtsEngine.RequestId(Uuid.random().toString())
-            currentTask = UtteranceTask(id, continuation, onRange)
+            currentTask = UtteranceTask(id, continuation, onStart, onRange)
             engine.speak(id, text, language)
         }
 
@@ -53,8 +58,22 @@ internal class TtsEngineFacade<
     private data class UtteranceTask<E : TtsEngine.Error>(
         val requestId: TtsEngine.RequestId,
         val continuation: CancellableContinuation<E?>,
+        val onStart: () -> Unit,
         val onRange: (IntRange) -> Unit,
-    )
+        var started: Boolean = false,
+    ) {
+        fun notifyStart() {
+            if (!started) {
+                started = true
+                // Never let overlay/highlight work crash the TTS callback thread,
+                // or onDone will stop firing and playback appears frozen.
+                try {
+                    onStart()
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
 
     private fun getTask(id: TtsEngine.RequestId) =
         currentTask?.takeIf { it.requestId == id }
@@ -66,10 +85,15 @@ internal class TtsEngineFacade<
     private inner class EngineListener : TtsEngine.Listener<E> {
 
         override fun onStart(requestId: TtsEngine.RequestId) {
+            getTask(requestId)?.notifyStart()
         }
 
         override fun onRange(requestId: TtsEngine.RequestId, range: IntRange) {
-            getTask(requestId)?.onRange?.invoke(range)
+            getTask(requestId)?.let { task ->
+                // Some engines skip onStart and only report ranges.
+                task.notifyStart()
+                task.onRange(range)
+            }
         }
 
         override fun onInterrupted(requestId: TtsEngine.RequestId) {

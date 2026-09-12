@@ -23,7 +23,9 @@ Text-to-speech can read aloud a publication using a synthetic voice. The Readium
 
 The text-to-speech feature is implemented as a standalone `Navigator`, which can render any publication with a [Content Service](content.md), such as an EPUB. This means you don't need an `EpubNavigatorFragment` open to read the publication; you can use the TTS navigator in the background.
 
-To get a new instance of `TtsNavigator`, first create an `AndroidTtsNavigatorFactory` to use the default Android TTS engine.
+To get a new instance of `TtsNavigator`, first create an `AndroidTtsNavigatorFactory`. The factory prefers the bundled Microsoft Edge Read Aloud engine (`EdgeTtsService`) when it is registered in the host app, and otherwise falls back to the device default TTS engine. In the test app, choose **Engine → Edge TTS** in Speech settings. Pass `AndroidTtsPreferences(engine = AndroidTtsEngine.Kind.System)` to force the system engine.
+
+The Edge engine needs the `INTERNET` permission. It is declared as an exported `android.intent.action.TTS_SERVICE`, so it also appears under the system text-to-speech settings. Pause, previous, and next call `onStop()`, which drops the WebSocket and resets the MP3 decoder.
 
 ```kotlin
 val factory = AndroidTtsNavigatorFactory(application, publication)

@@ -187,8 +187,8 @@ internal class TtsPlayer<
     override val settings: StateFlow<S> =
         engineFacade.settings
 
-    val voices: Set<V> =
-        engineFacade.voices
+    val voices: Set<V>
+        get() = engineFacade.voices
 
     val playback: StateFlow<Playback> =
         playbackMutable.asStateFlow()
@@ -277,11 +277,15 @@ internal class TtsPlayer<
         }
 
         playbackMutable.value = playbackMutable.value.copy(playWhenReady = false)
-        utteranceMutable.value = utteranceMutable.value.copy(range = null)
 
         coroutineScope.launch {
             mutex.withLock {
                 playbackJob?.cancelAndJoin()
+                // Continuous play advances the window on onDone, which is often one
+                // segment early. Pause must snap back to the highlighted utterance
+                // so skip/resume stay aligned with what the user last heard.
+                revertUnpublishedAdvance()
+                publishCurrentUtterance()
             }
         }
     }
@@ -343,7 +347,7 @@ internal class TtsPlayer<
     }
 
     fun hasNextUtterance() =
-        utteranceWindow.nextUtterance != null
+        utteranceWindow.nextUtterance != null || !isCurrentUtterancePublished()
 
     fun nextUtterance() {
         coroutineScope.launch {
@@ -353,19 +357,24 @@ internal class TtsPlayer<
 
     private suspend fun nextUtteranceAsync() {
         mutex.withLock {
-            if (utteranceWindow.nextUtterance == null) {
+            if (isCurrentUtterancePublished() && utteranceWindow.nextUtterance == null) {
                 return
             }
 
             playbackJob?.cancel()
-            tryLoadNextContext()
+            if (isCurrentUtterancePublished()) {
+                tryLoadNextContext()
+            } else {
+                // Window already points at the next segment; show and play it.
+                publishCurrentUtterance()
+            }
             playbackJob?.join()
             playIfReadyAndNotPaused()
         }
     }
 
     fun hasPreviousUtterance() =
-        utteranceWindow.previousUtterance != null
+        utteranceWindow.previousUtterance != null || !isCurrentUtterancePublished()
 
     fun previousUtterance() {
         coroutineScope.launch {
@@ -375,10 +384,17 @@ internal class TtsPlayer<
 
     private suspend fun previousUtteranceAsync() {
         mutex.withLock {
+            playbackJob?.cancel()
+            if (!isCurrentUtterancePublished()) {
+                // Undo the unpublished advance first, then step back from there.
+                revertUnpublishedAdvance()
+            }
             if (utteranceWindow.previousUtterance == null) {
+                publishCurrentUtterance()
+                playbackJob?.join()
+                playIfReadyAndNotPaused()
                 return
             }
-            playbackJob?.cancel()
             tryLoadPreviousContext()
             playbackJob?.join()
             playIfReadyAndNotPaused()
@@ -476,14 +492,14 @@ internal class TtsPlayer<
             currentUtterance = checkNotNull(contextNow.previousUtterance),
             nextUtterance = contextNow.currentUtterance
         )
-        utteranceMutable.value = utteranceWindow.currentUtterance.ttsPlayerUtterance()
+        publishCurrentUtterance()
 
         if (playbackMutable.value.state == State.Ended) {
             playbackMutable.value = playbackMutable.value.copy(state = State.Ready)
         }
     }
 
-    private suspend fun tryLoadNextContext() {
+    private suspend fun tryLoadNextContext(publishUtterance: Boolean = true) {
         val contextNow = utteranceWindow
 
         if (contextNow.nextUtterance == null) {
@@ -503,11 +519,40 @@ internal class TtsPlayer<
             currentUtterance = contextNow.nextUtterance,
             nextUtterance = nextUtterance
         )
-        utteranceMutable.value = utteranceWindow.currentUtterance.ttsPlayerUtterance()
+        if (publishUtterance) {
+            publishCurrentUtterance()
+        }
         if (playbackMutable.value.state == State.Ended) {
             playbackMutable.value = playbackMutable.value.copy(state = State.Ready)
         }
     }
+
+    private fun publishCurrentUtterance() {
+        utteranceMutable.value = utteranceWindow.currentUtterance.ttsPlayerUtterance()
+    }
+
+    private fun isCurrentUtterancePublished(): Boolean =
+        utteranceWindow.currentUtterance.matches(utteranceMutable.value)
+
+    private suspend fun revertUnpublishedAdvance() {
+        if (isCurrentUtterancePublished() || utteranceWindow.previousUtterance == null) {
+            return
+        }
+        tryLoadPreviousContext()
+    }
+
+    private fun TtsUtteranceIterator.Utterance.matches(published: Utterance): Boolean =
+        resourceIndex == published.position.resourceIndex &&
+            utterance == published.text &&
+            text == published.position.text
+
+    private fun TtsUtteranceIterator.Utterance.matches(
+        other: TtsUtteranceIterator.Utterance,
+    ): Boolean =
+        resourceIndex == other.resourceIndex &&
+            utterance == other.utterance &&
+            text == other.text &&
+            locations == other.locations
 
     private suspend fun resetContext() {
         val startContext = try {
@@ -517,6 +562,7 @@ internal class TtsPlayer<
             return
         }
         utteranceWindow = checkNotNull(startContext)
+        publishCurrentUtterance()
         if (utteranceWindow.nextUtterance == null && utteranceWindow.ended) {
             onEndReached()
         }
@@ -538,13 +584,31 @@ internal class TtsPlayer<
 
         mutex.withLock {
             error?.let { exception -> onEngineError(exception) }
-            tryLoadNextContext()
+            // Keep highlighting the utterance that just finished until the next one
+            // actually starts. Android TTS often reports onDone when synthesis is
+            // written to the mixer, one segment before playback catches up.
+            tryLoadNextContext(publishUtterance = false)
         }
         playContinuous()
     }
 
     private suspend fun speakUtterance(utterance: TtsUtteranceIterator.Utterance): E? =
-        engineFacade.speak(utterance.utterance, utterance.language, ::onRangeChanged)
+        engineFacade.speak(
+            text = utterance.utterance,
+            language = utterance.language,
+            onStart = {
+                coroutineScope.launch {
+                    if (utterance.matches(utteranceWindow.currentUtterance)) {
+                        utteranceMutable.value = utterance.ttsPlayerUtterance()
+                    }
+                }
+            },
+            onRange = { range ->
+                if (utterance.matches(utteranceWindow.currentUtterance)) {
+                    onRangeChanged(range)
+                }
+            }
+        )
 
     private fun onEngineError(error: E) {
         playbackMutable.value = playbackMutable.value.copy(

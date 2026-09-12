@@ -25,6 +25,7 @@ internal class AndroidTtsSettingsResolver(
 
         return AndroidTtsSettings(
             language = language,
+            engine = preferences.engine ?: defaults.engine ?: AndroidTtsEngine.Kind.Edge,
             voices = preferences.voices ?: emptyMap(),
             pitch = preferences.pitch ?: defaults.pitch ?: 1.0,
             speed = preferences.speed ?: defaults.speed ?: 1.0,

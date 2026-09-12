@@ -61,11 +61,13 @@ public class TtsNavigatorFactory<
             metadataProvider: MediaMetadataProvider = defaultMediaMetadataProvider,
             defaults: AndroidTtsDefaults = AndroidTtsDefaults(),
             voiceSelector: (Language?, Set<AndroidTtsEngine.Voice>) -> AndroidTtsEngine.Voice? = defaultVoiceSelector,
+            engineName: String? = null,
         ): AndroidTtsNavigatorFactory? {
             val engineProvider = AndroidTtsEngineProvider(
                 context = application,
                 defaults = defaults,
-                voiceSelector = voiceSelector
+                voiceSelector = voiceSelector,
+                engineName = engineName
             )
 
             return createNavigatorFactory(
@@ -132,8 +134,22 @@ public class TtsNavigatorFactory<
         private val defaultMediaMetadataProvider: MediaMetadataProvider =
             DefaultMediaMetadataProvider()
 
-        private val defaultVoiceSelector: (Language?, Set<AndroidTtsEngine.Voice>) -> AndroidTtsEngine.Voice? =
-            { _, _ -> null }
+private val defaultVoiceSelector: (Language?, Set<AndroidTtsEngine.Voice>) -> AndroidTtsEngine.Voice? =
+    { language, voices ->
+        val matching = voices.filter { voice ->
+            language == null || voice.language.removeRegion() == language.removeRegion()
+        }.ifEmpty { voices }
+
+        // 🌟 纯通用逻辑：标准语（无方言前缀）> 音质 > 离线
+        matching
+            .filter { voice ->
+                // 排除带有特定方言段的标识符（如 zh-CN-shaanxi-xxx、zh-CN-liaoning-xxx）
+                // 标准普通话是 zh-CN-YunyangNeural（只有两个连字符），方言是 3 个连字符
+                voice.id.value.count { it == '-' } <= 2 
+            }
+            .ifEmpty { matching }
+            .maxByOrNull { it.quality }
+    }
     }
 
     public sealed class Error(

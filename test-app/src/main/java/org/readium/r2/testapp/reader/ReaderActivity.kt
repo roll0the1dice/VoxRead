@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
@@ -48,6 +49,12 @@ open class ReaderActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (model.readerInitData is DummyReaderInitData) {
+            Toast.makeText(this, R.string.opening_error, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         val binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)

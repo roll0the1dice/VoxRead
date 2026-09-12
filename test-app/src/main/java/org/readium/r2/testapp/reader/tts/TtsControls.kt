@@ -6,18 +6,23 @@
 
 package org.readium.r2.testapp.reader.tts
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,19 +36,23 @@ import org.readium.r2.testapp.utils.extensions.asStateWhenStarted
 fun TtsControls(
     model: TtsViewModel,
     onPreferences: () -> Unit,
+    onHighlightColor: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val showControls by model.showControls.asStateWhenStarted()
     val isPlaying by model.isPlaying.asStateWhenStarted()
+    val highlightColor by model.highlightColor.asStateWhenStarted()
 
     if (showControls) {
         TtsControls(
             playing = isPlaying,
+            highlightColor = highlightColor,
             onPlayPause = { if (isPlaying) model.pause() else model.play() },
             onStop = model::stop,
             onPrevious = model::previous,
             onNext = model::next,
             onPreferences = onPreferences,
+            onHighlightColor = onHighlightColor,
             modifier = modifier
         )
     }
@@ -52,11 +61,13 @@ fun TtsControls(
 @Composable
 fun TtsControls(
     playing: Boolean,
+    highlightColor: TtsHighlightColor,
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onPreferences: () -> Unit,
+    onHighlightColor: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -111,6 +122,23 @@ fun TtsControls(
             }
 
             Spacer(modifier = Modifier.size(8.dp))
+
+            IconButton(onClick = onHighlightColor) {
+                Box {
+                    Icon(
+                        painter = painterResource(id = R.drawable.palette),
+                        contentDescription = stringResource(R.string.tts_highlight_color),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(8.dp)
+                            .border(0.5.dp, Color.Black.copy(alpha = 0.25f), CircleShape)
+                            .clip(CircleShape)
+                            .background(Color(highlightColor.tint))
+                    )
+                }
+            }
 
             IconButton(onClick = onPreferences) {
                 Icon(

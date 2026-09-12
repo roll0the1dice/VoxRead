@@ -14,6 +14,9 @@
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/overlay"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:clickable="false"
+        android:focusable="false"
         />
 </FrameLayout>

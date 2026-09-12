@@ -20,6 +20,7 @@ import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.*
 import org.readium.r2.testapp.reader.preferences.PreferencesManager
+import org.readium.r2.testapp.reader.tts.TtsHighlightColorStore
 
 sealed class ReaderInitData {
     abstract val bookId: Long
@@ -62,6 +63,7 @@ class TtsInitData(
     val mediaServiceFacade: MediaServiceFacade,
     val navigatorFactory: AndroidTtsNavigatorFactory,
     val preferencesManager: PreferencesManager<AndroidTtsPreferences>,
+    val highlightColorStore: TtsHighlightColorStore,
 )
 
 class MediaReaderInitData(

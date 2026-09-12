@@ -88,10 +88,15 @@ class ReaderViewModel(
     val searchChannel: EventChannel<SearchCommand> =
         EventChannel(Channel(Channel.BUFFERED), viewModelScope)
 
-    val tts: TtsViewModel? = TtsViewModel(
-        viewModelScope = viewModelScope,
-        readerInitData = readerInitData
-    )
+    val tts: TtsViewModel? = try {
+        TtsViewModel(
+            viewModelScope = viewModelScope,
+            readerInitData = readerInitData
+        )
+    } catch (e: Exception) {
+        Timber.e(e, "Failed to initialize TTS")
+        null
+    }
 
     val settings: UserPreferencesViewModel<*, *>? = UserPreferencesViewModel(
         viewModelScope = viewModelScope,

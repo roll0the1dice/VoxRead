@@ -47,6 +47,7 @@ class TtsViewModel private constructor(
     private val ttsNavigatorFactory: AndroidTtsNavigatorFactory,
     private val mediaServiceFacade: MediaServiceFacade,
     private val preferencesManager: PreferencesManager<AndroidTtsPreferences>,
+    private val highlightColorStore: TtsHighlightColorStore,
 ) : TtsNavigator.Listener {
 
     companion object {
@@ -68,7 +69,8 @@ class TtsViewModel private constructor(
                 publication = readerInitData.publication,
                 ttsNavigatorFactory = readerInitData.ttsInitData.navigatorFactory,
                 mediaServiceFacade = readerInitData.ttsInitData.mediaServiceFacade,
-                preferencesManager = readerInitData.ttsInitData.preferencesManager
+                preferencesManager = readerInitData.ttsInitData.preferencesManager,
+                highlightColorStore = readerInitData.ttsInitData.highlightColorStore
             )
         }
     }
@@ -100,8 +102,8 @@ class TtsViewModel private constructor(
     val events: Flow<Event> =
         _events.receiveAsFlow()
 
-    val preferencesModel: UserPreferencesViewModel<AndroidTtsSettings, AndroidTtsPreferences>
-        get() = UserPreferencesViewModel(
+    val preferencesModel: UserPreferencesViewModel<AndroidTtsSettings, AndroidTtsPreferences> =
+        UserPreferencesViewModel(
             viewModelScope = viewModelScope,
             bookId = bookId,
             preferencesManager = preferencesManager
@@ -133,6 +135,13 @@ class TtsViewModel private constructor(
                 ?: MutableStateFlow(null)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val highlightColor: StateFlow<TtsHighlightColor> =
+        highlightColorStore.color
+
+    fun setHighlightColor(color: TtsHighlightColor) {
+        highlightColorStore.setColor(color)
+    }
+
     init {
         mediaServiceFacade.session
             .flatMapLatest { it?.navigator?.playback ?: MutableStateFlow(null) }
@@ -146,6 +155,7 @@ class TtsViewModel private constructor(
                     }
                     is TtsNavigator.State.Failure -> {
                         onPlaybackError(state.error)
+                        stop()
                     }
                 }
             }
@@ -179,6 +189,7 @@ class TtsViewModel private constructor(
         ).getOrElse {
             val error = TtsError.Initialization(it)
             _events.send(Event.OnError(error))
+            launchJob = null
             return
         }
 

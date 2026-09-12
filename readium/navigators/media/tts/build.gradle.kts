@@ -22,4 +22,9 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlin.junit)
+    testImplementation(libs.assertj)
 }

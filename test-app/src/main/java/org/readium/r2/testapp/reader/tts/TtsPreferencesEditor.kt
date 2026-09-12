@@ -9,6 +9,7 @@ package org.readium.r2.testapp.reader.tts
 import org.readium.navigator.media.tts.android.AndroidTtsEngine
 import org.readium.navigator.media.tts.android.AndroidTtsPreferences
 import org.readium.navigator.media.tts.android.AndroidTtsPreferencesEditor
+import org.readium.navigator.media.tts.edge.EdgeTtsVoices
 import org.readium.r2.navigator.preferences.*
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.util.Language
@@ -29,6 +30,9 @@ class TtsPreferencesEditor(
     val language: Preference<Language?> =
         editor.language
 
+    val engine: EnumPreference<AndroidTtsEngine.Kind> =
+        editor.engine
+
     val pitch: RangePreference<Double> =
         editor.pitch
 
@@ -42,22 +46,48 @@ class TtsPreferencesEditor(
      */
     val voice: EnumPreference<AndroidTtsEngine.Voice.Id?> = run {
         val currentLanguage = language.effectiveValue?.removeRegion()
+        val voicesForEngine = voicesFor(engine.effectiveValue)
 
         editor.voices.map(
             from = { voices ->
-                currentLanguage?.let { voices[it] }
+                currentLanguage?.let { language ->
+                    voices[language]
+                        ?: voices.entries.firstOrNull { (key, _) ->
+                            key.removeRegion() == language
+                        }?.value
+                }
             },
             to = { voice ->
-                currentLanguage
-                    ?.let { editor.voices.value.orEmpty().update(it, voice) }
-                    ?: editor.voices.value.orEmpty()
+                var next = editor.voices.value.orEmpty()
+                currentLanguage?.let { next = next.update(it, voice) }
+                language.effectiveValue?.let { next = next.update(it, voice) }
+                voice?.value?.let { EdgeTtsVoices.normalize(it) }?.let { entry ->
+                    val official = AndroidTtsEngine.Voice.Id(entry.shortName)
+                    next = next.update(Language(entry.locale), official)
+                    next = next.update(Language(entry.locale).removeRegion(), official)
+                }
+                next
             }
         ).withSupportedValues(
-            availableVoices
+            voicesForEngine
                 .filter { it.language.removeRegion() == currentLanguage }
                 .map { it.id }
         )
     }
+
+    private fun voicesFor(kind: AndroidTtsEngine.Kind): Set<AndroidTtsEngine.Voice> =
+        if (kind == AndroidTtsEngine.Kind.Edge) {
+            EdgeTtsVoices.all.map { entry ->
+                AndroidTtsEngine.Voice(
+                    id = AndroidTtsEngine.Voice.Id(entry.shortName),
+                    language = Language(entry.locale),
+                    quality = AndroidTtsEngine.Voice.Quality.Highest,
+                    requiresNetwork = true
+                )
+            }.toSet()
+        } else {
+            availableVoices
+        }
 
     private fun <K, V> Map<K, V>.update(key: K, value: V?): Map<K, V> =
         buildMap {

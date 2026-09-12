@@ -23,6 +23,7 @@ public class AndroidTtsEngineProvider(
     private val context: Context,
     private val defaults: AndroidTtsDefaults = AndroidTtsDefaults(),
     private val voiceSelector: AndroidTtsEngine.VoiceSelector = AndroidTtsEngine.VoiceSelector { _, _ -> null },
+    private val engineName: String? = null,
 ) : TtsEngineProvider<
     AndroidTtsSettings,
     AndroidTtsPreferences,
@@ -38,11 +39,20 @@ public class AndroidTtsEngineProvider(
         val settingsResolver =
             AndroidTtsSettingsResolver(publication.metadata, defaults)
 
+        val kind = initialPreferences.engine ?: defaults.engine ?: AndroidTtsEngine.Kind.Edge
+        val resolvedEngineName = engineName ?: kind.packageName(context)
         val engine = AndroidTtsEngine(
             context,
             settingsResolver,
             voiceSelector,
-            initialPreferences
+            initialPreferences,
+            resolvedEngineName
+        ) ?: AndroidTtsEngine(
+            context,
+            settingsResolver,
+            voiceSelector,
+            initialPreferences,
+            engineName = null
         ) ?: return Try.failure(
             DebugError("Initialization of Android Tts service failed.")
         )

@@ -13,28 +13,24 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeech.*
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice as AndroidVoice
 import android.speech.tts.Voice.*
+import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import org.readium.navigator.media.tts.TtsEngine
+import org.readium.navigator.media.tts.edge.EdgeTtsService
+import org.readium.navigator.media.tts.edge.EdgeTtsVoiceStore
+import org.readium.navigator.media.tts.edge.EdgeTtsVoices
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.InternalReadiumApi
 import org.readium.r2.shared.extensions.tryOrNull
 import org.readium.r2.shared.util.Language
-
-/*
- * On some Android implementations (i.e. on Oppo A9 2020 running Android 11),
- * the TextToSpeech instance is often disconnected from the underlying service when the playback
- * is paused and the app moves to the background. So we try to reset the TextToSpeech before
- * actually returning an error. In the meantime, requests to the engine are queued
- * into [pendingRequests].
- */
 
 /**
  * Default [TtsEngine] implementation using Android's native text to speech engine.
@@ -45,7 +41,8 @@ public class AndroidTtsEngine private constructor(
     engine: TextToSpeech,
     private val settingsResolver: SettingsResolver,
     private val voiceSelector: VoiceSelector,
-    override val voices: Set<Voice>,
+    private var engineName: String?,
+    override var voices: Set<Voice>,
     initialPreferences: AndroidTtsPreferences,
 ) : TtsEngine<
     AndroidTtsSettings,
@@ -54,18 +51,41 @@ public class AndroidTtsEngine private constructor(
     AndroidTtsEngine.Voice
     > {
 
+    @kotlinx.serialization.Serializable
+    public enum class Kind {
+        System,
+        Edge,
+        ;
+
+        /**
+         * 🌟 关键修复 1：
+         * 只要当前应用内注册了 EdgeTtsService，无论枚举是 Edge 还是 System 兜底，
+         * 都强制返回自身包名，绝不返回 null（避免回退到手机厂商的系统引擎）。
+         */
+        public fun packageName(context: Context): String? =
+            when (this) {
+                Edge -> EdgeTtsService.preferredEngineName(context) ?: context.packageName
+                System -> EdgeTtsService.preferredEngineName(context) ?: context.packageName
+            }
+    }
+
     public companion object {
+        private const val TAG = "EdgeTtsDebug"
 
         public suspend operator fun invoke(
             context: Context,
             settingsResolver: SettingsResolver,
             voiceSelector: VoiceSelector,
             initialPreferences: AndroidTtsPreferences,
+            engineName: String? = EdgeTtsService.preferredEngineName(context) ?: context.packageName,
         ): AndroidTtsEngine? {
-            val textToSpeech = initializeTextToSpeech(context)
+            val targetEngine = engineName ?: EdgeTtsService.preferredEngineName(context) ?: context.packageName
+            Log.d(TAG, "AndroidTtsEngine.invoke() 启动，目标引擎包名: $targetEngine")
+
+            val textToSpeech = initializeTextToSpeech(context, targetEngine)
                 ?: return null
 
-            val voices = tryOrNull { textToSpeech.voices } // throws on Nexus 4
+            val voices = tryOrNull { textToSpeech.voices }
                 ?.map { it.toTtsEngineVoice() }
                 ?.toSet()
                 .orEmpty()
@@ -75,6 +95,7 @@ public class AndroidTtsEngine private constructor(
                 textToSpeech,
                 settingsResolver,
                 voiceSelector,
+                targetEngine,
                 voices,
                 initialPreferences
             )
@@ -82,19 +103,27 @@ public class AndroidTtsEngine private constructor(
 
         private suspend fun initializeTextToSpeech(
             context: Context,
+            engineName: String? = EdgeTtsService.preferredEngineName(context) ?: context.packageName,
         ): TextToSpeech? {
+            val target = engineName ?: EdgeTtsService.preferredEngineName(context) ?: context.packageName
+            Log.d(TAG, "正在创建 TextToSpeech 实例，绑定包名: $target")
             val init = CompletableDeferred<Boolean>()
 
             val initListener = OnInitListener { status ->
-                init.complete(status == SUCCESS)
+                val success = (status == SUCCESS)
+                Log.d(TAG, "TextToSpeech 初始化回调状态: success=$success (status=$status)")
+                init.complete(success)
             }
-            val engine = TextToSpeech(context, initListener)
+
+            val engine = if (target != null) {
+                TextToSpeech(context, initListener, target)
+            } else {
+                TextToSpeech(context, initListener)
+            }
+
             return if (init.await()) engine else null
         }
 
-        /**
-         * Starts the activity to install additional voice data.
-         */
         @SuppressLint("QueryPermissionsNeeded")
         public fun requestInstallVoice(context: Context) {
             val intent = Intent()
@@ -133,18 +162,10 @@ public class AndroidTtsEngine private constructor(
     }
 
     public fun interface SettingsResolver {
-
-        /**
-         * Computes a set of engine settings from the engine preferences.
-         */
         public fun settings(preferences: AndroidTtsPreferences): AndroidTtsSettings
     }
 
     public fun interface VoiceSelector {
-
-        /**
-         * Selects a voice for the given [language].
-         */
         public fun voice(language: Language?, availableVoices: Set<Voice>): Voice?
     }
 
@@ -152,44 +173,16 @@ public class AndroidTtsEngine private constructor(
         override val message: String,
         override val cause: org.readium.r2.shared.util.Error? = null,
     ) : TtsEngine.Error {
-
-        /** Denotes a generic operation failure. */
         public data object Unknown : Error("An unknown error occurred.")
-
-        /** Denotes a failure caused by an invalid request. */
         public data object InvalidRequest : Error("Invalid request")
-
-        /** Denotes a failure caused by a network connectivity problems. */
         public data object Network : Error("A network error occurred.")
-
-        /** Denotes a failure caused by network timeout. */
         public data object NetworkTimeout : Error("Network timeout")
-
-        /** Denotes a failure caused by an unfinished download of the voice data. */
         public data object NotInstalledYet : Error("Voice not installed yet.")
-
-        /** Denotes a failure related to the output (audio device or a file). */
         public data object Output : Error("An error related to the output occurred.")
-
-        /** Denotes a failure of a TTS service. */
         public data object Service : Error("An error occurred with the TTS service.")
-
-        /** Denotes a failure of a TTS engine to synthesize the given input. */
         public data object Synthesis : Error("Synthesis failed.")
+        public data class LanguageMissingData(val language: Language) : Error("Language data is missing.")
 
-        /**
-         * Denotes the language data is missing.
-         *
-         * You can open the Android settings to install the missing data with:
-         * AndroidTtsEngine.requestInstallVoice(context)
-         */
-        public data class LanguageMissingData(val language: Language) :
-            Error("Language data is missing.")
-
-        /**
-         * Android's TTS error code.
-         * See https://developer.android.com/reference/android/speech/tts/TextToSpeech#ERROR
-         */
         public companion object {
             internal fun fromNativeError(code: Int): Error =
                 when (code) {
@@ -205,14 +198,6 @@ public class AndroidTtsEngine private constructor(
         }
     }
 
-    /**
-     * Represents a voice provided by the TTS engine which can speak an utterance.
-     *
-     * @param id Unique and stable identifier for this voice
-     * @param language Language (and region) this voice belongs to.
-     * @param quality Voice quality.
-     * @param requiresNetwork Indicates whether using this voice requires an Internet connection.
-     */
     public data class Voice(
         val id: Id,
         override val language: Language,
@@ -240,49 +225,51 @@ public class AndroidTtsEngine private constructor(
     )
 
     private sealed class State {
-
-        data class EngineAvailable(
-            val engine: TextToSpeech,
-        ) : State()
-
-        data class WaitingForService(
-            val pendingRequests: MutableList<Request> = mutableListOf(),
-        ) : State()
-
-        data class Failure(
-            val error: AndroidTtsEngine.Error,
-        ) : State()
+        data class EngineAvailable(val engine: TextToSpeech) : State()
+        data class WaitingForService(val pendingRequests: MutableList<Request> = mutableListOf()) : State()
+        data class Failure(val error: AndroidTtsEngine.Error) : State()
     }
 
-    private val coroutineScope: CoroutineScope =
-        MainScope()
-
-    private var utteranceListener: TtsEngine.Listener<Error>? =
-        null
-
-    private var state: State =
-        State.EngineAvailable(engine)
-
-    private var isClosed: Boolean =
-        false
+    private val coroutineScope: CoroutineScope = MainScope()
+    private var utteranceListener: TtsEngine.Listener<Error>? = null
+    private var state: State = State.EngineAvailable(engine)
+    private var isClosed: Boolean = false
+    private var flushNextSpeak: Boolean = false
 
     override val settings: StateFlow<AndroidTtsSettings>
         field = MutableStateFlow(settingsResolver.settings(initialPreferences))
-            .apply { engine.setupPitchAndSpeed(value) }
+            .apply {
+                engine.setupPitchAndSpeed(value)
+                persistSelectedVoices(value)
+            }
 
     override fun submitPreferences(preferences: AndroidTtsPreferences) {
+        val previous = settings.value
         val newSettings = settingsResolver.settings(preferences)
         settings.value = newSettings
-        (state as? State.EngineAvailable)
-            ?.engine?.setupPitchAndSpeed(newSettings)
+        persistSelectedVoices(newSettings)
+
+        // 🌟 修复 2：防止切换到 null（小布引擎）
+        val newEngineName = newSettings.engine.packageName(context) 
+            ?: EdgeTtsService.preferredEngineName(context) 
+            ?: context.packageName
+
+        val voicesChanged = previous.voices != newSettings.voices
+        if (newEngineName != engineName) {
+            Log.w(TAG, "引擎发生改变: $engineName -> $newEngineName，执行 switchEngine")
+            flushNextSpeak = true
+            switchEngine(newEngineName)
+            return
+        }
+        if (voicesChanged) {
+            flushNextSpeak = true
+        }
+        (state as? State.EngineAvailable)?.engine?.setupPitchAndSpeed(newSettings)
     }
 
-    override fun setListener(
-        listener: TtsEngine.Listener<Error>?,
-    ) {
+    override fun setListener(listener: TtsEngine.Listener<Error>?) {
         utteranceListener = listener
-        (state as? State.EngineAvailable)
-            ?.let { setupListener(it.engine) }
+        (state as? State.EngineAvailable)?.let { setupListener(it.engine) }
     }
 
     override fun speak(
@@ -311,12 +298,8 @@ public class AndroidTtsEngine private constructor(
 
     override fun stop() {
         when (val stateNow = state) {
-            is State.EngineAvailable -> {
-                stateNow.engine.stop()
-            }
-            is State.Failure -> {
-                // Do nothing
-            }
+            is State.EngineAvailable -> stateNow.engine.stop()
+            is State.Failure -> {}
             is State.WaitingForService -> {
                 for (request in stateNow.pendingRequests) {
                     utteranceListener?.onFlushed(request.id)
@@ -327,23 +310,14 @@ public class AndroidTtsEngine private constructor(
     }
 
     override fun close() {
-        if (isClosed) {
-            return
-        }
-
+        if (isClosed) return
         isClosed = true
         coroutineScope.cancel()
 
         when (val stateNow = state) {
-            is State.EngineAvailable -> {
-                cleanEngine(stateNow.engine)
-            }
-            is State.Failure -> {
-                // Do nothing
-            }
-            is State.WaitingForService -> {
-                // Do nothing
-            }
+            is State.EngineAvailable -> cleanEngine(stateNow.engine)
+            is State.Failure -> {}
+            is State.WaitingForService -> {}
         }
     }
 
@@ -351,8 +325,38 @@ public class AndroidTtsEngine private constructor(
         engine: TextToSpeech,
         request: Request,
     ): Boolean {
-        return engine.setupVoice(settings.value, request.id, request.language, voices) &&
-            (engine.speak(request.text, QUEUE_ADD, null, request.id.value) == SUCCESS)
+        val voiceName = engine.setupVoice(settings.value, request.id, request.language, voices)
+            ?: return false
+        val official = EdgeTtsVoices.normalize(voiceName)?.shortName
+            ?: EdgeTtsVoices.sanitizeIdentifier(voiceName)
+            ?: voiceName.trim()
+
+        Log.d(TAG, "doSpeak: 最终下发 speak -> voiceName=$official, text='${request.text.take(20)}...'")
+
+        val params = Bundle()
+        if (official.isNotEmpty()) {
+            EdgeTtsVoiceStore.request(official)
+            params.putString(EdgeTtsVoiceStore.PARAM_SYSTEM_VOICE, official)
+            params.putString(EdgeTtsVoiceStore.PARAM_EDGE_VOICE, official)
+        }
+        val queueMode = if (flushNextSpeak) QUEUE_FLUSH else QUEUE_ADD
+        flushNextSpeak = false
+        return engine.speak(request.text, queueMode, params, request.id.value) == SUCCESS
+    }
+
+    private fun persistSelectedVoices(settings: AndroidTtsSettings) {
+        for ((language, voiceId) in settings.voices) {
+            EdgeTtsVoices.normalize(voiceId.value)?.shortName?.let { official ->
+                EdgeTtsVoiceStore.save(context, official, language, rememberAsLast = false)
+            }
+        }
+        val chosen = preferredVoiceName(settings, settings.language)
+            ?: settings.voices.values.firstOrNull()?.value
+            ?: return
+        EdgeTtsVoices.normalize(chosen)?.shortName?.let { official ->
+            EdgeTtsVoiceStore.request(official)
+            EdgeTtsVoiceStore.save(context, official, settings.language, rememberAsLast = true)
+        }
     }
 
     private fun setupListener(engine: TextToSpeech) {
@@ -387,10 +391,38 @@ public class AndroidTtsEngine private constructor(
         }
     }
 
+    private fun switchEngine(newEngineName: String?) {
+        val target = newEngineName ?: EdgeTtsService.preferredEngineName(context) ?: context.packageName
+        engineName = target
+        when (val stateNow = state) {
+            is State.EngineAvailable -> {
+                stateNow.engine.stop()
+                cleanEngine(stateNow.engine)
+            }
+            is State.WaitingForService -> {}
+            is State.Failure -> {}
+        }
+        if (state !is State.WaitingForService) {
+            state = State.WaitingForService()
+        }
+        coroutineScope.launch {
+            val engine = initializeTextToSpeech(context, target)
+            if (engine == null) {
+                onReconnectionFailed()
+                return@launch
+            }
+            voices = tryOrNull { engine.voices }
+                ?.map { it.toTtsEngineVoice() }
+                ?.toSet()
+                .orEmpty()
+            onReconnectionSucceeded(engine)
+        }
+    }
+
     private fun tryReconnect(request: Request) {
         state = State.WaitingForService(mutableListOf(request))
         coroutineScope.launch {
-            initializeTextToSpeech(context)
+            initializeTextToSpeech(context, engineName)
                 ?.let { onReconnectionSucceeded(it) }
                 ?: onReconnectionFailed()
         }
@@ -411,51 +443,74 @@ public class AndroidTtsEngine private constructor(
         id: TtsEngine.RequestId,
         utteranceLanguage: Language?,
         voices: Set<Voice>,
-    ): Boolean {
+    ): String? {
         val language = utteranceLanguage
             .takeUnless { settings.overrideContentLanguage }
-            // We take utterance language if data are missing but not if the language is not supported
             ?.takeIf { isLanguageAvailable(it.locale) != LANG_NOT_SUPPORTED }
             ?: settings.language
                 .takeIf { isLanguageAvailable(it.locale) != LANG_NOT_SUPPORTED }
             ?: defaultVoice?.locale?.let { Language(it) }
 
         if (language == null) {
-            // We don't know what to do.
             utteranceListener?.onError(id, Error.Unknown)
-            return false
+            return null
         }
 
         if (isLanguageAvailable(language.locale) < LANG_AVAILABLE) {
             utteranceListener?.onError(id, Error.LanguageMissingData(language))
-            return false
+            return null
         }
 
-        val preferredVoiceWithRegion =
-            settings.voices[language]
-                ?.let { voiceForName(it.value) }
+        val preferredVoiceId = preferredVoiceName(settings, language)
 
-        val preferredVoiceWithoutRegion =
-            settings.voices[language.removeRegion()]
-                ?.let { voiceForName(it.value) }
-
-        val voice = preferredVoiceWithRegion
-            ?: preferredVoiceWithoutRegion
+        val androidVoice = preferredVoiceId?.let { voiceForName(it) }
             ?: run {
                 voiceSelector
                     .voice(language, voices)
                     ?.let { voiceForName(it.id.value) }
             }
+            ?: preferredVoiceFor(language)
 
-        voice
+        androidVoice
             ?.let { this.voice = it }
             ?: run { this.language = language.locale }
 
-        return true
+        return preferredVoiceId
+            ?: EdgeTtsVoices.normalize(androidVoice?.name)?.shortName
+            ?: androidVoice?.name.orEmpty()
     }
 
-    private fun TextToSpeech.voiceForName(name: String) =
-        voices.firstOrNull { it.name == name }
+    private fun preferredVoiceName(settings: AndroidTtsSettings, language: Language): String? {
+        val raw = settings.voices[language]?.value
+            ?: settings.voices[language.removeRegion()]?.value
+            ?: settings.voices.entries.firstOrNull { (key, _) ->
+                key.code.equals(language.code, ignoreCase = true) ||
+                    key.removeRegion().code.equals(
+                        language.removeRegion().code,
+                        ignoreCase = true
+                    )
+            }?.value?.value
+            ?: settings.voices.values.firstOrNull()?.value
+            ?: EdgeTtsVoiceStore.requested()
+            ?: EdgeTtsVoiceStore.get(context, language.locale)
+            ?: EdgeTtsVoiceStore.last(context)
+        return EdgeTtsVoices.normalize(raw)?.shortName
+    }
+
+    private fun TextToSpeech.voiceForName(name: String): AndroidVoice? {
+        val official = EdgeTtsVoices.normalize(name)?.shortName ?: name
+        return voices.firstOrNull { it.name == official }
+            ?: voices.firstOrNull { it.name.equals(official, ignoreCase = true) }
+    }
+
+    private fun TextToSpeech.preferredVoiceFor(language: Language): AndroidVoice? {
+        val nativeVoices = tryOrNull { voices }.orEmpty()
+        val matching = nativeVoices.filter {
+            Language(it.locale).removeRegion() == language.removeRegion()
+        }
+        val candidates = matching.ifEmpty { nativeVoices }
+        return candidates.maxByOrNull { it.quality }
+    }
 
     private class UtteranceListener(
         private val listener: TtsEngine.Listener<Error>?,

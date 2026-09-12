@@ -19,6 +19,7 @@ import org.readium.r2.shared.util.Language
 public data class AndroidTtsSettings(
     override val language: Language,
     override val overrideContentLanguage: Boolean,
+    val engine: AndroidTtsEngine.Kind,
     val pitch: Double,
     val speed: Double,
     val voices: Map<Language, AndroidTtsEngine.Voice.Id>,

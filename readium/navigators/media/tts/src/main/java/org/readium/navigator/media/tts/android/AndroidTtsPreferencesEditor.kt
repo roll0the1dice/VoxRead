@@ -29,6 +29,17 @@ public class AndroidTtsPreferencesEditor(
     defaults: AndroidTtsDefaults,
 ) : PreferencesEditor<AndroidTtsPreferences> {
 
+    public companion object {
+        /**
+         * 🌟 常用主流语言白名单（过滤掉上索布语、世界语、东桑海语等几百个冷门语言）
+         */
+        public val SUPPORTED_LANGUAGES: List<Language> = listOf(
+            Language("zh"), // 中文
+            Language("en"), // 英语
+            Language("ja"), // 日语
+        )
+    }
+
     private data class State(
         val preferences: AndroidTtsPreferences,
         val settings: AndroidTtsSettings,
@@ -47,12 +58,32 @@ public class AndroidTtsPreferencesEditor(
         updateValues { AndroidTtsPreferences() }
     }
 
+    /**
+     * 供 UI 界面调用的白名单列表
+     */
+    public val availableLanguages: List<Language> = SUPPORTED_LANGUAGES
+
     public val language: Preference<Language?> =
         PreferenceDelegate(
             getValue = { preferences.language },
             getEffectiveValue = { state.settings.language },
             getIsEffective = { true },
-            updateValue = { value -> updateValues { it.copy(language = value) } }
+            updateValue = { value ->
+                // 白名单过滤：不在白名单内的语言不予设置
+                val filtered = value?.takeIf { lang ->
+                    SUPPORTED_LANGUAGES.any { it.code.equals(lang.code, ignoreCase = true) }
+                }
+                updateValues { it.copy(language = filtered) }
+            }
+        )
+
+    public val engine: EnumPreference<AndroidTtsEngine.Kind> =
+        EnumPreferenceDelegate(
+            getValue = { preferences.engine },
+            getEffectiveValue = { state.settings.engine },
+            getIsEffective = { true },
+            updateValue = { value -> updateValues { it.copy(engine = value) } },
+            supportedValues = listOf(AndroidTtsEngine.Kind.Edge, AndroidTtsEngine.Kind.System)
         )
 
     public val pitch: RangePreference<Double> =

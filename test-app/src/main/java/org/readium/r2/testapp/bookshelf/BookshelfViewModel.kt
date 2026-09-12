@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import org.readium.r2.shared.util.AbsoluteUrl
+import org.readium.r2.shared.util.DebugError
 import org.readium.r2.shared.util.toUrl
 import org.readium.r2.testapp.data.model.Book
 import org.readium.r2.testapp.reader.OpeningError
@@ -48,15 +49,25 @@ class BookshelfViewModel(application: Application) : AndroidViewModel(applicatio
         bookId: Long,
     ) {
         viewModelScope.launch {
-            app.readerRepository
-                .open(bookId)
-                .onFailure {
-                    channel.send(Event.OpenPublicationError(it))
-                }
-                .onSuccess {
-                    val arguments = ReaderActivityContract.Arguments(bookId)
-                    channel.send(Event.LaunchReader(arguments))
-                }
+            try {
+                app.readerRepository
+                    .open(bookId)
+                    .onFailure {
+                        channel.send(Event.OpenPublicationError(it))
+                    }
+                    .onSuccess {
+                        val arguments = ReaderActivityContract.Arguments(bookId)
+                        channel.send(Event.LaunchReader(arguments))
+                    }
+            } catch (e: Exception) {
+                channel.send(
+                    Event.OpenPublicationError(
+                        OpeningError.CannotRender(
+                            DebugError(e.message ?: "Failed to open publication")
+                        )
+                    )
+                )
+            }
         }
     }
 

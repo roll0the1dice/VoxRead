@@ -28,19 +28,10 @@ import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.annotation.ColorInt
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.core.view.MenuHost
 import androidx.core.view.MenuProvider
@@ -52,6 +43,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -75,6 +67,7 @@ import org.readium.r2.testapp.R
 import org.readium.r2.testapp.data.model.Highlight
 import org.readium.r2.testapp.databinding.FragmentReaderBinding
 import org.readium.r2.testapp.reader.tts.TtsControls
+import org.readium.r2.testapp.reader.tts.TtsHighlightColorBottomSheetDialogFragment
 import org.readium.r2.testapp.reader.tts.TtsPreferencesBottomSheetDialogFragment
 import org.readium.r2.testapp.reader.tts.TtsViewModel
 import org.readium.r2.testapp.utils.clearPadding
@@ -86,6 +79,14 @@ import org.readium.r2.testapp.utils.padSystemUi
 import org.readium.r2.testapp.utils.showSystemUi
 import org.readium.r2.testapp.utils.toggleSystemUi
 import org.readium.r2.testapp.utils.viewLifecycle
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /*
  * Base reader fragment class
@@ -99,6 +100,9 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
 
     private lateinit var navigatorFragment: Fragment
 
+    // 🌟 核心：这行必须声明在类体内、所有函数的最外层！
+    private val isSystemUiVisible = MutableStateFlow(true)
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -107,11 +111,6 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
         binding = FragmentReaderBinding.inflate(inflater, container, false)
         return binding.root
     }
-
-    /**
-     * When true, the user won't be able to interact with the navigator.
-     */
-    private var disableTouches by mutableStateOf(false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -149,31 +148,16 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
         childFragmentManager.addOnBackStackChangedListener {
             updateSystemUiVisibility()
         }
-        binding.fragmentReaderContainer.setOnApplyWindowInsetsListener { container, insets ->
+binding.fragmentReaderContainer.setOnApplyWindowInsetsListener { container, insets ->
             updateSystemUiPadding(container, insets)
+            // 🌟 核心：当系统顶栏隐藏时，自动将 isSystemUiVisible 置为 false；唤醒时置为 true
+            val compatInsets = WindowInsetsCompat.toWindowInsetsCompat(insets, container)
+            isSystemUiVisible.value = compatInsets.isVisible(WindowInsetsCompat.Type.statusBars())
             insets
         }
 
         binding.overlay.setContent {
-            if (disableTouches) {
-                // Add an invisible box on top of the navigator to intercept touch gestures.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures {
-                                requireActivity().toggleSystemUi()
-                            }
-                        }
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .systemBarsPadding(),
-                content = { Overlay() }
-            )
+            Overlay()
         }
 
         val menuHost: MenuHost = requireActivity()
@@ -184,10 +168,12 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
                     menu.findItem(R.id.tts).isVisible = (model.tts != null)
                 }
 
-                override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                     when (menuItem.itemId) {
                         R.id.tts -> {
                             checkNotNull(model.tts).start(navigator)
+                            // 🌟 加上 this@VisualReaderFragment.
+                            this@VisualReaderFragment.isSystemUiVisible.value = true 
                             return true
                         }
                     }
@@ -205,19 +191,32 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
         }
     }
 
-    @Composable
-    private fun BoxScope.Overlay() {
-        model.tts?.let { tts ->
-            TtsControls(
-                model = tts,
-                onPreferences = {
-                    TtsPreferencesBottomSheetDialogFragment()
-                        .show(childFragmentManager, "TtsSettings")
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(8.dp)
-            )
+@Composable
+    private fun Overlay() {
+        // 🌟 监听系统 UI 是否可见
+        val showControls by isSystemUiVisible.collectAsState()
+
+        AnimatedVisibility(
+            visible = showControls,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+        ) {
+            model.tts?.let { tts ->
+                TtsControls(
+                    model = tts,
+                    onPreferences = {
+                        TtsPreferencesBottomSheetDialogFragment()
+                            .show(childFragmentManager, "TtsSettings")
+                    },
+                    onHighlightColor = {
+                        TtsHighlightColorBottomSheetDialogFragment()
+                            .show(childFragmentManager, "TtsHighlightColor")
+                    },
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .padding(8.dp)
+                )
+            }
         }
     }
 
@@ -282,26 +281,20 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
                     navigator.go(locator, animated = false)
                 }
 
-            // Prevent interacting with the publication (including page turns) while the TTS is
-            // playing.
-            isPlaying
-                .observeWhenStarted(viewLifecycleOwner) { isPlaying ->
-                    disableTouches = isPlaying
-                }
-
-            // Highlight the currently spoken utterance.
+            // Highlight the currently spoken utterance with the user's preferred color.
             (navigator as? DecorableNavigator)?.let { navigator ->
-                highlight
-                    .observeWhenStarted(viewLifecycleOwner) { locator ->
-                        val decoration = locator?.let {
-                            Decoration(
-                                id = "tts",
-                                locator = it,
-                                style = Decoration.Style.Highlight(tint = Color.RED)
-                            )
-                        }
-                        navigator.applyDecorations(listOfNotNull(decoration), "tts")
+                combine(highlight, highlightColor) { locator, color ->
+                    locator to color
+                }.observeWhenStarted(viewLifecycleOwner) { (locator, color) ->
+                    val decoration = locator?.let {
+                        Decoration(
+                            id = "tts",
+                            locator = it,
+                            style = Decoration.Style.Highlight(tint = color.tint)
+                        )
                     }
+                    navigator.applyDecorations(listOfNotNull(decoration), "tts")
+                }
             }
         }
     }

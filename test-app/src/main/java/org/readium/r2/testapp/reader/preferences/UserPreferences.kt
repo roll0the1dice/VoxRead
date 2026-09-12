@@ -15,12 +15,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.readium.adapter.exoplayer.audio.ExoPlayerPreferencesEditor
 import org.readium.adapter.pdfium.navigator.PdfiumPreferencesEditor
 import org.readium.navigator.media.tts.android.AndroidTtsEngine
+import org.readium.navigator.media.tts.edge.EdgeTtsVoiceStore
+import org.readium.navigator.media.tts.edge.EdgeTtsVoices
 import org.readium.r2.navigator.epub.EpubPreferencesEditor
 import org.readium.r2.navigator.preferences.*
 import org.readium.r2.navigator.preferences.TextAlign as ReadiumTextAlign
@@ -143,6 +146,7 @@ private fun <P : Configurable.Preferences<P>, E : PreferencesEditor<P>> UserPref
                 MediaUserPreferences(
                     commit = commit,
                     language = editor.language,
+                    engine = editor.engine,
                     voice = editor.voice,
                     speed = editor.speed,
                     pitch = editor.pitch
@@ -161,11 +165,30 @@ private fun <P : Configurable.Preferences<P>, E : PreferencesEditor<P>> UserPref
 private fun MediaUserPreferences(
     commit: () -> Unit,
     language: Preference<Language?>? = null,
+    engine: EnumPreference<AndroidTtsEngine.Kind>? = null,
     voice: EnumPreference<AndroidTtsEngine.Voice.Id?>? = null,
     speed: RangePreference<Double>? = null,
     pitch: RangePreference<Double>? = null,
 ) {
+    val edgeEngineLabel = stringResource(R.string.tts_engine_edge)
+    val systemEngineLabel = stringResource(R.string.tts_engine_system)
+    val context = LocalContext.current
+
     Column {
+        if (engine != null) {
+            MenuItem(
+                title = stringResource(R.string.tts_engine),
+                preference = engine,
+                formatValue = { kind ->
+                    when (kind) {
+                        AndroidTtsEngine.Kind.Edge -> edgeEngineLabel
+                        AndroidTtsEngine.Kind.System -> systemEngineLabel
+                    }
+                },
+                commit = commit
+            )
+        }
+
         if (speed != null) {
             StepperItem(
                 title = stringResource(R.string.speed_rate),
@@ -192,11 +215,30 @@ private fun MediaUserPreferences(
             MenuItem(
                 title = stringResource(R.string.tts_voice),
                 preference = voice,
-                formatValue = { it?.value ?: "Default" },
-                commit = commit
+                formatValue = { id ->
+                    id?.let { formatTtsVoiceName(it.value) } ?: "Default"
+                },
+                commit = {
+                    val selected = voice.value ?: voice.effectiveValue
+                    selected?.value?.let { name ->
+                        EdgeTtsVoices.normalize(name)?.shortName?.let { official ->
+                            EdgeTtsVoiceStore.request(official)
+                            EdgeTtsVoiceStore.save(context, official, language?.effectiveValue)
+                        }
+                    }
+                    commit()
+                }
             )
         }
     }
+}
+
+private fun formatTtsVoiceName(id: String): String {
+    val core = id
+        .removeSuffix("Neural")
+        .removeSuffix("Multilingual")
+        .substringAfterLast('-')
+    return if (core.isBlank() || core == id) id else "$core ($id)"
 }
 
 /**

@@ -201,7 +201,16 @@
     <string name="pitch_rate">Pitch</string>
     <string name="tts_settings">Speech settings</string>
     <string name="tts_stop">Stop</string>
+    <string name="tts_engine">Engine</string>
+    <string name="tts_engine_edge">Edge TTS</string>
+    <string name="tts_engine_system">System</string>
     <string name="tts_voice">Voice</string>
+    <string name="tts_highlight_color">Highlight color</string>
+    <string name="tts_highlight_color_title">Spoken-text highlight</string>
+    <string name="tts_highlight_color_yellow">Warm yellow</string>
+    <string name="tts_highlight_color_green">Soft green</string>
+    <string name="tts_highlight_color_blue">Sky blue</string>
+    <string name="tts_highlight_color_red">Soft red</string>
 
     <string name="search_error_not_searchable">This publication is not searchable</string>
     <string name="search_error_cancelled">The search was cancelled</string>

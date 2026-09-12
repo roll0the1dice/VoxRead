@@ -15,6 +15,8 @@ import org.readium.r2.shared.util.Language
  * Preferences for the the Android built-in TTS engine.
  *
  *  @param language Language of the publication content.
+ *  @param engine TTS backend to use. [AndroidTtsEngine.Kind.Edge] is the
+ *         bundled Microsoft Edge Read Aloud engine.
  *  @param pitch Playback pitch rate.
  *  @param speed Playback speed rate.
  *  @param voices Map of preferred voices for specific languages.
@@ -23,6 +25,7 @@ import org.readium.r2.shared.util.Language
 @Serializable
 public data class AndroidTtsPreferences(
     override val language: Language? = null,
+    val engine: AndroidTtsEngine.Kind? = null,
     val pitch: Double? = null,
     val speed: Double? = null,
     val voices: Map<Language, AndroidTtsEngine.Voice.Id>? = null,
@@ -36,6 +39,7 @@ public data class AndroidTtsPreferences(
     override fun plus(other: AndroidTtsPreferences): AndroidTtsPreferences =
         AndroidTtsPreferences(
             language = other.language ?: language,
+            engine = other.engine ?: engine,
             pitch = other.pitch ?: pitch,
             speed = other.speed ?: speed,
             voices = other.voices ?: voices

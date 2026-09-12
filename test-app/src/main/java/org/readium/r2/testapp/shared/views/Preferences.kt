@@ -51,6 +51,7 @@ import org.readium.r2.testapp.R
 import org.readium.r2.testapp.utils.compose.ColorPicker
 import org.readium.r2.testapp.utils.compose.DropdownMenuButton
 import org.readium.r2.testapp.utils.compose.ToggleButtonGroup
+import org.readium.navigator.media.tts.android.AndroidTtsPreferencesEditor
 
 /**
  * Component for an [EnumPreference] displayed as a group of mutually exclusive buttons.
@@ -403,12 +404,13 @@ fun LanguageItem(
     preference: Preference<Language?>,
     commit: () -> Unit,
 ) {
-    val languages = remember {
-        Locale.getAvailableLocales()
-            .map { Language(it).removeRegion() }
-            .distinct()
-            .sortedBy { it.locale.displayName }
-    }
+    // val languages = remember {
+    //     Locale.getAvailableLocales()
+    //         .map { Language(it).removeRegion() }
+    //         .distinct()
+    //         .sortedBy { it.locale.displayName }
+    // }
+    val languages = AndroidTtsPreferencesEditor.SUPPORTED_LANGUAGES
 
     MenuItem(
         title = "Language",

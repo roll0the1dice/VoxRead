@@ -1,3 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<!--
+  Copyright 2026 Readium Foundation. All rights reserved.
+  Use of this source code is governed by the BSD-style license
+  available in the top-level LICENSE file of the project.
+-->
 
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <application>
+        <service
+            android:name="org.readium.navigator.media.tts.edge.EdgeTtsService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/readium_edge_tts_name"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="android.intent.action.TTS_SERVICE" />
+                <!-- 🌟 核心就是这一行！必须存在于 intent-filter 内部！ 🌟 -->
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech.tts"
+                android:resource="@xml/readium_tts_engine" />
+        </service>
+
+        <activity
+            android:name="org.readium.navigator.media.tts.edge.EdgeTtsCheckVoiceDataActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.CHECK_TTS_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="org.readium.navigator.media.tts.edge.EdgeTtsInstallDataActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.INSTALL_TTS_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="org.readium.navigator.media.tts.edge.EdgeTtsGetSampleTextActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

@@ -9,6 +9,9 @@ package org.readium.r2.testapp.reader
 import android.app.Application
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences as JetpackPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.json.JSONObject
 import org.readium.adapter.exoplayer.audio.ExoPlayerEngineProvider
 import org.readium.adapter.pdfium.navigator.PdfiumEngineProvider
@@ -32,6 +35,7 @@ import org.readium.r2.testapp.reader.preferences.AndroidTtsPreferencesManagerFac
 import org.readium.r2.testapp.reader.preferences.EpubPreferencesManagerFactory
 import org.readium.r2.testapp.reader.preferences.ExoPlayerPreferencesManagerFactory
 import org.readium.r2.testapp.reader.preferences.PdfiumPreferencesManagerFactory
+import org.readium.r2.testapp.reader.tts.TtsHighlightColorStore
 import org.readium.r2.testapp.utils.CoroutineQueue
 import timber.log.Timber
 
@@ -58,6 +62,12 @@ class ReaderRepository(
 
     private val mediaServiceFacade: MediaServiceFacade =
         MediaServiceFacade(application)
+
+    private val ttsHighlightColorStore: TtsHighlightColorStore =
+        TtsHighlightColorStore(
+            dataStore = preferencesDataStore,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        )
 
     fun isEmpty() =
         repository.isEmpty()
@@ -238,14 +248,22 @@ class ReaderRepository(
     private suspend fun getTtsInitData(
         bookId: Long,
         publication: Publication,
-    ): TtsInitData? {
+    ): TtsInitData? = try {
         val preferencesManager = AndroidTtsPreferencesManagerFactory(preferencesDataStore)
             .createPreferenceManager(bookId)
         val navigatorFactory = TtsNavigatorFactory(
             application,
             publication
         ) ?: return null
-        return TtsInitData(mediaServiceFacade, navigatorFactory, preferencesManager)
+        TtsInitData(
+            mediaServiceFacade,
+            navigatorFactory,
+            preferencesManager,
+            ttsHighlightColorStore
+        )
+    } catch (e: Exception) {
+        Timber.e(e, "Failed to initialize TTS for book $bookId")
+        null
     }
 
     fun close(bookId: Long) {

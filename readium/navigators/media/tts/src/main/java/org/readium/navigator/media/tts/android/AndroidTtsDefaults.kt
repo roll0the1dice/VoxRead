@@ -6,6 +6,7 @@
 
 package org.readium.navigator.media.tts.android
 
+import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.util.Language
 
 /**
@@ -16,8 +17,10 @@ import org.readium.r2.shared.util.Language
  *
  * @see AndroidTtsPreferences
  */
+@OptIn(ExperimentalReadiumApi::class)
 public data class AndroidTtsDefaults(
     val language: Language? = null,
+    val engine: AndroidTtsEngine.Kind? = AndroidTtsEngine.Kind.Edge,
     val pitch: Double? = null,
     val speed: Double? = null,
 ) {
