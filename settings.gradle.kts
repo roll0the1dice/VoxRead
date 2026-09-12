@@ -34,7 +34,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Readium"
+rootProject.name = "VoxRead"
 
 include(":readium:adapters:pdfium:document")
 project(":readium:adapters:pdfium:document")

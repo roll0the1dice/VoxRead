@@ -18,7 +18,7 @@ android {
         minSdk = (property("android.minSdk") as String).toInt()
         targetSdk = (property("android.targetSdk") as String).toInt()
 
-        applicationId = "org.readium.r2reader"
+        applicationId = "com.roll0the1dice.voxread"
 
         versionName = "3.4.0"
         versionCode = 1
