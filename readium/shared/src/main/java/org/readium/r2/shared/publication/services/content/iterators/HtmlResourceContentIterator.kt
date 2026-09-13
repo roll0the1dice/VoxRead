@@ -121,20 +121,36 @@ private companion object {
         // 显式指定 private 和明确的类型，满足 Explicit API 模式
         private val mathSpeechCache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
 
-/**
-     * 🌟 100% 兼容 WebView 高亮的原生安全缓存：
-     * 直接使用 Jsoup 原生 cssSelector()，不改变任何格式，保证高亮精准，缓存消除卡顿。
-     */
-    private fun fastCssSelector(
+private fun fastCssSelector(
         element: org.jsoup.nodes.Element,
         cache: MutableMap<org.jsoup.nodes.Element, String>
     ): String {
         cache[element]?.let { return it }
-        val selector = try {
-            element.cssSelector()
-        } catch (t: Throwable) {
-            element.tagName()
+
+        if (element.id().isNotEmpty()) {
+            val idSelector = "#" + element.id()
+            cache[element] = idSelector
+            return idSelector
         }
+
+        val tagName = element.tagName()
+        val parent = element.parent()
+
+        if (parent == null || parent is org.jsoup.nodes.Document) {
+            cache[element] = tagName
+            return tagName
+        }
+
+        val parentSelector = fastCssSelector(parent, cache)
+
+        // 🌟 此处去掉 size() 的小括号，改为 parent.children().size
+        val selector = if (parent.children().size > 1) {
+            val index = element.elementSiblingIndex() + 1
+            "$parentSelector > $tagName:nth-child($index)"
+        } else {
+            "$parentSelector > $tagName"
+        }
+
         cache[element] = selector
         return selector
     }
@@ -298,7 +314,7 @@ private companion object {
                     spokenText = mathEngine.toSpeech(cacheKey, locale = "zh")
                     val cost = System.currentTimeMillis() - singleStart
                     if (cost > 100) { // 超过 100ms 的慢转换打印出来
-                        android.util.Log.w("PERF_DEBUG", "⚠️ 公式[$index] MathCAT 耗时偏长: ${cost} ms")
+                        //android.util.Log.w("PERF_DEBUG", "⚠️ 公式[$index] MathCAT 耗时偏长: ${cost} ms")
                     }
                 } catch (t: Throwable) {
                     Timber.w(t, "MathCAT toSpeech 失败")
