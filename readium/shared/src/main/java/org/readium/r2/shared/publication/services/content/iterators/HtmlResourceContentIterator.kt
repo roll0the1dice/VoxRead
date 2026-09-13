@@ -46,8 +46,13 @@ import org.readium.r2.shared.util.resource.Resource
 import org.readium.r2.shared.util.toDebugDescription
 import org.readium.r2.shared.util.use
 import timber.log.Timber
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import android.content.Context
-
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 /**
  * Iterates an HTML [resource], starting from the given [locator].
  *
@@ -112,6 +117,53 @@ public class HtmlResourceContentIterator internal constructor(
         }
     }
 
+private companion object {
+        // 显式指定 private 和明确的类型，满足 Explicit API 模式
+        private val mathSpeechCache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
+
+        /**
+     * 🌟 记忆化快速 CSS 选择器：全流程共享缓存，时间复杂度 O(1) 命中
+     */
+    private fun fastCssSelector(
+        element: org.jsoup.nodes.Element,
+        cache: MutableMap<org.jsoup.nodes.Element, String>
+    ): String {
+        cache[element]?.let { return it }
+
+        // 优先复用公式替换时写入的原始精确选择器
+        val mathSelector = element.attr("data-math-selector")
+        if (mathSelector.isNotBlank()) {
+            cache[element] = mathSelector
+            return mathSelector
+        }
+
+        if (element.id().isNotEmpty()) {
+            val idSelector = "#" + element.id()
+            cache[element] = idSelector
+            return idSelector
+        }
+
+        val tagName = element.tagName()
+        val parent = element.parent()
+
+        val selector = if (parent == null || parent is org.jsoup.nodes.Document) {
+            tagName
+        } else {
+            val parentSelector = fastCssSelector(parent, cache)
+            val siblings = parent.children()
+            if (siblings.size > 1) {
+                val index = element.elementSiblingIndex() + 1
+                "$parentSelector > $tagName:nth-child($index)"
+            } else {
+                "$parentSelector > $tagName"
+            }
+        }
+
+        cache[element] = selector
+        return selector
+    }
+    }
+
     /**
      * [Content.Element] loaded with [hasPrevious] or [hasNext], associated with the move delta.
      */
@@ -121,6 +173,8 @@ public class HtmlResourceContentIterator internal constructor(
     )
 
     private var currentElement: ElementWithDelta? = null
+
+    //private val mathSpeechCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     override suspend fun hasPrevious(): Boolean {
         if (currentElement?.delta == -1) return true
@@ -174,8 +228,14 @@ public class HtmlResourceContentIterator internal constructor(
 
     private var parsedElements: ParsedElements? = null
 
+
+
     private suspend fun parseElements(): ParsedElements =
         withContext(Dispatchers.Default) {
+            val totalStart = System.currentTimeMillis()
+            //android.util.Log.i("PERF_DEBUG", "============== 🚀 开始 parseElements ==============")
+
+            var stepStart = System.currentTimeMillis()
             val document = resource.use { res ->
                 val html = res
                     .read()
@@ -188,20 +248,31 @@ public class HtmlResourceContentIterator internal constructor(
 
                 Jsoup.parse(html)
             }
+            //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤1] HTML 读取与 Jsoup.parse 耗时: ${System.currentTimeMillis() - stepStart} ms")
 
-                      // 预先处理公式朗读转换（挂起执行）
-            preprocessMathElements(document.body())
+            // 🌟 贯穿全流程的共享选择器缓存池
+            val selectorCache = HashMap<org.jsoup.nodes.Element, String>(2048)
 
+            // 1. 公式预处理（共用缓存）
+            stepStart = System.currentTimeMillis()
+            preprocessMathElements(document.body(), selectorCache)
+            //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤2] preprocessMathElements 全部公式耗时: ${System.currentTimeMillis() - stepStart} ms")
+
+            // 2. NodeTraversor 遍历（传入共享缓存，彻底消灭 2.2 秒延迟）
+            stepStart = System.currentTimeMillis()
             val contentParser = ContentParser(
                 baseLocator = locator,
                 startElement = locator.locations.cssSelector?.let {
                     tryOrNull { document.selectFirst(it) }
                 },
-                beforeMaxLength = beforeMaxLength
+                beforeMaxLength = beforeMaxLength,
+                selectorCache = selectorCache // 🌟 传入共享缓存
             )
             NodeTraversor.traverse(contentParser, document.body())
             val elements = contentParser.result()
             val elementCount = elements.elements.size
+            //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤3] NodeTraversor 遍历耗时: ${System.currentTimeMillis() - stepStart} ms (共生成 $elementCount 个朗读节点)")
+
             if (elementCount == 0) {
                 return@withContext elements
             }
@@ -213,7 +284,7 @@ public class HtmlResourceContentIterator internal constructor(
                 elements.startIndex
             }
 
-            elements.copy(
+            val result = elements.copy(
                 startIndex = adjustedStartIndex,
                 elements = elements.elements.mapIndexed { index, element ->
                     val progression = index.toDouble() / elementCount
@@ -225,49 +296,124 @@ public class HtmlResourceContentIterator internal constructor(
                     )
                 }
             )
+
+            //android.util.Log.i("PERF_DEBUG", "🏁 [总结] parseElements 整体返回总耗时: ${System.currentTimeMillis() - totalStart} ms")
+            //android.util.Log.i("PERF_DEBUG", "==================================================")
+            result
         }
 
-            /**
-     * 🌟 在 NodeTraversor 之前，将 MathML / KaTeX / MathJax 替换为带 cssSelector 的发音节点
-     */
-    private suspend fun preprocessMathElements(root: Element) {
-        val mathNodes = root.select("math, .katex, .MathJax")
-        for (node in mathNodes) {
+
+    private suspend fun convertMathToSpeech(node: org.jsoup.nodes.Element, index: Int = 0): String {
+        return try {
             val mathmlElement = if (node.normalName() == "math") node else node.getElementsByTag("math").firstOrNull()
-            
-            // 在修改 DOM 树前，先计算出它在真实 WebView DOM 中的 CSS 选择器
-            val targetElement = mathmlElement ?: node
-            val cssSelector = targetElement.cssSelector()
+            val cacheKey = mathmlElement?.outerHtml() ?: node.outerHtml()
+
+            val cached: String? = mathSpeechCache[cacheKey]
+            if (!cached.isNullOrBlank()) {
+                return cached
+            }
 
             var spokenText = ""
-
-            //android.util.Log.d("MathCAT_DEBUG", "--- 正在处理第 $index 个公式 ---")
-            //android.util.Log.d("MathCAT_DEBUG", "公式标签 = ${node.tagName()}，mathmlElement存在 = ${mathmlElement != null}，mathEngine存在 = ${mathEngine != null}")
+            val singleStart = System.currentTimeMillis()
 
             if (mathmlElement != null && mathEngine != null) {
-                val outerHtml = mathmlElement.outerHtml()
-              try {
-                    spokenText = mathEngine.toSpeech(outerHtml, locale = "zh")
-                    //android.util.Log.d("MathCAT_DEBUG", "Step 3: MathCAT 转换返回 = '$spokenText'")
+                try {
+                    spokenText = mathEngine.toSpeech(cacheKey, locale = "zh")
+                    val cost = System.currentTimeMillis() - singleStart
+                    if (cost > 100) { // 超过 100ms 的慢转换打印出来
+                        android.util.Log.w("PERF_DEBUG", "⚠️ 公式[$index] MathCAT 耗时偏长: ${cost} ms")
+                    }
                 } catch (t: Throwable) {
-                    android.util.Log.e("MathCAT_DEBUG", "Step 3 异常: 调用 toSpeech 崩溃", t)
+                    Timber.w(t, "MathCAT toSpeech 失败")
                 }
             }
 
-            // 兜底提取 LaTeX 并降级
             if (spokenText.isBlank()) {
-                val annotation = node.getElementsByTag("annotation").firstOrNull()
-                val latex = annotation?.text() ?: node.toMathmlLatex()
-                spokenText = latexToChineseSpeech(latex)
-                //Log.d(TAG, "[MathSpeech] LaTeX 降级转换: '$spokenText'")
+                try {
+                    val annotation = node.getElementsByTag("annotation").firstOrNull()
+                    val latex = annotation?.text() ?: node.toMathmlLatex()
+                    spokenText = latexToChineseSpeech(latex)
+                } catch (t: Throwable) {
+                    Timber.w(t, "LaTeX 降级失败")
+                }
             }
 
             if (spokenText.isNotBlank()) {
-                // 用带有 data-math-selector 属性的节点替换，以便 ContentParser 生成对应的 CSS 定位
-                val replacement = Element("span")
-                    .attr("data-math-selector", cssSelector)
-                    .text(" $spokenText ")
-                node.replaceWith(replacement)
+                mathSpeechCache[cacheKey] = spokenText
+            }
+            spokenText
+        } catch (t: Throwable) {
+            ""
+        }
+    }
+
+
+
+    private suspend fun preprocessMathElements(
+        root: org.jsoup.nodes.Element,
+        selectorCache: MutableMap<org.jsoup.nodes.Element, String>
+    ): Unit = withContext(Dispatchers.Default) {
+        try {
+            val mathNodes = root.select("math, .katex, .MathJax")
+            if (mathNodes.isEmpty()) return@withContext
+
+            data class MathTaskItem(
+                val index: Int,
+                val node: org.jsoup.nodes.Element,
+                val cssSelector: String
+            )
+
+            val tasks = mathNodes.mapIndexed { index, node ->
+                val mathmlElement = if (node.normalName() == "math") node else node.getElementsByTag("math").firstOrNull()
+                val targetElement = mathmlElement ?: node
+                val cssSelector = fastCssSelector(targetElement, selectorCache)
+                MathTaskItem(index, node, cssSelector)
+            }
+
+            val results = tasks.map { item ->
+                async(Dispatchers.Default) {
+                    val spokenText = convertMathToSpeech(item.node, item.index)
+                    Pair(item, spokenText)
+                }
+            }.awaitAll()
+
+            for ((item, spokenText) in results) {
+                if (spokenText.isNotBlank()) {
+                    val parent = item.node.parent() ?: continue
+                    val replacement = org.jsoup.nodes.Element("span")
+                        .attr("data-math-selector", item.cssSelector)
+                        .text(" $spokenText ")
+                    item.node.replaceWith(replacement)
+                }
+            }
+        } catch (t: Throwable) {
+            Timber.e(t, "preprocessMathElements 异常")
+        }
+    }
+
+    /**
+     * 🌟 下一章节公式预热（加 internal 修饰符和显式 : Unit 返回类型，满足 API 检查）
+     */
+    internal fun preloadNextResourceMath(nextResource: Resource, scope: CoroutineScope): Unit {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val html = nextResource.read()
+                    .flatMap { it.decodeString() }
+                    .getOrNull() ?: return@launch
+
+                val doc = Jsoup.parse(html)
+                val mathNodes = doc.body().select("math, .katex, .MathJax")
+                if (mathNodes.isEmpty()) return@launch
+
+                mathNodes.map { node ->
+                    async(Dispatchers.Default) {
+                        convertMathToSpeech(node)
+                    }
+                }.awaitAll()
+
+                Timber.d("下一章数学公式预热完毕，共缓存 ${mathNodes.size} 个公式")
+            } catch (e: Throwable) {
+                Timber.w(e, "预热下一章公式失败")
             }
         }
     }
@@ -304,10 +450,14 @@ public class HtmlResourceContentIterator internal constructor(
         val startIndex: Int = 0,
     )
 
+    /**
+     * 🌟 优化后的 ContentParser：使用 fastCssSelector 和 selectorCache 消除 2.2 秒回溯
+     */
     private class ContentParser(
         private val baseLocator: Locator,
         private val startElement: Element?,
         private val beforeMaxLength: Int,
+        private val selectorCache: MutableMap<Element, String> = HashMap()
     ) : NodeVisitor {
 
         fun result() = ParsedElements(
@@ -347,16 +497,18 @@ public class HtmlResourceContentIterator internal constructor(
             val element: Element,
             val cssSelector: String?,
         ) {
-            constructor(element: Element) : this(
+            // 🌟 核心改动：调用 fastCssSelector 替代原生 element.cssSelector()
+            constructor(element: Element, selectorCache: MutableMap<Element, String>) : this(
                 element = element,
-                cssSelector = tryOrLog { element.cssSelector() }
+                cssSelector = tryOrLog { fastCssSelector(element, selectorCache) }
             )
         }
 
         @OptIn(DelicateReadiumApi::class)
         override fun head(node: Node, depth: Int) {
             if (node is Element) {
-                val parent = ParentElement(node)
+                // 🌟 核心改动：传入 selectorCache，每次查询都是 O(1) 字典命中
+                val parent = ParentElement(node, selectorCache)
                 if (node.isBlock) {
                     flushText()
                     breadcrumbs.add(parent)
@@ -488,8 +640,6 @@ public class HtmlResourceContentIterator internal constructor(
 
             if (segmentsAcc.isEmpty()) return
 
-            // Trim the end of the last segment's text to get a cleaner output for the TextElement.
-            // Only whitespaces between the segments are meaningful.
             segmentsAcc[segmentsAcc.size - 1] = segmentsAcc.last().run { copy(text = text.trimEnd()) }
 
             elements.add(
