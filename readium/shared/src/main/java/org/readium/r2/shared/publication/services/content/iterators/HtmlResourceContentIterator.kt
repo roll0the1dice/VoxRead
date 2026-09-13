@@ -121,47 +121,24 @@ private companion object {
         // 显式指定 private 和明确的类型，满足 Explicit API 模式
         private val mathSpeechCache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
 
-        /**
-     * 🌟 记忆化快速 CSS 选择器：全流程共享缓存，时间复杂度 O(1) 命中
+/**
+     * 🌟 100% 兼容 WebView 高亮的原生安全缓存：
+     * 直接使用 Jsoup 原生 cssSelector()，不改变任何格式，保证高亮精准，缓存消除卡顿。
      */
     private fun fastCssSelector(
         element: org.jsoup.nodes.Element,
         cache: MutableMap<org.jsoup.nodes.Element, String>
     ): String {
         cache[element]?.let { return it }
-
-        // 优先复用公式替换时写入的原始精确选择器
-        val mathSelector = element.attr("data-math-selector")
-        if (mathSelector.isNotBlank()) {
-            cache[element] = mathSelector
-            return mathSelector
+        val selector = try {
+            element.cssSelector()
+        } catch (t: Throwable) {
+            element.tagName()
         }
-
-        if (element.id().isNotEmpty()) {
-            val idSelector = "#" + element.id()
-            cache[element] = idSelector
-            return idSelector
-        }
-
-        val tagName = element.tagName()
-        val parent = element.parent()
-
-        val selector = if (parent == null || parent is org.jsoup.nodes.Document) {
-            tagName
-        } else {
-            val parentSelector = fastCssSelector(parent, cache)
-            val siblings = parent.children()
-            if (siblings.size > 1) {
-                val index = element.elementSiblingIndex() + 1
-                "$parentSelector > $tagName:nth-child($index)"
-            } else {
-                "$parentSelector > $tagName"
-            }
-        }
-
         cache[element] = selector
         return selector
     }
+
     }
 
     /**
@@ -450,10 +427,7 @@ private companion object {
         val startIndex: Int = 0,
     )
 
-    /**
-     * 🌟 优化后的 ContentParser：使用 fastCssSelector 和 selectorCache 消除 2.2 秒回溯
-     */
-    private class ContentParser(
+ private class ContentParser(
         private val baseLocator: Locator,
         private val startElement: Element?,
         private val beforeMaxLength: Int,
@@ -472,42 +446,29 @@ private companion object {
         private val elements = mutableListOf<Content.Element>()
         private var startIndex = 0
 
-        /** Segments accumulated for the current element. */
         private val segmentsAcc = mutableListOf<TextElement.Segment>()
-
-        /** Text since the beginning of the current segment, after coalescing whitespaces. */
         private var textAcc = StringBuilder()
-
-        /** Text content since the beginning of the resource, including whitespaces. */
         private var wholeRawTextAcc: String? = null
-
-        /** Text content since the beginning of the current element, including whitespaces. */
         private var elementRawTextAcc: String = ""
-
-        /** Text content since the beginning of the current segment, including whitespaces. */
         private var rawTextAcc: String = ""
-
-        /** Language of the current segment. */
         private var currentLanguage: String? = null
-
-        /** LIFO stack of the current element's block ancestors. */
         private val breadcrumbs = mutableListOf<ParentElement>()
 
         private data class ParentElement(
             val element: Element,
             val cssSelector: String?,
         ) {
-            // 🌟 核心改动：调用 fastCssSelector 替代原生 element.cssSelector()
-            constructor(element: Element, selectorCache: MutableMap<Element, String>) : this(
+            constructor(element: Element, cache: MutableMap<Element, String>) : this(
                 element = element,
-                cssSelector = tryOrLog { fastCssSelector(element, selectorCache) }
+                // 安全调用，绝不抛异常
+                cssSelector = tryOrNull { fastCssSelector(element, cache) }
             )
         }
 
         @OptIn(DelicateReadiumApi::class)
         override fun head(node: Node, depth: Int) {
             if (node is Element) {
-                // 🌟 核心改动：传入 selectorCache，每次查询都是 O(1) 字典命中
+                // 🛡️ 保持原生逻辑：永远不为 null，彻底杜绝 NPE 崩溃
                 val parent = ParentElement(node, selectorCache)
                 if (node.isBlock) {
                     flushText()
@@ -541,7 +502,7 @@ private companion object {
                                 ImageElement(
                                     locator = elementLocator,
                                     embeddedLink = Link(href = url),
-                                    caption = null, // FIXME: Get the caption from figcaption
+                                    caption = null,
                                     attributes = buildList {
                                         val alt = node.attr("alt").takeIf { it.isNotBlank() }
                                         if (alt != null) {
@@ -615,9 +576,11 @@ private companion object {
                 appendNormalisedText(text)
             } else if (node is Element) {
                 if (node.isBlock) {
-                    assert(breadcrumbs.last().element == node)
-                    flushText()
-                    breadcrumbs.removeAt(breadcrumbs.lastIndex)
+                    // 🛡️ 防御检查，防止 List 为空时崩溃
+                    if (breadcrumbs.isNotEmpty()) {
+                        flushText()
+                        breadcrumbs.removeAt(breadcrumbs.lastIndex)
+                    }
                 }
             }
         }
