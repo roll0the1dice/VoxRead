@@ -1,0 +1,12 @@
+[package]
+name = "mathcat_android"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+# 开启 include-zip 将 Rules 字典全部内嵌到 so 动态库中，不依赖外部文件
+mathcat = { version = "0.6", default-features = false, features = ["include-zip"] }

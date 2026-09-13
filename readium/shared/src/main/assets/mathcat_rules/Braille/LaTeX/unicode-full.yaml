@@ -1,0 +1,2796 @@
+# This file is derived from a number of sources.
+# This tries to conform to the "spec" augenbit.de/wiki/index.php?title=LaTeX-Manual_LaTeX_Grundregeln (and linked files)
+# The short names come from MathLib.tex that is linked from above
+# Where there is not a conflict, the next source of names comes from "standard" LaTeX names listed in
+#   en.wikipedia.org/wiki/List_of_mathematical_symbols_by_subject
+# Otherwise they are based on the XML entities document (w3c.github.io/xml-entities).
+#  That references the data file github.com/w3c/xml-entities/blob/gh-pages/unicode.xml
+#  The fields in that are used are ["mathlatex", "latex", "varlatex", "ams"], with different names added as comments.
+# Note: there is some filtering of unlikely names, so the above is not 100% as to the output, but it is close.
+
+---
+ - "¡": [t: "\\textexclamdown𝐖"]         # 0xa1
+ - "¢": [t: "\\textcent𝐖"]               # 0xa2
+ - "£": [t: "\\pounds𝐖"]                 # 0xa3
+# - "£": [t: "\\textsterling𝐖"]          # 0xa3
+ - "¤": [t: "\\textcurrency𝐖"]           # 0xa4
+ - "¥": [t: "\\yen𝐖"]                    # 0xa5
+# - "¥": [t: "\\textyen𝐖"]               # 0xa5
+ - "¦": [t: "\\textbrokenbar𝐖"]          # 0xa6
+ - "§": [t: "\\S"]                       # 0xa7
+# - "§": [t: "\\textsection𝐖"]           # 0xa7
+ - "¨": [t: "\\textasciidieresis𝐖"]      # 0xa8
+ - "©": [t: "\\copyright𝐖"]              # 0xa9
+# - "©": [t: "\\textcopyright𝐖"]         # 0xa9
+ - "ª": [t: "\\textordfeminine𝐖"]        # 0xaa
+ - "«": [t: "\\guillemotleft𝐖"]          # 0xab
+ - "­": [t: "\\-"]                       # 0xad
+ - "®": [t: "\\circledR𝐖"]               # 0xae
+# - "®": [t: "\\textregistered𝐖"]        # 0xae
+ - "¯": [t: "\\textasciimacron𝐖"]        # 0xaf
+ - "²": [t: "{^2}"]                      # 0xb2
+ - "³": [t: "{^3}"]                      # 0xb3
+ - "µ": [t: "\\mathrm{\\mu}"]            # 0xb5
+ - "¶": [t: "\\P"]                       # 0xb6
+# - "¶": [t: "\\textparagraph𝐖"]         # 0xb6
+ - "¸": [t: "\\c{}"]                     # 0xb8
+ - "¹": [t: "{^1}"]                      # 0xb9
+ - "º": [t: "\\textordmasculine𝐖"]       # 0xba
+ - "»": [t: "\\guillemotright𝐖"]         # 0xbb
+ - "¼": [t: "\\textonequarter𝐖"]         # 0xbc
+ - "½": [t: "\\textonehalf𝐖"]            # 0xbd
+ - "¾": [t: "\\textthreequarters𝐖"]      # 0xbe
+ - "¿": [t: "\\textquestiondown𝐖"]       # 0xbf
+ - "À": [t: "\\grave𝐖A𝐖"]                # 0xc0
+# - "À": [t: "\\`𝐖A𝐖"]                   # 0xc0
+ - "Á": [t: "\\acute𝐖A𝐖"]                # 0xc1
+# - "Á": [t: "\\'𝐖A𝐖"]                   # 0xc1
+ - "Â": [t: "\\hat𝐖A𝐖"]                  # 0xc2
+# - "Â": [t: "\\^𝐖A𝐖"]                   # 0xc2
+ - "Ã": [t: "\\tilde𝐖A𝐖"]                # 0xc3
+# - "Ã": [t: "\\~𝐖A𝐖"]                   # 0xc3
+ - "Ä": [t: "\\ddot𝐖A𝐖"]                 # 0xc4
+# - "Ä": [t: "\\\"𝐖A𝐖"]                  # 0xc4
+ - "Å": [t: "\\AA𝐖"]                     # 0xc5
+ - "Æ": [t: "\\AE𝐖"]                     # 0xc6
+ - "Ç": [t: "\\c𝐖C𝐖"]                    # 0xc7
+ - "È": [t: "\\grave𝐖E𝐖"]                # 0xc8
+# - "È": [t: "\\`𝐖E𝐖"]                   # 0xc8
+ - "É": [t: "\\acute𝐖E𝐖"]                # 0xc9
+# - "É": [t: "\\'𝐖E𝐖"]                   # 0xc9
+ - "Ê": [t: "\\hat𝐖E𝐖"]                  # 0xca
+# - "Ê": [t: "\\^𝐖E𝐖"]                   # 0xca
+ - "Ë": [t: "\\ddot𝐖E𝐖"]                 # 0xcb
+# - "Ë": [t: "\\\"𝐖E𝐖"]                  # 0xcb
+ - "Ì": [t: "\\grave𝐖I𝐖"]                # 0xcc
+# - "Ì": [t: "\\`𝐖I𝐖"]                   # 0xcc
+ - "Í": [t: "\\acute𝐖I𝐖"]                # 0xcd
+# - "Í": [t: "\\'𝐖I𝐖"]                   # 0xcd
+ - "Î": [t: "\\hat𝐖I𝐖"]                  # 0xce
+# - "Î": [t: "\\^𝐖I𝐖"]                   # 0xce
+ - "Ï": [t: "\\ddot𝐖I𝐖"]                 # 0xcf
+# - "Ï": [t: "\\\"𝐖I𝐖"]                  # 0xcf
+ - "Ð": [t: "\\DH𝐖"]                     # 0xd0
+ - "Ñ": [t: "\\tilde𝐖N𝐖"]                # 0xd1
+# - "Ñ": [t: "\\~𝐖N𝐖"]                   # 0xd1
+ - "Ò": [t: "\\grave𝐖O𝐖"]                # 0xd2
+# - "Ò": [t: "\\`𝐖O𝐖"]                   # 0xd2
+ - "Ó": [t: "\\acute𝐖O𝐖"]                # 0xd3
+# - "Ó": [t: "\\'𝐖O𝐖"]                   # 0xd3
+ - "Ô": [t: "\\hat𝐖O𝐖"]                  # 0xd4
+# - "Ô": [t: "\\^𝐖O𝐖"]                   # 0xd4
+ - "Õ": [t: "\\tilde𝐖O𝐖"]                # 0xd5
+# - "Õ": [t: "\\~𝐖O𝐖"]                   # 0xd5
+ - "Ö": [t: "\\ddot𝐖O𝐖"]                 # 0xd6
+# - "Ö": [t: "\\\"𝐖O𝐖"]                  # 0xd6
+ - "Ø":                                  # 0xd8
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~O"]
+         else: [t: "\\O"]
+ - "Ù": [t: "\\grave𝐖U𝐖"]                # 0xd9
+# - "Ù": [t: "\\`𝐖U𝐖"]                   # 0xd9
+ - "Ú": [t: "\\acute𝐖U𝐖"]                # 0xda
+# - "Ú": [t: "\\'𝐖U𝐖"]                   # 0xda
+ - "Û": [t: "\\hat𝐖U𝐖"]                  # 0xdb
+# - "Û": [t: "\\^𝐖U𝐖"]                   # 0xdb
+ - "Ü": [t: "\\ddot𝐖U𝐖"]                 # 0xdc
+# - "Ü": [t: "\\\"𝐖U𝐖"]                  # 0xdc
+ - "Ý": [t: "\\acute𝐖Y𝐖"]                # 0xdd
+# - "Ý": [t: "\\'𝐖Y𝐖"]                   # 0xdd
+ - "Þ": [t: "\\TH𝐖"]                     # 0xde
+ - "ß": [t: "\\ss𝐖"]                     # 0xdf
+ - "à": [t: "\\grave𝐖a𝐖"]                # 0xe0
+# - "à": [t: "\\`𝐖a𝐖"]                   # 0xe0
+ - "á": [t: "\\acute𝐖a𝐖"]                # 0xe1
+# - "á": [t: "\\'𝐖a𝐖"]                   # 0xe1
+ - "â": [t: "\\hat𝐖a𝐖"]                  # 0xe2
+# - "â": [t: "\\^𝐖a𝐖"]                   # 0xe2
+ - "ã": [t: "\\tilde𝐖a𝐖"]                # 0xe3
+# - "ã": [t: "\\~𝐖a𝐖"]                   # 0xe3
+ - "ä": [t: "\\ddot𝐖a𝐖"]                 # 0xe4
+# - "ä": [t: "\\\"𝐖a𝐖"]                  # 0xe4
+ - "å": [t: "\\aa𝐖"]                     # 0xe5
+ - "æ": [t: "\\ae𝐖"]                     # 0xe6
+ - "ç": [t: "\\c𝐖c𝐖"]                    # 0xe7
+ - "è": [t: "\\grave𝐖e𝐖"]                # 0xe8
+# - "è": [t: "\\`𝐖e𝐖"]                   # 0xe8
+ - "é": [t: "\\acute𝐖e𝐖"]                # 0xe9
+# - "é": [t: "\\'𝐖e𝐖"]                   # 0xe9
+ - "ê": [t: "\\hat𝐖e𝐖"]                  # 0xea
+# - "ê": [t: "\\^𝐖e𝐖"]                   # 0xea
+ - "ë": [t: "\\ddot𝐖e𝐖"]                 # 0xeb
+# - "ë": [t: "\\\"𝐖e𝐖"]                  # 0xeb
+ - "ì": [t: "\\grave{\\imath}"]          # 0xec
+# - "ì": [t: "\\`{\\i}"]                 # 0xec
+ - "í": [t: "\\acute{\\imath}"]          # 0xed
+# - "í": [t: "\\'{\\i}"]                 # 0xed
+ - "î": [t: "\\hat{\\imath}"]            # 0xee
+# - "î": [t: "\\^{\\i}"]                 # 0xee
+ - "ï": [t: "\\ddot{\\imath}"]           # 0xef
+# - "ï": [t: "\\\"{\\i}"]                # 0xef
+ - "ð": [t: "\\matheth𝐖"]                # 0xf0
+# - "ð": [t: "\\dh𝐖"]                    # 0xf0
+ - "ñ": [t: "\\tilde𝐖n𝐖"]                # 0xf1
+# - "ñ": [t: "\\~𝐖n𝐖"]                   # 0xf1
+ - "ò": [t: "\\grave𝐖o𝐖"]                # 0xf2
+# - "ò": [t: "\\`𝐖o𝐖"]                   # 0xf2
+ - "ó": [t: "\\acute𝐖o𝐖"]                # 0xf3
+# - "ó": [t: "\\'𝐖o𝐖"]                   # 0xf3
+ - "ô": [t: "\\hat𝐖o𝐖"]                  # 0xf4
+# - "ô": [t: "\\^𝐖o𝐖"]                   # 0xf4
+ - "õ": [t: "\\tilde𝐖o𝐖"]                # 0xf5
+# - "õ": [t: "\\~𝐖o𝐖"]                   # 0xf5
+ - "ö": [t: "\\ddot𝐖o𝐖"]                 # 0xf6
+# - "ö": [t: "\\\"𝐖o𝐖"]                  # 0xf6
+ - "ø":                                  # 0xf8
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~o"]
+         else: [t: "\\o"]
+ - "ù": [t: "\\grave𝐖u𝐖"]                # 0xf9
+# - "ù": [t: "\\`𝐖u𝐖"]                   # 0xf9
+ - "ú": [t: "\\acute𝐖u𝐖"]                # 0xfa
+# - "ú": [t: "\\'𝐖u𝐖"]                   # 0xfa
+ - "û": [t: "\\hat𝐖u𝐖"]                  # 0xfb
+# - "û": [t: "\\^𝐖u𝐖"]                   # 0xfb
+ - "ü": [t: "\\ddot𝐖u𝐖"]                 # 0xfc
+# - "ü": [t: "\\\"𝐖u𝐖"]                  # 0xfc
+ - "ý": [t: "\\acute𝐖y𝐖"]                # 0xfd
+# - "ý": [t: "\\'𝐖y𝐖"]                   # 0xfd
+ - "þ": [t: "\\th𝐖"]                     # 0xfe
+ - "ÿ": [t: "\\ddot𝐖y𝐖"]                 # 0xff
+# - "ÿ": [t: "\\\"𝐖y𝐖"]                  # 0xff
+ - "Ā": [t: "\\bar𝐖A𝐖"]                  # 0x100
+# - "Ā": [t: "\\=𝐖A𝐖"]                   # 0x100
+ - "ā": [t: "\\bar𝐖a𝐖"]                  # 0x101
+# - "ā": [t: "\\=𝐖a𝐖"]                   # 0x101
+ - "Ă": [t: "\\breve𝐖A𝐖"]                # 0x102
+# - "Ă": [t: "\\u𝐖A𝐖"]                   # 0x102
+ - "ă": [t: "\\u𝐖a𝐖"]                    # 0x103
+ - "Ą": [t: "\\k𝐖A𝐖"]                    # 0x104
+ - "ą": [t: "\\k𝐖a𝐖"]                    # 0x105
+ - "Ć": [t: "\\acute𝐖C𝐖"]                # 0x106
+# - "Ć": [t: "\\'𝐖C𝐖"]                   # 0x106
+ - "ć": [t: "\\acute𝐖c𝐖"]                # 0x107
+# - "ć": [t: "\\'𝐖c𝐖"]                   # 0x107
+ - "Ĉ": [t: "\\hat𝐖C𝐖"]                  # 0x108
+# - "Ĉ": [t: "\\^𝐖C𝐖"]                   # 0x108
+ - "ĉ": [t: "\\hat𝐖c𝐖"]                  # 0x109
+# - "ĉ": [t: "\\^𝐖c𝐖"]                   # 0x109
+ - "Ċ": [t: "\\dot𝐖C𝐖"]                  # 0x10a
+# - "Ċ": [t: "\\.𝐖C𝐖"]                   # 0x10a
+ - "ċ": [t: "\\dot𝐖c𝐖"]                  # 0x10b
+# - "ċ": [t: "\\.𝐖c𝐖"]                   # 0x10b
+ - "Č": [t: "\\check𝐖C𝐖"]                # 0x10c
+# - "Č": [t: "\\v𝐖C𝐖"]                   # 0x10c
+ - "č": [t: "\\check𝐖c𝐖"]                # 0x10d
+# - "č": [t: "\\v𝐖c𝐖"]                   # 0x10d
+ - "Ď": [t: "\\check𝐖D𝐖"]                # 0x10e
+# - "Ď": [t: "\\v𝐖D𝐖"]                   # 0x10e
+ - "ď": [t: "\\check𝐖d𝐖"]                # 0x10f
+# - "ď": [t: "\\v𝐖d𝐖"]                   # 0x10f
+ - "Đ": [t: "\\DJ𝐖"]                     # 0x110
+ - "đ": [t: "\\dj𝐖"]                     # 0x111
+ - "Ē": [t: "\\bar𝐖E𝐖"]                  # 0x112
+# - "Ē": [t: "\\=𝐖E𝐖"]                   # 0x112
+ - "ē": [t: "\\bar𝐖e𝐖"]                  # 0x113
+# - "ē": [t: "\\=𝐖e𝐖"]                   # 0x113
+ - "Ĕ": [t: "\\breve𝐖E𝐖"]                # 0x114
+# - "Ĕ": [t: "\\u𝐖E𝐖"]                   # 0x114
+ - "ĕ": [t: "\\breve𝐖e𝐖"]                # 0x115
+# - "ĕ": [t: "\\u𝐖e𝐖"]                   # 0x115
+ - "Ė": [t: "\\dot𝐖E𝐖"]                  # 0x116
+# - "Ė": [t: "\\.𝐖E𝐖"]                   # 0x116
+ - "ė": [t: "\\dot𝐖e𝐖"]                  # 0x117
+# - "ė": [t: "\\.𝐖e𝐖"]                   # 0x117
+ - "Ę": [t: "\\k𝐖E𝐖"]                    # 0x118
+ - "ę": [t: "\\k𝐖e𝐖"]                    # 0x119
+ - "Ě": [t: "\\check𝐖E𝐖"]                # 0x11a
+# - "Ě": [t: "\\v𝐖E𝐖"]                   # 0x11a
+ - "ě": [t: "\\check𝐖e𝐖"]                # 0x11b
+# - "ě": [t: "\\v𝐖e𝐖"]                   # 0x11b
+ - "Ĝ": [t: "\\hat𝐖G𝐖"]                  # 0x11c
+# - "Ĝ": [t: "\\^𝐖G𝐖"]                   # 0x11c
+ - "ĝ": [t: "\\hat𝐖g𝐖"]                  # 0x11d
+# - "ĝ": [t: "\\^𝐖g𝐖"]                   # 0x11d
+ - "Ğ": [t: "\\breve𝐖G𝐖"]                # 0x11e
+# - "Ğ": [t: "\\u𝐖G𝐖"]                   # 0x11e
+ - "ğ": [t: "\\breve𝐖g𝐖"]                # 0x11f
+# - "ğ": [t: "\\u𝐖g𝐖"]                   # 0x11f
+ - "Ġ": [t: "\\dot𝐖G𝐖"]                  # 0x120
+# - "Ġ": [t: "\\.𝐖G𝐖"]                   # 0x120
+ - "ġ": [t: "\\dot𝐖g𝐖"]                  # 0x121
+# - "ġ": [t: "\\.𝐖g𝐖"]                   # 0x121
+ - "Ģ": [t: "\\c𝐖G𝐖"]                    # 0x122
+ - "ģ": [t: "\\c𝐖g𝐖"]                    # 0x123
+ - "Ĥ": [t: "\\hat𝐖H𝐖"]                  # 0x124
+# - "Ĥ": [t: "\\^𝐖H𝐖"]                   # 0x124
+ - "ĥ": [t: "\\hat𝐖h𝐖"]                  # 0x125
+# - "ĥ": [t: "\\^𝐖h𝐖"]                   # 0x125
+ - "ħ": [t: "\\Elzxh𝐖"]                  # 0x127
+ - "Ĩ": [t: "\\tilde𝐖I𝐖"]                # 0x128
+# - "Ĩ": [t: "\\~𝐖I𝐖"]                   # 0x128
+ - "ĩ": [t: "\\tilde{\\imath}"]          # 0x129
+# - "ĩ": [t: "\\~{\\i}"]                 # 0x129
+ - "Ī": [t: "\\bar𝐖I𝐖"]                  # 0x12a
+# - "Ī": [t: "\\=𝐖I𝐖"]                   # 0x12a
+ - "ī": [t: "\\bar{\\imath}"]            # 0x12b
+# - "ī": [t: "\\={\\i}"]                 # 0x12b
+ - "Ĭ": [t: "\\breve𝐖I𝐖"]                # 0x12c
+# - "Ĭ": [t: "\\u𝐖I𝐖"]                   # 0x12c
+ - "ĭ": [t: "\\breve{\\imath}"]          # 0x12d
+# - "ĭ": [t: "\\u{\\i}"]                 # 0x12d
+ - "Į": [t: "\\k𝐖I𝐖"]                    # 0x12e
+ - "į": [t: "\\k𝐖i𝐖"]                    # 0x12f
+ - "İ": [t: "\\dot𝐖I𝐖"]                  # 0x130
+# - "İ": [t: "\\.𝐖I𝐖"]                   # 0x130
+ - "ı": [t: "\\imath𝐖"]                  # 0x131
+# - "ı": [t: "\\i"]                      # 0x131
+ - "Ĳ": [t: "\\IJ𝐖"]                     # 0x132
+ - "ĳ": [t: "\\ij𝐖"]                     # 0x133
+ - "Ĵ": [t: "\\hat𝐖J𝐖"]                  # 0x134
+# - "Ĵ": [t: "\\^𝐖J𝐖"]                   # 0x134
+ - "ĵ": [t: "\\hat{\\jmath}"]            # 0x135
+# - "ĵ": [t: "\\^{\\j}"]                 # 0x135
+ - "Ķ": [t: "\\c𝐖K𝐖"]                    # 0x136
+ - "ķ": [t: "\\c𝐖k𝐖"]                    # 0x137
+ - "Ĺ": [t: "\\acute𝐖L𝐖"]                # 0x139
+# - "Ĺ": [t: "\\'𝐖L𝐖"]                   # 0x139
+ - "ĺ": [t: "\\acute𝐖l𝐖"]                # 0x13a
+# - "ĺ": [t: "\\'𝐖l𝐖"]                   # 0x13a
+ - "Ļ": [t: "\\c𝐖L𝐖"]                    # 0x13b
+ - "ļ": [t: "\\c𝐖l𝐖"]                    # 0x13c
+ - "Ľ": [t: "\\check𝐖L𝐖"]                # 0x13d
+# - "Ľ": [t: "\\v𝐖L𝐖"]                   # 0x13d
+ - "ľ": [t: "\\check𝐖l𝐖"]                # 0x13e
+# - "ľ": [t: "\\v𝐖l𝐖"]                   # 0x13e
+ - "Ł": [t: "\\L"]                       # 0x141
+ - "ł":                                  # 0x142
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\Pl𝐖"]
+         else: [t: "\\l"]
+ - "Ń": [t: "\\acute𝐖N𝐖"]                # 0x143
+# - "Ń": [t: "\\'𝐖N𝐖"]                   # 0x143
+ - "ń": [t: "\\acute𝐖n𝐖"]                # 0x144
+# - "ń": [t: "\\'𝐖n𝐖"]                   # 0x144
+ - "Ņ": [t: "\\c𝐖N𝐖"]                    # 0x145
+ - "ņ": [t: "\\c𝐖n𝐖"]                    # 0x146
+ - "Ň": [t: "\\check𝐖N𝐖"]                # 0x147
+# - "Ň": [t: "\\v𝐖N𝐖"]                   # 0x147
+ - "ň": [t: "\\check𝐖n𝐖"]                # 0x148
+# - "ň": [t: "\\v𝐖n𝐖"]                   # 0x148
+ - "ŉ": [t: "\\'n𝐖"]                     # 0x149
+ - "Ŋ": [t: "\\NG𝐖"]                     # 0x14a
+ - "ŋ": [t: "\\ng𝐖"]                     # 0x14b
+ - "Ō": [t: "\\bar𝐖O𝐖"]                  # 0x14c
+# - "Ō": [t: "\\=𝐖O𝐖"]                   # 0x14c
+ - "ō": [t: "\\bar𝐖o𝐖"]                  # 0x14d
+# - "ō": [t: "\\=𝐖o𝐖"]                   # 0x14d
+ - "Ŏ": [t: "\\breve𝐖O𝐖"]                # 0x14e
+# - "Ŏ": [t: "\\u𝐖O𝐖"]                   # 0x14e
+ - "ŏ": [t: "\\breve𝐖o𝐖"]                # 0x14f
+# - "ŏ": [t: "\\u𝐖o𝐖"]                   # 0x14f
+ - "Ő": [t: "\\H𝐖O𝐖"]                    # 0x150
+ - "ő": [t: "\\H𝐖o𝐖"]                    # 0x151
+ - "Œ": [t: "\\OE𝐖"]                     # 0x152
+ - "œ": [t: "\\oe𝐖"]                     # 0x153
+ - "Ŕ": [t: "\\acute𝐖R𝐖"]                # 0x154
+# - "Ŕ": [t: "\\'𝐖R𝐖"]                   # 0x154
+ - "ŕ": [t: "\\acute𝐖r𝐖"]                # 0x155
+# - "ŕ": [t: "\\'𝐖r𝐖"]                   # 0x155
+ - "Ŗ": [t: "\\c𝐖R𝐖"]                    # 0x156
+ - "ŗ": [t: "\\c𝐖r𝐖"]                    # 0x157
+ - "Ř": [t: "\\check𝐖R𝐖"]                # 0x158
+# - "Ř": [t: "\\v𝐖R𝐖"]                   # 0x158
+ - "ř": [t: "\\check𝐖r𝐖"]                # 0x159
+# - "ř": [t: "\\v𝐖r𝐖"]                   # 0x159
+ - "Ś": [t: "\\acute𝐖S𝐖"]                # 0x15a
+# - "Ś": [t: "\\'𝐖S𝐖"]                   # 0x15a
+ - "ś": [t: "\\acute𝐖s𝐖"]                # 0x15b
+# - "ś": [t: "\\'𝐖s𝐖"]                   # 0x15b
+ - "Ŝ": [t: "\\hat𝐖S𝐖"]                  # 0x15c
+# - "Ŝ": [t: "\\^𝐖S𝐖"]                   # 0x15c
+ - "ŝ": [t: "\\hat𝐖s𝐖"]                  # 0x15d
+# - "ŝ": [t: "\\^𝐖s𝐖"]                   # 0x15d
+ - "Ş": [t: "\\c𝐖S𝐖"]                    # 0x15e
+ - "ş": [t: "\\c𝐖s𝐖"]                    # 0x15f
+ - "Š": [t: "\\check𝐖S𝐖"]                # 0x160
+# - "Š": [t: "\\v𝐖S𝐖"]                   # 0x160
+ - "š": [t: "\\check𝐖s𝐖"]                # 0x161
+# - "š": [t: "\\v𝐖s𝐖"]                   # 0x161
+ - "Ţ": [t: "\\c𝐖T𝐖"]                    # 0x162
+ - "ţ": [t: "\\c𝐖t𝐖"]                    # 0x163
+ - "Ť": [t: "\\check𝐖T𝐖"]                # 0x164
+# - "Ť": [t: "\\v𝐖T𝐖"]                   # 0x164
+ - "ť": [t: "\\check𝐖t𝐖"]                # 0x165
+# - "ť": [t: "\\v𝐖t𝐖"]                   # 0x165
+ - "Ũ": [t: "\\tilde𝐖U𝐖"]                # 0x168
+# - "Ũ": [t: "\\~𝐖U𝐖"]                   # 0x168
+ - "ũ": [t: "\\tilde𝐖u𝐖"]                # 0x169
+# - "ũ": [t: "\\~𝐖u𝐖"]                   # 0x169
+ - "Ū": [t: "\\bar𝐖U𝐖"]                  # 0x16a
+# - "Ū": [t: "\\=𝐖U𝐖"]                   # 0x16a
+ - "ū": [t: "\\bar𝐖u𝐖"]                  # 0x16b
+# - "ū": [t: "\\=𝐖u𝐖"]                   # 0x16b
+ - "Ŭ": [t: "\\breve𝐖U𝐖"]                # 0x16c
+# - "Ŭ": [t: "\\u𝐖U𝐖"]                   # 0x16c
+ - "ŭ": [t: "\\breve𝐖u𝐖"]                # 0x16d
+# - "ŭ": [t: "\\u𝐖u𝐖"]                   # 0x16d
+ - "Ů": [t: "\\mathring𝐖U𝐖"]             # 0x16e
+# - "Ů": [t: "\\r𝐖U𝐖"]                   # 0x16e
+ - "ů": [t: "\\mathring𝐖u𝐖"]             # 0x16f
+# - "ů": [t: "\\r𝐖u𝐖"]                   # 0x16f
+ - "Ű": [t: "\\H𝐖U𝐖"]                    # 0x170
+ - "ű": [t: "\\H𝐖u𝐖"]                    # 0x171
+ - "Ų": [t: "\\k𝐖U𝐖"]                    # 0x172
+ - "ų": [t: "\\k𝐖u𝐖"]                    # 0x173
+ - "Ŵ": [t: "\\hat𝐖W𝐖"]                  # 0x174
+# - "Ŵ": [t: "\\^𝐖W𝐖"]                   # 0x174
+ - "ŵ": [t: "\\hat𝐖w𝐖"]                  # 0x175
+# - "ŵ": [t: "\\^𝐖w𝐖"]                   # 0x175
+ - "Ŷ": [t: "\\hat𝐖Y𝐖"]                  # 0x176
+# - "Ŷ": [t: "\\^𝐖Y𝐖"]                   # 0x176
+ - "ŷ": [t: "\\hat𝐖y𝐖"]                  # 0x177
+# - "ŷ": [t: "\\^𝐖y𝐖"]                   # 0x177
+ - "Ÿ": [t: "\\ddot𝐖Y𝐖"]                 # 0x178
+# - "Ÿ": [t: "\\\"𝐖Y𝐖"]                  # 0x178
+ - "Ź": [t: "\\acute𝐖Z𝐖"]                # 0x179
+# - "Ź": [t: "\\'𝐖Z𝐖"]                   # 0x179
+ - "ź": [t: "\\acute𝐖z𝐖"]                # 0x17a
+# - "ź": [t: "\\'𝐖z𝐖"]                   # 0x17a
+ - "Ż": [t: "\\dot𝐖Z𝐖"]                  # 0x17b
+# - "Ż": [t: "\\.𝐖Z𝐖"]                   # 0x17b
+ - "ż": [t: "\\dot𝐖z𝐖"]                  # 0x17c
+# - "ż": [t: "\\.𝐖z𝐖"]                   # 0x17c
+ - "Ž": [t: "\\check𝐖Z𝐖"]                # 0x17d
+# - "Ž": [t: "\\v𝐖Z𝐖"]                   # 0x17d
+ - "ž": [t: "\\check𝐖z𝐖"]                # 0x17e
+# - "ž": [t: "\\v𝐖z𝐖"]                   # 0x17e
+ - "ƒ": [t: "\\f"]                       # 0x192
+ - "ƕ": [t: "\\texthvlig𝐖"]              # 0x195
+ - "ƞ": [t: "\\textnrleg𝐖"]              # 0x19e
+ - "ƪ": [t: "\\eth𝐖"]                    # 0x1aa
+ - "Ƶ": [t: "\\Zbar𝐖"]                   # 0x1b5
+ - "ǂ": [t: "\\textdoublepipe𝐖"]         # 0x1c2
+ - "ǵ": [t: "\\acute𝐖g𝐖"]                # 0x1f5
+# - "ǵ": [t: "\\'𝐖g𝐖"]                   # 0x1f5
+ - "ɐ": [t: "\\Elztrna𝐖"]                # 0x250
+ - "ɒ": [t: "\\Elztrnsa𝐖"]               # 0x252
+ - "ɔ": [t: "\\Elzopeno𝐖"]               # 0x254
+ - "ɖ": [t: "\\Elzrtld𝐖"]                # 0x256
+ - "ə": [t: "\\Elzschwa𝐖"]               # 0x259
+ - "ɛ": [t: "\\varepsilon𝐖"]             # 0x25b
+ - "ɡ": [t: "\\g"]                       # 0x261
+ - "ɣ": [t: "\\Elzpgamma𝐖"]              # 0x263
+ - "ɤ": [t: "\\Elzpbgam𝐖"]               # 0x264
+ - "ɥ": [t: "\\Elztrnh𝐖"]                # 0x265
+ - "ɬ": [t: "\\Elzbtdl𝐖"]                # 0x26c
+ - "ɭ": [t: "\\Elzrtll𝐖"]                # 0x26d
+ - "ɯ": [t: "\\Elztrnm𝐖"]                # 0x26f
+ - "ɰ": [t: "\\Elztrnmlr𝐖"]              # 0x270
+ - "ɱ": [t: "\\Elzltlmr𝐖"]               # 0x271
+ - "ɲ": [t: "\\Elzltln𝐖"]                # 0x272
+ - "ɳ": [t: "\\Elzrtln𝐖"]                # 0x273
+ - "ɷ": [t: "\\Elzclomeg𝐖"]              # 0x277
+ - "ɸ": [t: "\\textphi𝐖"]                # 0x278
+ - "ɹ": [t: "\\Elztrnr𝐖"]                # 0x279
+ - "ɺ": [t: "\\Elztrnrl𝐖"]               # 0x27a
+ - "ɻ": [t: "\\Elzrttrnr𝐖"]              # 0x27b
+ - "ɼ": [t: "\\Elzrl𝐖"]                  # 0x27c
+ - "ɽ": [t: "\\Elzrtlr𝐖"]                # 0x27d
+ - "ɾ": [t: "\\Elzfhr𝐖"]                 # 0x27e
+ - "ʂ": [t: "\\Elzrtls𝐖"]                # 0x282
+ - "ʃ": [t: "\\Elzesh𝐖"]                 # 0x283
+ - "ʇ": [t: "\\Elztrnt𝐖"]                # 0x287
+ - "ʈ": [t: "\\Elzrtlt𝐖"]                # 0x288
+ - "ʊ": [t: "\\Elzpupsil𝐖"]              # 0x28a
+ - "ʋ": [t: "\\Elzpscrv𝐖"]               # 0x28b
+ - "ʌ": [t: "\\Elzinvv𝐖"]                # 0x28c
+ - "ʍ": [t: "\\Elzinvw𝐖"]                # 0x28d
+ - "ʎ": [t: "\\Elztrny𝐖"]                # 0x28e
+ - "ʐ": [t: "\\Elzrtlz𝐖"]                # 0x290
+ - "ʒ": [t: "\\Elzyogh𝐖"]                # 0x292
+ - "ʔ": [t: "\\Elzglst𝐖"]                # 0x294
+ - "ʕ": [t: "\\Elzreglst𝐖"]              # 0x295
+ - "ʖ": [t: "\\Elzinglst𝐖"]              # 0x296
+ - "ʞ": [t: "\\textturnk𝐖"]              # 0x29e
+ - "ʤ": [t: "\\Elzdyogh𝐖"]               # 0x2a4
+ - "ʧ": [t: "\\Elztesh𝐖"]                # 0x2a7
+ - "ʼ": [t: "\\'"]                       # 0x2bc
+ - "ˇ": [t: "\\textasciicaron𝐖"]         # 0x2c7
+ - "ˈ": [t: "\\Elzverts𝐖"]               # 0x2c8
+ - "ˌ": [t: "\\Elzverti𝐖"]               # 0x2cc
+ - "ː": [t: "\\Elzlmrk𝐖"]                # 0x2d0
+ - "ˑ": [t: "\\Elzhlmrk𝐖"]               # 0x2d1
+ - "˒": [t: "\\Elzsbrhr𝐖"]               # 0x2d2
+ - "˓": [t: "\\Elzsblhr𝐖"]               # 0x2d3
+ - "˔": [t: "\\Elzrais𝐖"]                # 0x2d4
+ - "˕": [t: "\\Elzlow𝐖"]                 # 0x2d5
+ - "˘": [t: "\\u"]                       # 0x2d8
+# - "˘": [t: "\\textasciibreve𝐖"]        # 0x2d8
+ - "˙": [t: "\\dot{}"]                   # 0x2d9
+# - "˙": [t: "\\textperiodcentered𝐖"]    # 0x2d9
+ - "˚": [t: "\\circ𝐖"]                   # 0x2da
+ - "˛": [t: "\\k{}"]                     # 0x2db
+ - "˜": [t: "\\texttildelow𝐖"]           # 0x2dc
+ - "˝": [t: "\\H{}"]                     # 0x2dd
+ - "˥": [t: "\\tone{55}"]                # 0x2e5
+ - "˦": [t: "\\tone{44}"]                # 0x2e6
+ - "˧": [t: "\\tone{33}"]                # 0x2e7
+ - "˨": [t: "\\tone{22}"]                # 0x2e8
+ - "˩": [t: "\\tone{11}"]                # 0x2e9
+ - "̈": [t: "\\ddot𝐖"]                   # 0x308
+# - "̈": [t: "\\\""]                     # 0x308
+ - "̉": [t: "\\ovhook𝐖"]                 # 0x309
+ - "̊": [t: "\\ocirc𝐖"]                  # 0x30a
+# - "̊": [t: "\\r"]                      # 0x30a
+ - "̋": [t: "\\H"]                       # 0x30b
+ - "̌": [t: "\\check𝐖"]                  # 0x30c
+# - "̌": [t: "\\v"]                      # 0x30c
+ - "̏": [t: "\\cyrchar\\C𝐖"]             # 0x30f
+ - "̐": [t: "\\candra𝐖"]                 # 0x310
+ - "̒": [t: "\\oturnedcomma𝐖"]           # 0x312
+ - "̕": [t: "\\ocommatopright𝐖"]         # 0x315
+ - "̚": [t: "\\droang𝐖"]                 # 0x31a
+ - "̡": [t: "\\Elzpalh𝐖"]                # 0x321
+ - "̢": [t: "\\Elzrh𝐖"]                  # 0x322
+ - "̧": [t: "\\c"]                       # 0x327
+ - "̨": [t: "\\k"]                       # 0x328
+ - "̪": [t: "\\Elzsbbrg𝐖"]               # 0x32a
+ - "̰": [t: "\\wideutilde𝐖"]             # 0x330
+ - "̲":                                  # 0x332
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\ul𝐖"]
+         else: [t: "\\underline𝐖"]
+ - "̵": [t: "\\Elzxl𝐖"]                  # 0x335
+ - "̶": [t: "\\Elzbar𝐖"]                 # 0x336
+ - "̸":                                  # 0x338
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\n"]
+         else: [t: "\\not𝐖"]
+ - "Ё": [t: "\\cyrchar\\CYRYO𝐖"]         # 0x401
+ - "Ђ": [t: "\\cyrchar\\CYRDJE𝐖"]        # 0x402
+ - "Ѓ": [t: "\\cyrchar{\\'\\CYRG}"]      # 0x403
+ - "Є": [t: "\\cyrchar\\CYRIE𝐖"]         # 0x404
+ - "Ѕ": [t: "\\cyrchar\\CYRDZE𝐖"]        # 0x405
+ - "І": [t: "\\cyrchar\\CYRII𝐖"]         # 0x406
+ - "Ї": [t: "\\cyrchar\\CYRYI𝐖"]         # 0x407
+ - "Ј": [t: "\\cyrchar\\CYRJE𝐖"]         # 0x408
+ - "Љ": [t: "\\cyrchar\\CYRLJE𝐖"]        # 0x409
+ - "Њ": [t: "\\cyrchar\\CYRNJE𝐖"]        # 0x40a
+ - "Ћ": [t: "\\cyrchar\\CYRTSHE𝐖"]       # 0x40b
+ - "Ќ": [t: "\\cyrchar{\\'\\CYRK}"]      # 0x40c
+ - "Ў": [t: "\\cyrchar\\CYRUSHRT𝐖"]      # 0x40e
+ - "Џ": [t: "\\cyrchar\\CYRDZHE𝐖"]       # 0x40f
+ - "А": [t: "\\cyrchar\\CYRA𝐖"]          # 0x410
+ - "Б": [t: "\\cyrchar\\CYRB𝐖"]          # 0x411
+ - "В": [t: "\\cyrchar\\CYRV𝐖"]          # 0x412
+ - "Г": [t: "\\cyrchar\\CYRG𝐖"]          # 0x413
+ - "Д": [t: "\\cyrchar\\CYRD𝐖"]          # 0x414
+ - "Е": [t: "\\cyrchar\\CYRE𝐖"]          # 0x415
+ - "Ж": [t: "\\cyrchar\\CYRZH𝐖"]         # 0x416
+ - "З": [t: "\\cyrchar\\CYRZ𝐖"]          # 0x417
+ - "И": [t: "\\cyrchar\\CYRI𝐖"]          # 0x418
+ - "Й": [t: "\\cyrchar\\CYRISHRT𝐖"]      # 0x419
+ - "К": [t: "\\cyrchar\\CYRK𝐖"]          # 0x41a
+ - "Л": [t: "\\cyrchar\\CYRL𝐖"]          # 0x41b
+ - "М": [t: "\\cyrchar\\CYRM𝐖"]          # 0x41c
+ - "Н": [t: "\\cyrchar\\CYRN𝐖"]          # 0x41d
+ - "О": [t: "\\cyrchar\\CYRO𝐖"]          # 0x41e
+ - "П": [t: "\\cyrchar\\CYRP𝐖"]          # 0x41f
+ - "Р": [t: "\\cyrchar\\CYRR𝐖"]          # 0x420
+ - "С": [t: "\\cyrchar\\CYRS𝐖"]          # 0x421
+ - "Т": [t: "\\cyrchar\\CYRT𝐖"]          # 0x422
+ - "У": [t: "\\cyrchar\\CYRU𝐖"]          # 0x423
+ - "Ф": [t: "\\cyrchar\\CYRF𝐖"]          # 0x424
+ - "Х": [t: "\\cyrchar\\CYRH𝐖"]          # 0x425
+ - "Ц": [t: "\\cyrchar\\CYRC𝐖"]          # 0x426
+ - "Ч": [t: "\\cyrchar\\CYRCH𝐖"]         # 0x427
+ - "Ш": [t: "\\cyrchar\\CYRSH𝐖"]         # 0x428
+ - "Щ": [t: "\\cyrchar\\CYRSHCH𝐖"]       # 0x429
+ - "Ъ": [t: "\\cyrchar\\CYRHRDSN𝐖"]      # 0x42a
+ - "Ы": [t: "\\cyrchar\\CYRERY𝐖"]        # 0x42b
+ - "Ь": [t: "\\cyrchar\\CYRSFTSN𝐖"]      # 0x42c
+ - "Э": [t: "\\cyrchar\\CYREREV𝐖"]       # 0x42d
+ - "Ю": [t: "\\cyrchar\\CYRYU𝐖"]         # 0x42e
+ - "Я": [t: "\\cyrchar\\CYRYA𝐖"]         # 0x42f
+ - "а": [t: "\\cyrchar\\cyra𝐖"]          # 0x430
+ - "б": [t: "\\cyrchar\\cyrb𝐖"]          # 0x431
+ - "в": [t: "\\cyrchar\\cyrv𝐖"]          # 0x432
+ - "г": [t: "\\cyrchar\\cyrg𝐖"]          # 0x433
+ - "д": [t: "\\cyrchar\\cyrd𝐖"]          # 0x434
+ - "е": [t: "\\cyrchar\\cyre𝐖"]          # 0x435
+ - "ж": [t: "\\cyrchar\\cyrzh𝐖"]         # 0x436
+ - "з": [t: "\\cyrchar\\cyrz𝐖"]          # 0x437
+ - "и": [t: "\\cyrchar\\cyri𝐖"]          # 0x438
+ - "й": [t: "\\cyrchar\\cyrishrt𝐖"]      # 0x439
+ - "к": [t: "\\cyrchar\\cyrk𝐖"]          # 0x43a
+ - "л": [t: "\\cyrchar\\cyrl𝐖"]          # 0x43b
+ - "м": [t: "\\cyrchar\\cyrm𝐖"]          # 0x43c
+ - "н": [t: "\\cyrchar\\cyrn𝐖"]          # 0x43d
+ - "о": [t: "\\cyrchar\\cyro𝐖"]          # 0x43e
+ - "п": [t: "\\cyrchar\\cyrp𝐖"]          # 0x43f
+ - "р": [t: "\\cyrchar\\cyrr𝐖"]          # 0x440
+ - "с": [t: "\\cyrchar\\cyrs𝐖"]          # 0x441
+ - "т": [t: "\\cyrchar\\cyrt𝐖"]          # 0x442
+ - "у": [t: "\\cyrchar\\cyru𝐖"]          # 0x443
+ - "ф": [t: "\\cyrchar\\cyrf𝐖"]          # 0x444
+ - "х": [t: "\\cyrchar\\cyrh𝐖"]          # 0x445
+ - "ц": [t: "\\cyrchar\\cyrc𝐖"]          # 0x446
+ - "ч": [t: "\\cyrchar\\cyrch𝐖"]         # 0x447
+ - "ш": [t: "\\cyrchar\\cyrsh𝐖"]         # 0x448
+ - "щ": [t: "\\cyrchar\\cyrshch𝐖"]       # 0x449
+ - "ъ": [t: "\\cyrchar\\cyrhrdsn𝐖"]      # 0x44a
+ - "ы": [t: "\\cyrchar\\cyrery𝐖"]        # 0x44b
+ - "ь": [t: "\\cyrchar\\cyrsftsn𝐖"]      # 0x44c
+ - "э": [t: "\\cyrchar\\cyrerev𝐖"]       # 0x44d
+ - "ю": [t: "\\cyrchar\\cyryu𝐖"]         # 0x44e
+ - "я": [t: "\\cyrchar\\cyrya𝐖"]         # 0x44f
+ - "ё": [t: "\\cyrchar\\cyryo𝐖"]         # 0x451
+ - "ђ": [t: "\\cyrchar\\cyrdje𝐖"]        # 0x452
+ - "ѓ": [t: "\\cyrchar{\\'\\cyrg}"]      # 0x453
+ - "є": [t: "\\cyrchar\\cyrie𝐖"]         # 0x454
+ - "ѕ": [t: "\\cyrchar\\cyrdze𝐖"]        # 0x455
+ - "і": [t: "\\cyrchar\\cyrii𝐖"]         # 0x456
+ - "ї": [t: "\\cyrchar\\cyryi𝐖"]         # 0x457
+ - "ј": [t: "\\cyrchar\\cyrje𝐖"]         # 0x458
+ - "љ": [t: "\\cyrchar\\cyrlje𝐖"]        # 0x459
+ - "њ": [t: "\\cyrchar\\cyrnje𝐖"]        # 0x45a
+ - "ћ": [t: "\\cyrchar\\cyrtshe𝐖"]       # 0x45b
+ - "ќ": [t: "\\cyrchar{\\'\\cyrk}"]      # 0x45c
+ - "ў": [t: "\\cyrchar\\cyrushrt𝐖"]      # 0x45e
+ - "џ": [t: "\\cyrchar\\cyrdzhe𝐖"]       # 0x45f
+ - "Ѡ": [t: "\\cyrchar\\CYROMEGA𝐖"]      # 0x460
+ - "ѡ": [t: "\\cyrchar\\cyromega𝐖"]      # 0x461
+ - "Ѣ": [t: "\\cyrchar\\CYRYAT𝐖"]        # 0x462
+ - "Ѥ": [t: "\\cyrchar\\CYRIOTE𝐖"]       # 0x464
+ - "ѥ": [t: "\\cyrchar\\cyriote𝐖"]       # 0x465
+ - "Ѧ": [t: "\\cyrchar\\CYRLYUS𝐖"]       # 0x466
+ - "ѧ": [t: "\\cyrchar\\cyrlyus𝐖"]       # 0x467
+ - "Ѩ": [t: "\\cyrchar\\CYRIOTLYUS𝐖"]    # 0x468
+ - "ѩ": [t: "\\cyrchar\\cyriotlyus𝐖"]    # 0x469
+ - "Ѫ": [t: "\\cyrchar\\CYRBYUS𝐖"]       # 0x46a
+ - "Ѭ": [t: "\\cyrchar\\CYRIOTBYUS𝐖"]    # 0x46c
+ - "ѭ": [t: "\\cyrchar\\cyriotbyus𝐖"]    # 0x46d
+ - "Ѯ": [t: "\\cyrchar\\CYRKSI𝐖"]        # 0x46e
+ - "ѯ": [t: "\\cyrchar\\cyrksi𝐖"]        # 0x46f
+ - "Ѱ": [t: "\\cyrchar\\CYRPSI𝐖"]        # 0x470
+ - "ѱ": [t: "\\cyrchar\\cyrpsi𝐖"]        # 0x471
+ - "Ѳ": [t: "\\cyrchar\\CYRFITA𝐖"]       # 0x472
+ - "Ѵ": [t: "\\cyrchar\\CYRIZH𝐖"]        # 0x474
+ - "Ѹ": [t: "\\cyrchar\\CYRUK𝐖"]         # 0x478
+ - "ѹ": [t: "\\cyrchar\\cyruk𝐖"]         # 0x479
+ - "Ѻ": [t: "\\cyrchar\\CYROMEGARND𝐖"]   # 0x47a
+ - "ѻ": [t: "\\cyrchar\\cyromegarnd𝐖"]   # 0x47b
+ - "Ѽ": [t: "\\cyrchar\\CYROMEGATITLO𝐖"] # 0x47c
+ - "ѽ": [t: "\\cyrchar\\cyromegatitlo𝐖"] # 0x47d
+ - "Ѿ": [t: "\\cyrchar\\CYROT𝐖"]         # 0x47e
+ - "ѿ": [t: "\\cyrchar\\cyrot𝐖"]         # 0x47f
+ - "Ҁ": [t: "\\cyrchar\\CYRKOPPA𝐖"]      # 0x480
+ - "ҁ": [t: "\\cyrchar\\cyrkoppa𝐖"]      # 0x481
+ - "҂": [t: "\\cyrchar\\cyrthousands𝐖"]  # 0x482
+ - "҈": [t: "\\cyrchar\\cyrhundredthousands𝐖"] # 0x488
+ - "҉": [t: "\\cyrchar\\cyrmillions𝐖"]   # 0x489
+ - "Ҍ": [t: "\\cyrchar\\CYRSEMISFTSN𝐖"]  # 0x48c
+ - "ҍ": [t: "\\cyrchar\\cyrsemisftsn𝐖"]  # 0x48d
+ - "Ҏ": [t: "\\cyrchar\\CYRRTICK𝐖"]      # 0x48e
+ - "ҏ": [t: "\\cyrchar\\cyrrtick𝐖"]      # 0x48f
+ - "Ґ": [t: "\\cyrchar\\CYRGUP𝐖"]        # 0x490
+ - "ґ": [t: "\\cyrchar\\cyrgup𝐖"]        # 0x491
+ - "Ғ": [t: "\\cyrchar\\CYRGHCRS𝐖"]      # 0x492
+ - "ғ": [t: "\\cyrchar\\cyrghcrs𝐖"]      # 0x493
+ - "Ҕ": [t: "\\cyrchar\\CYRGHK𝐖"]        # 0x494
+ - "ҕ": [t: "\\cyrchar\\cyrghk𝐖"]        # 0x495
+ - "Җ": [t: "\\cyrchar\\CYRZHDSC𝐖"]      # 0x496
+ - "җ": [t: "\\cyrchar\\cyrzhdsc𝐖"]      # 0x497
+ - "Ҙ": [t: "\\cyrchar\\CYRZDSC𝐖"]       # 0x498
+ - "ҙ": [t: "\\cyrchar\\cyrzdsc𝐖"]       # 0x499
+ - "Қ": [t: "\\cyrchar\\CYRKDSC𝐖"]       # 0x49a
+ - "қ": [t: "\\cyrchar\\cyrkdsc𝐖"]       # 0x49b
+ - "Ҝ": [t: "\\cyrchar\\CYRKVCRS𝐖"]      # 0x49c
+ - "ҝ": [t: "\\cyrchar\\cyrkvcrs𝐖"]      # 0x49d
+ - "Ҟ": [t: "\\cyrchar\\CYRKHCRS𝐖"]      # 0x49e
+ - "ҟ": [t: "\\cyrchar\\cyrkhcrs𝐖"]      # 0x49f
+ - "Ҡ": [t: "\\cyrchar\\CYRKBEAK𝐖"]      # 0x4a0
+ - "ҡ": [t: "\\cyrchar\\cyrkbeak𝐖"]      # 0x4a1
+ - "Ң": [t: "\\cyrchar\\CYRNDSC𝐖"]       # 0x4a2
+ - "ң": [t: "\\cyrchar\\cyrndsc𝐖"]       # 0x4a3
+ - "Ҥ": [t: "\\cyrchar\\CYRNG𝐖"]         # 0x4a4
+ - "ҥ": [t: "\\cyrchar\\cyrng𝐖"]         # 0x4a5
+ - "Ҧ": [t: "\\cyrchar\\CYRPHK𝐖"]        # 0x4a6
+ - "ҧ": [t: "\\cyrchar\\cyrphk𝐖"]        # 0x4a7
+ - "Ҩ": [t: "\\cyrchar\\CYRABHHA𝐖"]      # 0x4a8
+ - "ҩ": [t: "\\cyrchar\\cyrabhha𝐖"]      # 0x4a9
+ - "Ҫ": [t: "\\cyrchar\\CYRSDSC𝐖"]       # 0x4aa
+ - "ҫ": [t: "\\cyrchar\\cyrsdsc𝐖"]       # 0x4ab
+ - "Ҭ": [t: "\\cyrchar\\CYRTDSC𝐖"]       # 0x4ac
+ - "ҭ": [t: "\\cyrchar\\cyrtdsc𝐖"]       # 0x4ad
+ - "Ү": [t: "\\cyrchar\\CYRY𝐖"]          # 0x4ae
+ - "ү": [t: "\\cyrchar\\cyry𝐖"]          # 0x4af
+ - "Ұ": [t: "\\cyrchar\\CYRYHCRS𝐖"]      # 0x4b0
+ - "ұ": [t: "\\cyrchar\\cyryhcrs𝐖"]      # 0x4b1
+ - "Ҳ": [t: "\\cyrchar\\CYRHDSC𝐖"]       # 0x4b2
+ - "ҳ": [t: "\\cyrchar\\cyrhdsc𝐖"]       # 0x4b3
+ - "Ҵ": [t: "\\cyrchar\\CYRTETSE𝐖"]      # 0x4b4
+ - "ҵ": [t: "\\cyrchar\\cyrtetse𝐖"]      # 0x4b5
+ - "Ҷ": [t: "\\cyrchar\\CYRCHRDSC𝐖"]     # 0x4b6
+ - "ҷ": [t: "\\cyrchar\\cyrchrdsc𝐖"]     # 0x4b7
+ - "Ҹ": [t: "\\cyrchar\\CYRCHVCRS𝐖"]     # 0x4b8
+ - "ҹ": [t: "\\cyrchar\\cyrchvcrs𝐖"]     # 0x4b9
+ - "Һ": [t: "\\cyrchar\\CYRSHHA𝐖"]       # 0x4ba
+ - "һ": [t: "\\cyrchar\\cyrshha𝐖"]       # 0x4bb
+ - "Ҽ": [t: "\\cyrchar\\CYRABHCH𝐖"]      # 0x4bc
+ - "ҽ": [t: "\\cyrchar\\cyrabhch𝐖"]      # 0x4bd
+ - "Ҿ": [t: "\\cyrchar\\CYRABHCHDSC𝐖"]   # 0x4be
+ - "ҿ": [t: "\\cyrchar\\cyrabhchdsc𝐖"]   # 0x4bf
+ - "Ӏ": [t: "\\cyrchar\\CYRpalochka𝐖"]   # 0x4c0
+ - "Ӄ": [t: "\\cyrchar\\CYRKHK𝐖"]        # 0x4c3
+ - "ӄ": [t: "\\cyrchar\\cyrkhk𝐖"]        # 0x4c4
+ - "Ӈ": [t: "\\cyrchar\\CYRNHK𝐖"]        # 0x4c7
+ - "ӈ": [t: "\\cyrchar\\cyrnhk𝐖"]        # 0x4c8
+ - "Ӌ": [t: "\\cyrchar\\CYRCHLDSC𝐖"]     # 0x4cb
+ - "ӌ": [t: "\\cyrchar\\cyrchldsc𝐖"]     # 0x4cc
+ - "Ӕ": [t: "\\cyrchar\\CYRAE𝐖"]         # 0x4d4
+ - "ӕ": [t: "\\cyrchar\\cyrae𝐖"]         # 0x4d5
+ - "Ә": [t: "\\cyrchar\\CYRSCHWA𝐖"]      # 0x4d8
+ - "ә": [t: "\\cyrchar\\cyrschwa𝐖"]      # 0x4d9
+ - "Ӡ": [t: "\\cyrchar\\CYRABHDZE𝐖"]     # 0x4e0
+ - "ӡ": [t: "\\cyrchar\\cyrabhdze𝐖"]     # 0x4e1
+ - "Ө": [t: "\\cyrchar\\CYROTLD𝐖"]       # 0x4e8
+ - "ө": [t: "\\cyrchar\\cyrotld𝐖"]       # 0x4e9
+ - " ": [t: "\\hspace{0.6em}"]           # 0x2002
+ - " ": [t: "\\hspace{1em}"]             # 0x2003
+ - " ": [t: "\\hspace{0.33em}"]          # 0x2004
+ - " ": [t: "\\hspace{0.25em}"]          # 0x2005
+ - " ": [t: "\\hspace{0.166em}"]         # 0x2006
+ - " ": [t: "\\hphantom𝐖0𝐖"]             # 0x2007
+ - " ": [t: "\\hphantom𝐖,𝐖"]             # 0x2008
+ - " ": [t: "\\hspace{0.167em}"]         # 0x2009
+ - " ": [t: "\\mkern1mu𝐖"]               # 0x200a
+ - "‐": [t: "\\-"]                       # 0x2010
+ - "‗": [t: "\\twolowline𝐖"]             # 0x2017
+ - "‘": [t: "\\`"]                       # 0x2018
+ - "’": [t: "\\'"]                       # 0x2019
+ - "‚": [t: "\\,"]                       # 0x201a
+ - "‛": [t: "\\Elzreapos𝐖"]              # 0x201b
+ - "“": [t: "\\textquotedblleft𝐖"]       # 0x201c
+ - "”": [t: "\\textquotedblright𝐖"]      # 0x201d
+ - "„": [t: "\\,,𝐖"]                     # 0x201e
+ - "†": [t: "\\dag𝐖"]                    # 0x2020
+# - "†": [t: "\\textdagger𝐖"]            # 0x2020
+ - "‡": [t: "\\ddag𝐖"]                   # 0x2021
+# - "‡": [t: "\\textdaggerdbl𝐖"]         # 0x2021
+ - "•": [t: "\\bullet𝐖"]                 # 0x2022
+ - "․": [t: "\\."]                       # 0x2024
+ - "‥": [t: "\\enleadertwodots𝐖"]        # 0x2025
+# - "‥": [t: "\\..𝐖"]                    # 0x2025
+ - "‰": [t: "\\permil𝐖"]                 # 0x2030
+ - "‱": [t: "\\textpertenthousand𝐖"]     # 0x2031
+ - "‵": [t: "\\backprime𝐖"]              # 0x2035
+ - "‶": [t: "\\backdprime𝐖"]             # 0x2036
+ - "‷": [t: "\\backtrprime𝐖"]            # 0x2037
+ - "‸": [t: "\\caretinsert𝐖"]            # 0x2038
+ - "‹": [t: "\\guilsinglleft𝐖"]          # 0x2039
+ - "›": [t: "\\guilsinglright𝐖"]         # 0x203a
+ - "‼": [t: "\\Exclam𝐖"]                 # 0x203c
+ - "⁀": [t: "\\tieconcat𝐖"]              # 0x2040
+ - "⁃": [t: "\\hyphenbullet𝐖"]           # 0x2043
+ - "⁄": [t: "\\frac{a}𝐖b𝐖"]              # 0x2044
+# - "⁄": [t: "\\tfrac{a}𝐖b𝐖"]            # 0x2044
+# - "⁄": [t: "\\dfrac{a}𝐖b𝐖"]            # 0x2044
+# - "⁄": [t: "\\cfrac{a}𝐖b𝐖"]            # 0x2044
+ - "⁇": [t: "\\Question𝐖"]               # 0x2047
+ - "⁐": [t: "\\closure𝐖"]                # 0x2050
+ - "⁗": [t: "\\qprime𝐖"]                 # 0x2057
+# - "⁗": [t: "\\''''𝐖"]                  # 0x2057
+ - " ": [t: "\\mkern4mu𝐖"]               # 0x205f
+ - "⁠": [t: "\\nolinebreak𝐖"]            # 0x2060
+ - "⁻": [t: "\\bar𝐖R𝐖"]                  # 0x207b
+ - "₧": [t: "\\Elzpes𝐖"]                 # 0x20a7
+# - "₧": [t: "\\ensuremath{\\Elzpes}"]   # 0x20a7
+ - "€": [t: "\\euro𝐖"]                   # 0x20ac
+# - "€": [t: "\\mbox{\\texteuro}"]       # 0x20ac
+ - "⃐": [t: "\\leftharpoonaccent𝐖"]      # 0x20d0
+ - "⃑": [t: "\\rightharpoonaccent𝐖"]     # 0x20d1
+ - "⃒": [t: "\\vertoverlay𝐖"]            # 0x20d2
+ - "⃖": [t: "\\overleftarrow𝐖"]          # 0x20d6
+ - "⃗": [t: "\\vec𝐖"]                    # 0x20d7
+ - "⃛": [t: "\\dddot𝐖"]                  # 0x20db
+ - "⃜": [t: "\\ddddot𝐖"]                 # 0x20dc
+ - "⃝": [t: "\\enclosecircle𝐖"]          # 0x20dd
+ - "⃞": [t: "\\enclosesquare𝐖"]          # 0x20de
+ - "⃟": [t: "\\enclosediamond𝐖"]         # 0x20df
+ - "⃡": [t: "\\overleftrightarrow𝐖"]     # 0x20e1
+ - "⃤": [t: "\\enclosetriangle𝐖"]        # 0x20e4
+ - "⃧": [t: "\\annuity𝐖"]                # 0x20e7
+ - "⃨": [t: "\\threeunderdot𝐖"]          # 0x20e8
+ - "⃩": [t: "\\widebridgeabove𝐖"]        # 0x20e9
+ - "⃬": [t: "\\underrightharpoondown𝐖"]  # 0x20ec
+ - "⃭": [t: "\\underleftharpoondown𝐖"]   # 0x20ed
+ - "⃮": [t: "\\underleftarrow𝐖"]         # 0x20ee
+ - "⃯": [t: "\\underrightarrow𝐖"]        # 0x20ef
+ - "⃰": [t: "\\asteraccent𝐖"]            # 0x20f0
+ - "ℂ":                                  # 0x2102
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\C"]
+         else: [t: "\\mathbb𝐖C𝐖"]
+# - "ℂ": [t: "\\Complex𝐖"]               # 0x2102
+ - "ℇ": [t: "\\Eulerconst𝐖"]             # 0x2107
+ - "ℊ": [t: "\\mscrg𝐖"]                  # 0x210a
+# - "ℊ": [t: "\\mathscr𝐖g𝐖"]             # 0x210a
+ - "ℋ": [t: "\\mscrH𝐖"]                  # 0x210b
+# - "ℋ": [t: "\\mathscr𝐖H𝐖"]             # 0x210b
+ - "ℌ": [t: "\\mfrakH𝐖"]                 # 0x210c
+# - "ℌ": [t: "\\mathfrak𝐖H𝐖"]            # 0x210c
+ - "ℍ":                                  # 0x210d
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\H"]
+         else: [t: "\\mathbb𝐖H𝐖"]
+ - "ℏ": [t: "\\hslash𝐖"]                 # 0x210f
+ - "ℐ": [t: "\\mscrI𝐖"]                  # 0x2110
+# - "ℐ": [t: "\\mathscr𝐖I𝐖"]             # 0x2110
+ - "ℑ": [t: "\\Im𝐖"]                     # 0x2111
+ - "ℒ": [t: "\\mathcal𝐖L𝐖"]              # 0x2112
+ - "ℓ": [t: "\\ell𝐖"]                    # 0x2113
+# - "ℓ": [t: "\\mathscr𝐖l𝐖"]             # 0x2113
+ - "ℕ":                                  # 0x2115
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\N"]
+         else: [t: "\\mathbb𝐖N𝐖"]
+# - "ℕ": [t: "\\N"]                      # 0x2115
+ - "№": [t: "\\cyrchar\\textnumero𝐖"]    # 0x2116
+ - "℘": [t: "\\wp𝐖"]                     # 0x2118
+ - "ℙ":                                  # 0x2119
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\P"]
+         else: [t: "\\mathbb𝐖P𝐖"]
+ - "ℚ":                                  # 0x211a
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\Q"]
+         else: [t: "\\mathbb𝐖Q𝐖"]
+# - "ℚ": [t: "\\Q"]                      # 0x211a
+ - "ℛ": [t: "\\mscrR𝐖"]                  # 0x211b
+# - "ℛ": [t: "\\mathscr𝐖R𝐖"]             # 0x211b
+ - "ℝ":                                  # 0x211d
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\R"]
+         else: [t: "\\mathbb𝐖R𝐖"]
+# - "ℝ": [t: "\\R"]                      # 0x211d
+# - "ℝ": [t: "\\Reals𝐖"]                 # 0x211d
+ - "℞": [t: "\\Elzxrat𝐖"]                # 0x211e
+ - "™": [t: "\\texttrademark𝐖"]          # 0x2122
+ - "ℤ":                                  # 0x2124
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\Z"]
+         else: [t: "\\mathbb𝐖Z𝐖"]
+# - "ℤ": [t: "\\Z"]                      # 0x2124
+ - "℧": [t: "\\mho𝐖"]                    # 0x2127
+ - "ℨ": [t: "\\mfrakZ𝐖"]                 # 0x2128
+# - "ℨ": [t: "\\mathfrak𝐖Z𝐖"]            # 0x2128
+ - "℩": [t: "\\turnediota𝐖"]             # 0x2129
+# - "℩": [t: "\\ElsevierGlyph{2129}"]    # 0x2129
+ - "ℬ": [t: "\\mscrB𝐖"]                  # 0x212c
+# - "ℬ": [t: "\\mathscr𝐖B𝐖"]             # 0x212c
+ - "ℭ": [t: "\\mfrakC𝐖"]                 # 0x212d
+# - "ℭ": [t: "\\mathfrak𝐖C𝐖"]            # 0x212d
+ - "ℯ": [t: "\\mscre𝐖"]                  # 0x212f
+# - "ℯ": [t: "\\mathscr𝐖e𝐖"]             # 0x212f
+ - "ℰ": [t: "\\mscrE𝐖"]                  # 0x2130
+# - "ℰ": [t: "\\mathscr𝐖E𝐖"]             # 0x2130
+ - "ℱ": [t: "\\mscrF𝐖"]                  # 0x2131
+# - "ℱ": [t: "\\mathscr𝐖F𝐖"]             # 0x2131
+ - "Ⅎ": [t: "\\Finv𝐖"]                   # 0x2132
+ - "ℳ": [t: "\\mscrM𝐖"]                  # 0x2133
+# - "ℳ": [t: "\\mathscr𝐖M𝐖"]             # 0x2133
+ - "ℴ": [t: "\\mscro𝐖"]                  # 0x2134
+# - "ℴ": [t: "\\mathscr𝐖o𝐖"]             # 0x2134
+ - "ℵ": [t: "\\aleph𝐖"]                  # 0x2135
+ - "ℶ": [t: "\\beth𝐖"]                   # 0x2136
+ - "ℷ": [t: "\\gimel𝐖"]                  # 0x2137
+ - "ℸ": [t: "\\daleth𝐖"]                 # 0x2138
+ - "⅁": [t: "\\Game𝐖"]                   # 0x2141
+ - "⅂": [t: "\\sansLturned𝐖"]            # 0x2142
+ - "⅃": [t: "\\sansLmirrored𝐖"]          # 0x2143
+ - "⅄": [t: "\\Yup𝐖"]                    # 0x2144
+ - "ⅅ": [t: "D"]                         # 0x2145
+ - "ⅆ": [t: "d"]                         # 0x2146
+ - "ⅇ": [t: "e"]                         # 0x2147
+ - "ⅈ": [t: "i"]                         # 0x2148
+ - "ⅉ": [t: "j"]                         # 0x2149
+ - "⅊": [t: "\\PropertyLine𝐖"]           # 0x214a
+ - "⅋": [t: "\\upand𝐖"]                  # 0x214b
+ - "⅓": [t: "\\textfrac{1}𝐖3𝐖"]          # 0x2153
+ - "⅔": [t: "\\textfrac{2}𝐖3𝐖"]          # 0x2154
+ - "⅕": [t: "\\textfrac{1}𝐖5𝐖"]          # 0x2155
+ - "⅖": [t: "\\textfrac{2}𝐖5𝐖"]          # 0x2156
+ - "⅗": [t: "\\textfrac{3}𝐖5𝐖"]          # 0x2157
+ - "⅘": [t: "\\textfrac{4}𝐖5𝐖"]          # 0x2158
+ - "⅙": [t: "\\textfrac{1}𝐖6𝐖"]          # 0x2159
+ - "⅚": [t: "\\textfrac{5}𝐖6𝐖"]          # 0x215a
+ - "⅛": [t: "\\textfrac{1}𝐖8𝐖"]          # 0x215b
+ - "⅜": [t: "\\textfrac{3}𝐖8𝐖"]          # 0x215c
+ - "⅝": [t: "\\textfrac{5}𝐖8𝐖"]          # 0x215d
+ - "⅞": [t: "\\textfrac{7}𝐖8𝐖"]          # 0x215e
+ - "↔":                                  # 0x2194
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\Lra𝐖"]
+         else: [t: "\\leftrightarrow𝐖"]
+ - "↕":                                  # 0x2195
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\uda𝐖"]
+         else: [t: "\\updownarrow𝐖"]
+ - "↖": [t: "\\nwarrow𝐖"]                # 0x2196
+ - "↗": [t: "\\nearrow𝐖"]                # 0x2197
+ - "↘": [t: "\\searrow𝐖"]                # 0x2198
+ - "↙": [t: "\\swarrow𝐖"]                # 0x2199
+ - "↚": [t: "\\nleftarrow𝐖"]             # 0x219a
+ - "↛": [t: "\\nrightarrow𝐖"]            # 0x219b
+ - "↜": [t: "\\leftwavearrow𝐖"]          # 0x219c
+# - "↜": [t: "\\arrowwaveleft𝐖"]         # 0x219c
+ - "↝": [t: "\\rightwavearrow𝐖"]         # 0x219d
+# - "↝": [t: "\\arrowwaveright𝐖"]        # 0x219d
+ - "↞": [t: "\\twoheadleftarrow𝐖"]       # 0x219e
+ - "↟": [t: "\\twoheaduparrow𝐖"]         # 0x219f
+ - "↠": [t: "\\twoheadrightarrow𝐖"]      # 0x21a0
+ - "↡": [t: "\\twoheaddownarrow𝐖"]       # 0x21a1
+ - "↢": [t: "\\leftarrowtail𝐖"]          # 0x21a2
+ - "↣": [t: "\\rightarrowtail𝐖"]         # 0x21a3
+ - "↤": [t: "\\mapsfrom𝐖"]               # 0x21a4
+ - "↥": [t: "\\mapsup𝐖"]                 # 0x21a5
+ - "↦":                                  # 0x21a6
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\mt𝐖"]
+         else: [t: "\\mapsto𝐖"]
+ - "↧": [t: "\\mapsdown𝐖"]               # 0x21a7
+ - "↨": [t: "\\updownarrowbar𝐖"]         # 0x21a8
+ - "↩": [t: "\\hookleftarrow𝐖"]          # 0x21a9
+ - "↪": [t: "\\hookrightarrow𝐖"]         # 0x21aa
+ - "↫": [t: "\\looparrowleft𝐖"]          # 0x21ab
+ - "↬": [t: "\\looparrowright𝐖"]         # 0x21ac
+ - "↭": [t: "\\leftrightsquigarrow𝐖"]    # 0x21ad
+ - "↮": [t: "\\nleftrightarrow𝐖"]        # 0x21ae
+ - "↯": [t: "\\downzigzagarrow𝐖"]        # 0x21af
+ - "↰": [t: "\\Lsh𝐖"]                    # 0x21b0
+ - "↱": [t: "\\Rsh𝐖"]                    # 0x21b1
+ - "↲": [t: "\\Ldsh𝐖"]                   # 0x21b2
+ - "↳": [t: "\\Rdsh𝐖"]                   # 0x21b3
+# - "↳": [t: "\\ElsevierGlyph{21B3}"]    # 0x21b3
+ - "↴": [t: "\\linefeed𝐖"]               # 0x21b4
+ - "↵": [t: "\\carriagereturn𝐖"]         # 0x21b5
+ - "↶": [t: "\\curvearrowleft𝐖"]         # 0x21b6
+ - "↷": [t: "\\curvearrowright𝐖"]        # 0x21b7
+ - "↸": [t: "\\barovernorthwestarrow𝐖"]  # 0x21b8
+ - "↹": [t: "\\barleftarrowrightarrowbar𝐖"] # 0x21b9
+ - "↺": [t: "\\acwopencirclearrow𝐖"]     # 0x21ba
+# - "↺": [t: "\\circlearrowleft𝐖"]       # 0x21ba
+ - "↻": [t: "\\cwopencirclearrow𝐖"]      # 0x21bb
+# - "↻": [t: "\\circlearrowright𝐖"]      # 0x21bb
+ - "↼": [t: "\\leftharpoonup𝐖"]          # 0x21bc
+ - "↽": [t: "\\leftharpoondown𝐖"]        # 0x21bd
+ - "↾": [t: "\\upharpoonright𝐖"]         # 0x21be
+ - "↿": [t: "\\upharpoonleft𝐖"]          # 0x21bf
+ - "⇀": [t: "\\rightharpoonup𝐖"]         # 0x21c0
+ - "⇁": [t: "\\rightharpoondown𝐖"]       # 0x21c1
+ - "⇂": [t: "\\downharpoonright𝐖"]       # 0x21c2
+ - "⇃": [t: "\\downharpoonleft𝐖"]        # 0x21c3
+ - "⇄": [t: "\\rightleftarrows𝐖"]        # 0x21c4
+ - "⇅": [t: "\\updownarrows𝐖"]           # 0x21c5
+# - "⇅": [t: "\\dblarrowupdown𝐖"]        # 0x21c5
+ - "⇆": [t: "\\leftrightarrows𝐖"]        # 0x21c6
+ - "⇇": [t: "\\leftleftarrows𝐖"]         # 0x21c7
+ - "⇈": [t: "\\upuparrows𝐖"]             # 0x21c8
+ - "⇉": [t: "\\rightrightarrows𝐖"]       # 0x21c9
+ - "⇊": [t: "\\downdownarrows𝐖"]         # 0x21ca
+ - "⇋": [t: "\\leftrightharpoons𝐖"]      # 0x21cb
+ - "⇌": [t: "\\rightleftharpoons𝐖"]      # 0x21cc
+ - "⇍": [t: "\\nLeftarrow𝐖"]             # 0x21cd
+ - "⇎": [t: "\\nLeftrightarrow𝐖"]        # 0x21ce
+ - "⇏": [t: "\\nRightarrow𝐖"]            # 0x21cf
+ - "⇐": [t: "\\Leftarrow𝐖"]              # 0x21d0
+ - "⇑": [t: "\\Uparrow𝐖"]                # 0x21d1
+ - "⇓": [t: "\\Downarrow𝐖"]              # 0x21d3
+ - "⇔": [t: "\\Leftrightarrow𝐖"]         # 0x21d4
+ - "⇕": [t: "\\Updownarrow𝐖"]            # 0x21d5
+ - "⇖": [t: "\\Nwarrow𝐖"]                # 0x21d6
+ - "⇗": [t: "\\Nearrow𝐖"]                # 0x21d7
+ - "⇘": [t: "\\Searrow𝐖"]                # 0x21d8
+ - "⇙": [t: "\\Swarrow𝐖"]                # 0x21d9
+ - "⇚": [t: "\\Lleftarrow𝐖"]             # 0x21da
+ - "⇛": [t: "\\Rrightarrow𝐖"]            # 0x21db
+ - "⇜": [t: "\\leftsquigarrow𝐖"]         # 0x21dc
+ - "⇝": [t: "\\rightsquigarrow𝐖"]        # 0x21dd
+ - "⇞": [t: "\\nHuparrow𝐖"]              # 0x21de
+ - "⇟": [t: "\\nHdownarrow𝐖"]            # 0x21df
+ - "⇠": [t: "\\leftdasharrow𝐖"]          # 0x21e0
+ - "⇡": [t: "\\updasharrow𝐖"]            # 0x21e1
+ - "⇢": [t: "\\rightdasharrow𝐖"]         # 0x21e2
+ - "⇣": [t: "\\downdasharrow𝐖"]          # 0x21e3
+ - "⇤": [t: "\\barleftarrow𝐖"]           # 0x21e4
+ - "⇥": [t: "\\rightarrowbar𝐖"]          # 0x21e5
+ - "⇦": [t: "\\leftwhitearrow𝐖"]         # 0x21e6
+ - "⇧": [t: "\\upwhitearrow𝐖"]           # 0x21e7
+ - "⇨": [t: "\\rightwhitearrow𝐖"]        # 0x21e8
+ - "⇩": [t: "\\downwhitearrow𝐖"]         # 0x21e9
+ - "⇪": [t: "\\whitearrowupfrombar𝐖"]    # 0x21ea
+ - "⇴": [t: "\\circleonrightarrow𝐖"]     # 0x21f4
+ - "⇵": [t: "\\downuparrows𝐖"]           # 0x21f5
+# - "⇵": [t: "\\DownArrowUpArrow𝐖"]      # 0x21f5
+ - "⇶": [t: "\\rightthreearrows𝐖"]       # 0x21f6
+ - "⇷": [t: "\\nvleftarrow𝐖"]            # 0x21f7
+ - "⇸": [t: "\\nvrightarrow𝐖"]           # 0x21f8
+ - "⇹": [t: "\\nvleftrightarrow𝐖"]       # 0x21f9
+ - "⇺": [t: "\\nVleftarrow𝐖"]            # 0x21fa
+ - "⇻": [t: "\\nVrightarrow𝐖"]           # 0x21fb
+ - "⇼": [t: "\\nVleftrightarrow𝐖"]       # 0x21fc
+ - "⇽": [t: "\\leftarrowtriangle𝐖"]      # 0x21fd
+ - "⇾": [t: "\\rightarrowtriangle𝐖"]     # 0x21fe
+ - "⇿": [t: "\\leftrightarrowtriangle𝐖"] # 0x21ff
+ - "∁": [t: "\\complement𝐖"]             # 0x2201
+ - "∋": [t: "\\ni𝐖"]                     # 0x220b
+# - "∋": [t: "\\owns𝐖"]                  # 0x220b
+ - "∌": [t: "\\not\\ni𝐖"]                # 0x220c
+ - "∍": [t: "\\smallni𝐖"]                # 0x220d
+ - "∎": [t: "\\QED𝐖"]                    # 0x220e
+ - "∔": [t: "\\dotplus𝐖"]                # 0x2214
+ - "∕": [t: "\\divslash𝐖"]               # 0x2215
+ - "∖": [t: "\\setminus𝐖"]               # 0x2216
+# - "∖": [t: "\\smallsetminus𝐖"]         # 0x2216
+ - "∙": [t: "\\vysmblkcircle𝐖"]          # 0x2219
+# - "∙": [t: "\\bullet𝐖"]                # 0x2219
+ - "∛": [t: "\\sqrt[3]𝐖x𝐖"]              # 0x221b
+ - "∜": [t: "\\sqrt[4]𝐖x𝐖"]              # 0x221c
+ - "∢": [t: "\\sphericalangle𝐖"]         # 0x2222
+ - "∯": [t: "\\oiint𝐖"]                  # 0x222f
+ - "∰": [t: "\\oiiint𝐖"]                 # 0x2230
+ - "∱": [t: "\\intclockwise𝐖"]           # 0x2231
+# - "∱": [t: "\\clwintegral𝐖"]           # 0x2231
+ - "∲": [t: "\\varointclockwise𝐖"]       # 0x2232
+# - "∲": [t: "\\ElsevierGlyph{2232}"]    # 0x2232
+ - "∳": [t: "\\ointctrclockwise𝐖"]       # 0x2233
+# - "∳": [t: "\\ElsevierGlyph{2233}"]    # 0x2233
+ - "∴": [t: "\\therefore𝐖"]              # 0x2234
+ - "∵": [t: "\\because𝐖"]                # 0x2235
+ - "∸": [t: "\\dotminus𝐖"]               # 0x2238
+# - "∸": [t: "\\ElsevierGlyph{2238}"]    # 0x2238
+ - "∹": [t: "\\dashcolon𝐖"]              # 0x2239
+ - "∺": [t: "\\dotsminusdots𝐖"]          # 0x223a
+# - "∺": [t: "\\mathbin{{:}\\!\\!{-}\\!\\!𝐖:}"] # 0x223a
+ - "∻": [t: "\\kernelcontraction𝐖"]      # 0x223b
+# - "∻": [t: "\\homothetic𝐖"]            # 0x223b
+ - "≀": [t: "\\wr𝐖"]                     # 0x2240
+ - "≁": [t: "\\not\\sim𝐖"]               # 0x2241
+# - "≁": [t: "\\nsim𝐖"]                  # 0x2241
+ - "≂": [t: "\\eqsim𝐖"]                  # 0x2242
+ - "≃": [t: "\\simeq𝐖"]                  # 0x2243
+ - "≄": [t: "\\nsime𝐖"]                  # 0x2244
+# - "≄": [t: "\\not\\simeq𝐖"]            # 0x2244
+ - "≅": [t: "\\cong𝐖"]                   # 0x2245
+ - "≆": [t: "\\simneqq𝐖"]                # 0x2246
+# - "≆": [t: "\\approxnotequal𝐖"]        # 0x2246
+ - "≇": [t: "\\not\\cong𝐖"]              # 0x2247
+# - "≇": [t: "\\ncong𝐖"]                 # 0x2247
+ - "≈":                                  # 0x2248
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\apx𝐖"]
+         else: [t: "\\approx𝐖"]
+ - "≉": [t: "\\napprox𝐖"]                # 0x2249
+# - "≉": [t: "\\not\\approx𝐖"]           # 0x2249
+ - "≊": [t: "\\approxeq𝐖"]               # 0x224a
+ - "≋": [t: "\\approxident𝐖"]            # 0x224b
+# - "≋": [t: "\\tildetrpl𝐖"]             # 0x224b
+ - "≌": [t: "\\backcong𝐖"]               # 0x224c
+# - "≌": [t: "\\allequal𝐖"]              # 0x224c
+ - "≍": [t: "\\asymp𝐖"]                  # 0x224d
+ - "≎": [t: "\\Bumpeq𝐖"]                 # 0x224e
+ - "≏": [t: "\\bumpeq𝐖"]                 # 0x224f
+ - "≐": [t: "\\doteq𝐖"]                  # 0x2250
+ - "≑": [t: "\\Doteq𝐖"]                  # 0x2251
+# - "≑": [t: "\\doteqdot𝐖"]              # 0x2251
+ - "≒": [t: "\\fallingdotseq𝐖"]          # 0x2252
+ - "≓": [t: "\\risingdotseq𝐖"]           # 0x2253
+ - "≔": [t: "\\coloneq𝐖"]                # 0x2254
+# - "≔": [t: "\\:=𝐖"]                    # 0x2254
+ - "≕": [t: "\\eqcolon𝐖"]                # 0x2255
+# - "≕": [t: "\\=:𝐖"]                    # 0x2255
+ - "≖": [t: "\\eqcirc𝐖"]                 # 0x2256
+ - "≗": [t: "\\circeq𝐖"]                 # 0x2257
+ - "≘": [t: "\\arceq𝐖"]                  # 0x2258
+ - "≙": [t: "\\widehat𝐖=𝐖"]              # 0x2259
+ - "≚": [t: "\\veeeq𝐖"]                  # 0x225a
+# - "≚": [t: "\\ElsevierGlyph{225A}"]    # 0x225a
+ - "≛": [t: "\\stareq𝐖"]                 # 0x225b
+# - "≛": [t: "\\starequal𝐖"]             # 0x225b
+ - "≜": [t: "\\triangleq𝐖"]              # 0x225c
+ - "≝": [t: "\\overset{\\operatorname{def}}𝐖=𝐖"] # 0x225d
+ - "≞": [t: "\\measeq𝐖"]                 # 0x225e
+ - "≟": [t: "\\overset{?}𝐖=𝐖"]           # 0x225f
+ - "≢": [t: "\\nequiv𝐖"]                 # 0x2262
+# - "≢": [t: "\\not\\equiv𝐖"]            # 0x2262
+ - "≣": [t: "\\Equiv𝐖"]                  # 0x2263
+ - "≨": [t: "\\lneqq𝐖"]                  # 0x2268
+# - "≨": [t: "\\lneq𝐖"]                  # 0x2268
+ - "≩": [t: "\\gneqq𝐖"]                  # 0x2269
+# - "≩": [t: "\\gneq𝐖"]                  # 0x2269
+ - "≪":                                  # 0x226a
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "<<"]
+         else: [t: "\\ll𝐖"]
+ - "≫":                                  # 0x226b
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: ">>"]
+         else: [t: "\\gg𝐖"]
+ - "≬": [t: "\\between𝐖"]                # 0x226c
+ - "≭": [t: "\\nasymp𝐖"]                 # 0x226d
+# - "≭": [t: "\\not\\kern-0.3em\\times𝐖"] # 0x226d
+ - "≮": [t: "\\nless𝐖"]                  # 0x226e
+ - "≯": [t: "\\ngtr𝐖"]                   # 0x226f
+ - "≰": [t: "\\not\\leq𝐖"]               # 0x2270
+# - "≰": [t: "\\nleq𝐖"]                  # 0x2270
+ - "≱": [t: "\\not\\geq𝐖"]               # 0x2271
+# - "≱": [t: "\\ngeq𝐖"]                  # 0x2271
+ - "≲": [t: "\\lesssim𝐖"]                # 0x2272
+ - "≳": [t: "\\gtrsim𝐖"]                 # 0x2273
+ - "≴": [t: "\\not\\lesssim𝐖"]           # 0x2274
+ - "≵": [t: "\\not\\gtrsim𝐖"]            # 0x2275
+ - "≶": [t: "\\lessgtr𝐖"]                # 0x2276
+ - "≷": [t: "\\gtrless𝐖"]                # 0x2277
+ - "≸": [t: "\\nlessgtr𝐖"]               # 0x2278
+# - "≸": [t: "\\notlessgreater𝐖"]        # 0x2278
+ - "≹": [t: "\\ngtrless𝐖"]               # 0x2279
+# - "≹": [t: "\\notgreaterless𝐖"]        # 0x2279
+ - "≼": [t: "\\preccurlyeq𝐖"]            # 0x227c
+ - "≽": [t: "\\succcurlyeq𝐖"]            # 0x227d
+ - "≾": [t: "\\precsim𝐖"]                # 0x227e
+ - "≿": [t: "\\succsim𝐖"]                # 0x227f
+ - "⊀": [t: "\\nprec𝐖"]                  # 0x2280
+# - "⊀": [t: "\\not\\prec𝐖"]             # 0x2280
+ - "⊁": [t: "\\nsucc𝐖"]                  # 0x2281
+# - "⊁": [t: "\\not\\succ𝐖"]             # 0x2281
+ - "⊈": [t: "\\not\\subseteq𝐖"]          # 0x2288
+ - "⊉": [t: "\\not\\supseteq𝐖"]          # 0x2289
+ - "⊊": [t: "\\subsetneq𝐖"]              # 0x228a
+ - "⊋": [t: "\\supsetneq𝐖"]              # 0x228b
+ - "⊌": [t: "\\cupleftarrow𝐖"]           # 0x228c
+ - "⊍": [t: "\\dot\\cup𝐖"]               # 0x228d
+ - "⊎": [t: "\\uplus𝐖"]                  # 0x228e
+ - "⊏": [t: "\\sqsubset𝐖"]               # 0x228f
+ - "⊐": [t: "\\sqsupset𝐖"]               # 0x2290
+ - "⊑": [t: "\\sqsubseteq𝐖"]             # 0x2291
+ - "⊒": [t: "\\sqsupseteq𝐖"]             # 0x2292
+ - "⊓": [t: "\\sqcap𝐖"]                  # 0x2293
+ - "⊔": [t: "\\sqcup𝐖"]                  # 0x2294
+ - "⊕":                                  # 0x2295
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\o+𝐖"]
+         else: [t: "\\oplus𝐖"]
+ - "⊖":                                  # 0x2296
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\o-𝐖"]
+         else: [t: "\\ominus𝐖"]
+ - "⊗":                                  # 0x2297
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\ox𝐖"]
+         else: [t: "\\otimes𝐖"]
+ - "⊘":                                  # 0x2298
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\o/𝐖"]
+         else: [t: "\\oslash𝐖"]
+ - "⊙": [t: "\\odot𝐖"]                   # 0x2299
+ - "⊚": [t: "\\circledcirc𝐖"]            # 0x229a
+ - "⊛": [t: "\\circledast𝐖"]             # 0x229b
+ - "⊜": [t: "\\circledequal𝐖"]           # 0x229c
+ - "⊝": [t: "\\circleddash𝐖"]            # 0x229d
+ - "⊞": [t: "\\boxplus𝐖"]                # 0x229e
+ - "⊟": [t: "\\boxminus𝐖"]               # 0x229f
+ - "⊠": [t: "\\boxtimes𝐖"]               # 0x22a0
+ - "⊡": [t: "\\boxdot𝐖"]                 # 0x22a1
+ - "⊢": [t: "\\vdash𝐖"]                  # 0x22a2
+ - "⊣": [t: "\\dashv𝐖"]                  # 0x22a3
+ - "⊤": [t: "\\top𝐖"]                    # 0x22a4
+ - "⊥": [t: "\\perp𝐖"]                   # 0x22a5
+# - "⊥": [t: "\\bot𝐖"]                   # 0x22a5
+ - "⊦": [t: "\\assert𝐖"]                 # 0x22a6
+ - "⊧": [t: "\\models𝐖"]                 # 0x22a7
+# - "⊧": [t: "\\truestate𝐖"]             # 0x22a7
+ - "⊨": [t: "\\models𝐖"]                 # 0x22a8
+ - "⊩": [t: "\\Vdash𝐖"]                  # 0x22a9
+ - "⊪": [t: "\\Vvdash𝐖"]                 # 0x22aa
+ - "⊫": [t: "\\VDash𝐖"]                  # 0x22ab
+ - "⊬": [t: "\\nvdash𝐖"]                 # 0x22ac
+ - "⊭": [t: "\\nvDash𝐖"]                 # 0x22ad
+ - "⊮": [t: "\\nVdash𝐖"]                 # 0x22ae
+ - "⊯": [t: "\\nVDash𝐖"]                 # 0x22af
+ - "⊰": [t: "\\prurel𝐖"]                 # 0x22b0
+ - "⊱": [t: "\\scurel𝐖"]                 # 0x22b1
+ - "⊲": [t: "\\vartriangleleft𝐖"]        # 0x22b2
+ - "⊳": [t: "\\vartriangleright𝐖"]       # 0x22b3
+ - "⊴": [t: "\\trianglelefteq𝐖"]         # 0x22b4
+ - "⊵": [t: "\\trianglerighteq𝐖"]        # 0x22b5
+ - "⊶": [t: "\\origof𝐖"]                 # 0x22b6
+# - "⊶": [t: "\\original𝐖"]              # 0x22b6
+ - "⊷": [t: "\\imageof𝐖"]                # 0x22b7
+# - "⊷": [t: "\\image𝐖"]                 # 0x22b7
+ - "⊸": [t: "\\multimap𝐖"]               # 0x22b8
+ - "⊹": [t: "\\hermitmatrix𝐖"]           # 0x22b9
+# - "⊹": [t: "\\hermitconjmatrix𝐖"]      # 0x22b9
+ - "⊺": [t: "\\intercal𝐖"]               # 0x22ba
+ - "⊻": [t: "\\veebar𝐖"]                 # 0x22bb
+ - "⊼": [t: "\\barwedge𝐖"]               # 0x22bc
+ - "⊽": [t: "\\barvee𝐖"]                 # 0x22bd
+ - "⊾": [t: "\\measuredrightangle𝐖"]     # 0x22be
+# - "⊾": [t: "\\rightanglearc𝐖"]         # 0x22be
+ - "⊿": [t: "\\varlrtriangle𝐖"]          # 0x22bf
+ - "⋀": [t: "\\bigwedge𝐖"]               # 0x22c0
+# - "⋀": [t: "\\bigwedge\\limits_{}"]    # 0x22c0
+ - "⋁": [t: "\\bigvee𝐖"]                 # 0x22c1
+# - "⋁": [t: "\\bigvee\\limits_{}"]      # 0x22c1
+ - "⋂": [t: "\\bigcap𝐖"]                 # 0x22c2
+ - "⋃": [t: "\\bigcup𝐖"]                 # 0x22c3
+ - "⋄": [t: "\\smwhtdiamond𝐖"]           # 0x22c4
+# - "⋄": [t: "\\diamond𝐖"]               # 0x22c4
+ - "⋅": [t: "\\cdot𝐖"]                   # 0x22c5
+ - "⋆": [t: "\\star𝐖"]                   # 0x22c6
+ - "⋇": [t: "\\divideontimes𝐖"]          # 0x22c7
+ - "⋈": [t: "\\bowtie𝐖"]                 # 0x22c8
+ - "⋉": [t: "\\ltimes𝐖"]                 # 0x22c9
+ - "⋊": [t: "\\rtimes𝐖"]                 # 0x22ca
+ - "⋋": [t: "\\leftthreetimes𝐖"]         # 0x22cb
+ - "⋌": [t: "\\rightthreetimes𝐖"]        # 0x22cc
+ - "⋍": [t: "\\backsimeq𝐖"]              # 0x22cd
+ - "⋎": [t: "\\curlyvee𝐖"]               # 0x22ce
+ - "⋏": [t: "\\curlywedge𝐖"]             # 0x22cf
+ - "⋐": [t: "\\Subset𝐖"]                 # 0x22d0
+ - "⋑": [t: "\\Supset𝐖"]                 # 0x22d1
+ - "⋒": [t: "\\Cap𝐖"]                    # 0x22d2
+ - "⋓": [t: "\\Cup𝐖"]                    # 0x22d3
+ - "⋔": [t: "\\pitchfork𝐖"]              # 0x22d4
+ - "⋕": [t: "\\equalparallel𝐖"]          # 0x22d5
+ - "⋖": [t: "\\lessdot𝐖"]                # 0x22d6
+ - "⋗": [t: "\\gtrdot𝐖"]                 # 0x22d7
+ - "⋘": [t: "\\lll𝐖"]                    # 0x22d8
+# - "⋘": [t: "\\verymuchless𝐖"]          # 0x22d8
+ - "⋙": [t: "\\ggg𝐖"]                    # 0x22d9
+# - "⋙": [t: "\\verymuchgreater𝐖"]       # 0x22d9
+ - "⋚": [t: "\\lesseqgtr𝐖"]              # 0x22da
+ - "⋛": [t: "\\gtreqless𝐖"]              # 0x22db
+ - "⋜": [t: "\\eqless𝐖"]                 # 0x22dc
+ - "⋝": [t: "\\eqgtr𝐖"]                  # 0x22dd
+ - "⋞": [t: "\\curlyeqprec𝐖"]            # 0x22de
+ - "⋟": [t: "\\curlyeqsucc𝐖"]            # 0x22df
+ - "⋠": [t: "\\npreccurlyeq𝐖"]           # 0x22e0
+ - "⋡": [t: "\\nsucccurlyeq𝐖"]           # 0x22e1
+ - "⋢": [t: "\\not\\sqsubseteq𝐖"]        # 0x22e2
+ - "⋣": [t: "\\not\\sqsupseteq𝐖"]        # 0x22e3
+ - "⋤": [t: "\\sqsubsetneq𝐖"]            # 0x22e4
+ - "⋥": [t: "\\sqsupsetneq𝐖"]            # 0x22e5
+# - "⋥": [t: "\\Elzsqspne𝐖"]             # 0x22e5
+ - "⋦": [t: "\\lnsim𝐖"]                  # 0x22e6
+ - "⋧": [t: "\\gnsim𝐖"]                  # 0x22e7
+ - "⋨": [t: "\\precnsim𝐖"]               # 0x22e8
+# - "⋨": [t: "\\precedesnotsimilar𝐖"]    # 0x22e8
+ - "⋩": [t: "\\succnsim𝐖"]               # 0x22e9
+# - "⋩": [t: "\\succnapprox𝐖"]           # 0x22e9
+ - "⋪": [t: "\\not\\vartriangleleft𝐖"]   # 0x22ea
+ - "⋫": [t: "\\not\\vartriangleright𝐖"]  # 0x22eb
+ - "⋬": [t: "\\not\\trianglelefteq𝐖"]    # 0x22ec
+ - "⋭": [t: "\\not\\trianglerighteq𝐖"]   # 0x22ed
+ - "⋮":                                  # 0x22ee
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\vd𝐖"]
+         else: [t: "\\vdots𝐖"]
+ - "⋯":                                  # 0x22ef
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\cd𝐖"]
+         else: [t: "\\cdots𝐖"]
+ - "⋰": [t: "\\adots𝐖"]                  # 0x22f0
+# - "⋰": [t: "\\upslopeellipsis𝐖"]       # 0x22f0
+ - "⋱":                                  # 0x22f1
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\dd𝐖"]
+         else: [t: "\\ddots𝐖"]
+# - "⋱": [t: "\\downslopeellipsis𝐖"]     # 0x22f1
+ - "⋲": [t: "\\disin𝐖"]                  # 0x22f2
+ - "⋳": [t: "\\varisins𝐖"]               # 0x22f3
+ - "⋴": [t: "\\isins𝐖"]                  # 0x22f4
+ - "⋵": [t: "\\isindot𝐖"]                # 0x22f5
+ - "⋶": [t: "\\varisinobar𝐖"]            # 0x22f6
+ - "⋷": [t: "\\isinobar𝐖"]               # 0x22f7
+ - "⋸": [t: "\\isinvb𝐖"]                 # 0x22f8
+ - "⋹": [t: "\\isinE𝐖"]                  # 0x22f9
+ - "⋺": [t: "\\nisd𝐖"]                   # 0x22fa
+ - "⋻": [t: "\\varnis𝐖"]                 # 0x22fb
+ - "⋼": [t: "\\nis𝐖"]                    # 0x22fc
+ - "⋽": [t: "\\varniobar𝐖"]              # 0x22fd
+ - "⋾": [t: "\\niobar𝐖"]                 # 0x22fe
+ - "⋿": [t: "\\bagmember𝐖"]              # 0x22ff
+ - "⌀": [t: "\\diameter𝐖"]               # 0x2300
+ - "⌂": [t: "\\house𝐖"]                  # 0x2302
+ - "⌅": [t: "\\varbarwedge𝐖"]            # 0x2305
+# - "⌅": [t: "\\barwedge𝐖"]              # 0x2305
+ - "⌆": [t: "\\vardoublebarwedge𝐖"]      # 0x2306
+# - "⌆": [t: "\\varperspcorrespond𝐖"]    # 0x2306
+ - "⌈": [t: "\\lceil𝐖"]                  # 0x2308
+ - "⌉": [t: "\\rceil𝐖"]                  # 0x2309
+ - "⌊": [t: "\\lfloor𝐖"]                 # 0x230a
+ - "⌋": [t: "\\rfloor𝐖"]                 # 0x230b
+ - "⌐": [t: "\\invnot𝐖"]                 # 0x2310
+ - "⌑": [t: "\\sqlozenge𝐖"]              # 0x2311
+ - "⌒": [t: "\\profline𝐖"]               # 0x2312
+ - "⌓": [t: "\\profsurf𝐖"]               # 0x2313
+ - "⌕": [t: "\\recorder𝐖"]               # 0x2315
+ - "⌗": [t: "\\viewdata𝐖"]               # 0x2317
+ - "⌙": [t: "\\turnednot𝐖"]              # 0x2319
+ - "⌜": [t: "\\ulcorner𝐖"]               # 0x231c
+ - "⌝": [t: "\\urcorner𝐖"]               # 0x231d
+ - "⌞": [t: "\\llcorner𝐖"]               # 0x231e
+ - "⌟": [t: "\\mathbin{\\lrcorner}"]     # 0x231f
+ - "⌠": [t: "\\inttop𝐖"]                 # 0x2320
+ - "⌡": [t: "\\intbottom𝐖"]              # 0x2321
+ - "⌢": [t: "\\frown𝐖"]                  # 0x2322
+ - "⌣": [t: "\\smile𝐖"]                  # 0x2323
+ - "⌬": [t: "\\varhexagonlrbonds𝐖"]      # 0x232c
+ - "⌲": [t: "\\conictaper𝐖"]             # 0x2332
+ - "⌶": [t: "\\topbot𝐖"]                 # 0x2336
+ - "⌽": [t: "\\obar𝐖"]                   # 0x233d
+# - "⌽": [t: "\\ElsevierGlyph{E838}"]    # 0x233d
+ - "⌿": [t: "\\APLnotslash𝐖"]            # 0x233f
+ - "⍀": [t: "\\APLnotbackslash𝐖"]        # 0x2340
+ - "⍓": [t: "\\APLboxupcaret𝐖"]          # 0x2353
+ - "⍰": [t: "\\APLboxquestion𝐖"]         # 0x2370
+ - "⍼": [t: "\\rangledownzigzagarrow𝐖"]  # 0x237c
+ - "⎔": [t: "\\hexagon𝐖"]                # 0x2394
+ - "⎛": [t: "\\lparenuend𝐖"]             # 0x239b
+ - "⎜": [t: "\\lparenextender𝐖"]         # 0x239c
+ - "⎝": [t: "\\lparenlend𝐖"]             # 0x239d
+ - "⎞": [t: "\\rparenuend𝐖"]             # 0x239e
+ - "⎟": [t: "\\rparenextender𝐖"]         # 0x239f
+ - "⎠": [t: "\\rparenlend𝐖"]             # 0x23a0
+ - "⎡": [t: "\\lbrackuend𝐖"]             # 0x23a1
+ - "⎢": [t: "\\lbrackextender𝐖"]         # 0x23a2
+ - "⎣": [t: "\\lbracklend𝐖"]             # 0x23a3
+# - "⎣": [t: "\\Elzdlcorn𝐖"]             # 0x23a3
+ - "⎤": [t: "\\rbrackuend𝐖"]             # 0x23a4
+ - "⎥": [t: "\\rbrackextender𝐖"]         # 0x23a5
+ - "⎦": [t: "\\rbracklend𝐖"]             # 0x23a6
+ - "⎧": [t: "\\lbraceuend𝐖"]             # 0x23a7
+ - "⎨": [t: "\\lbracemid𝐖"]              # 0x23a8
+ - "⎩": [t: "\\lbracelend𝐖"]             # 0x23a9
+ - "⎪": [t: "\\vbraceextender𝐖"]         # 0x23aa
+ - "⎫": [t: "\\rbraceuend𝐖"]             # 0x23ab
+ - "⎬": [t: "\\rbracemid𝐖"]              # 0x23ac
+ - "⎭": [t: "\\rbracelend𝐖"]             # 0x23ad
+ - "⎮": [t: "\\intextender𝐖"]            # 0x23ae
+ - "⎯": [t: "\\harrowextender𝐖"]         # 0x23af
+ - "⎰": [t: "\\lmoustache𝐖"]             # 0x23b0
+ - "⎱": [t: "\\rmoustache𝐖"]             # 0x23b1
+ - "⎲": [t: "\\sumtop𝐖"]                 # 0x23b2
+ - "⎳": [t: "\\sumbottom𝐖"]              # 0x23b3
+ - "⎴": [t: "\\overbracket𝐖"]            # 0x23b4
+ - "⎵": [t: "\\underbracket𝐖"]           # 0x23b5
+ - "⎶": [t: "\\bbrktbrk𝐖"]               # 0x23b6
+ - "⎷": [t: "\\sqrtbottom𝐖"]             # 0x23b7
+ - "⎸": [t: "\\lvboxline𝐖"]              # 0x23b8
+ - "⎹": [t: "\\rvboxline𝐖"]              # 0x23b9
+ - "⏎": [t: "\\varcarriagereturn𝐖"]      # 0x23ce
+ - "⏜": [t: "\\overparen𝐖"]              # 0x23dc
+ - "⏝": [t: "\\underparen𝐖"]             # 0x23dd
+ - "⏞": [t: "\\overbrace𝐖"]              # 0x23de
+ - "⏟": [t: "\\underbrace𝐖"]             # 0x23df
+ - "⏠": [t: "\\obrbrak𝐖"]                # 0x23e0
+ - "⏡": [t: "\\ubrbrak𝐖"]                # 0x23e1
+ - "⏢": [t: "\\trapezium𝐖"]              # 0x23e2
+ - "⏣": [t: "\\benzenr𝐖"]                # 0x23e3
+ - "⏤": [t: "\\strns𝐖"]                  # 0x23e4
+ - "⏥": [t: "\\fltns𝐖"]                  # 0x23e5
+ - "⏦": [t: "\\accurrent𝐖"]              # 0x23e6
+ - "⏧": [t: "\\elinters𝐖"]               # 0x23e7
+ - "␢": [t: "\\blanksymbol𝐖"]            # 0x2422
+ - "␣": [t: "\\mathvisiblespace𝐖"]       # 0x2423
+# - "␣": [t: "\\textvisiblespace𝐖"]      # 0x2423
+ - "①": [t: "\\ding{172}"]               # 0x2460
+ - "②": [t: "\\ding{173}"]               # 0x2461
+ - "③": [t: "\\ding{174}"]               # 0x2462
+ - "④": [t: "\\ding{175}"]               # 0x2463
+ - "⑤": [t: "\\ding{176}"]               # 0x2464
+ - "⑥": [t: "\\ding{177}"]               # 0x2465
+ - "⑦": [t: "\\ding{178}"]               # 0x2466
+ - "⑧": [t: "\\ding{179}"]               # 0x2467
+ - "⑨": [t: "\\ding{180}"]               # 0x2468
+ - "⑩": [t: "\\ding{181}"]               # 0x2469
+ - "Ⓢ": [t: "\\circledS𝐖"]               # 0x24c8
+ - "┆": [t: "\\bdtriplevdash𝐖"]          # 0x2506
+# - "┆": [t: "\\Elzdshfnc𝐖"]             # 0x2506
+ - "┙": [t: "\\Elzsqfnw𝐖"]               # 0x2519
+ - "╱": [t: "\\diagup𝐖"]                 # 0x2571
+ - "▀": [t: "\\blockuphalf𝐖"]            # 0x2580
+ - "▄": [t: "\\blocklowhalf𝐖"]           # 0x2584
+ - "█": [t: "\\blockfull𝐖"]              # 0x2588
+ - "▌": [t: "\\blocklefthalf𝐖"]          # 0x258c
+ - "▐": [t: "\\blockrighthalf𝐖"]         # 0x2590
+ - "░": [t: "\\blockqtrshaded𝐖"]         # 0x2591
+ - "▒": [t: "\\blockhalfshaded𝐖"]        # 0x2592
+ - "▓": [t: "\\blockthreeqtrshaded𝐖"]    # 0x2593
+ - "■": [t: "\\blacksquare𝐖"]            # 0x25a0
+ - "□": [t: "\\square𝐖"]                 # 0x25a1
+# - "□": [t: "\\Box𝐖"]                   # 0x25a1
+ - "▢": [t: "\\squoval𝐖"]                # 0x25a2
+ - "▣": [t: "\\blackinwhitesquare𝐖"]     # 0x25a3
+ - "▤": [t: "\\squarehfill𝐖"]            # 0x25a4
+ - "▥": [t: "\\squarevfill𝐖"]            # 0x25a5
+ - "▦": [t: "\\squarehvfill𝐖"]           # 0x25a6
+ - "▧": [t: "\\squarenwsefill𝐖"]         # 0x25a7
+ - "▨": [t: "\\squareneswfill𝐖"]         # 0x25a8
+ - "▩": [t: "\\squarecrossfill𝐖"]        # 0x25a9
+ - "▪": [t: "\\smblksquare𝐖"]            # 0x25aa
+# - "▪": [t: "\\blacksquare𝐖"]           # 0x25aa
+ - "▫": [t: "\\smwhtsquare𝐖"]            # 0x25ab
+ - "▬": [t: "\\hrectangleblack𝐖"]        # 0x25ac
+ - "▭": [t: "\\hrectangle𝐖"]             # 0x25ad
+# - "▭": [t: "\\fbox{~~}"]               # 0x25ad
+ - "▮": [t: "\\vrectangleblack𝐖"]        # 0x25ae
+ - "▯": [t: "\\vrectangle𝐖"]             # 0x25af
+# - "▯": [t: "\\Elzvrecto𝐖"]             # 0x25af
+ - "▰": [t: "\\parallelogramblack𝐖"]     # 0x25b0
+ - "▱": [t: "\\parallelogram𝐖"]          # 0x25b1
+# - "▱": [t: "\\ElsevierGlyph{E381}"]    # 0x25b1
+ - "▲": [t: "\\bigblacktriangleup𝐖"]     # 0x25b2
+# - "▲": [t: "\\ding{115}"]              # 0x25b2
+ - "△":                                  # 0x25b3
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\tri𝐖"]
+         else: [t: "\\triangle𝐖"]
+ - "▴": [t: "\\blacktriangle𝐖"]          # 0x25b4
+ - "▵": [t: "\\vartriangle𝐖"]            # 0x25b5
+ - "▶": [t: "\\blacktriangleright𝐖"]     # 0x25b6
+ - "▷": [t: "\\triangleright𝐖"]          # 0x25b7
+ - "▸": [t: "\\smallblacktriangleright𝐖"] # 0x25b8
+# - "▸": [t: "\\blacktriangleright𝐖"]    # 0x25b8
+ - "▹": [t: "\\smalltriangleright𝐖"]     # 0x25b9
+# - "▹": [t: "\\triangleright𝐖"]         # 0x25b9
+ - "►": [t: "\\blackpointerright𝐖"]      # 0x25ba
+ - "▻": [t: "\\whitepointerright𝐖"]      # 0x25bb
+ - "▼": [t: "\\bigblacktriangledown𝐖"]   # 0x25bc
+# - "▼": [t: "\\ding{116}"]              # 0x25bc
+ - "▽": [t: "\\bigtriangledown𝐖"]        # 0x25bd
+ - "▾": [t: "\\blacktriangledown𝐖"]      # 0x25be
+ - "▿": [t: "\\triangledown𝐖"]           # 0x25bf
+ - "◀": [t: "\\blacktriangleleft𝐖"]      # 0x25c0
+ - "◁": [t: "\\triangleleft𝐖"]           # 0x25c1
+ - "◂": [t: "\\smallblacktriangleleft𝐖"] # 0x25c2
+# - "◂": [t: "\\blacktriangleleft𝐖"]     # 0x25c2
+ - "◃": [t: "\\smalltriangleleft𝐖"]      # 0x25c3
+# - "◃": [t: "\\triangleleft𝐖"]          # 0x25c3
+ - "◄": [t: "\\blackpointerleft𝐖"]       # 0x25c4
+ - "◅": [t: "\\whitepointerleft𝐖"]       # 0x25c5
+ - "◆": [t: "\\mdlgblkdiamond𝐖"]         # 0x25c6
+# - "◆": [t: "\\ding{117}"]              # 0x25c6
+ - "◇": [t: "\\mdlgwhtdiamond𝐖"]         # 0x25c7
+ - "◈": [t: "\\blackinwhitediamond𝐖"]    # 0x25c8
+ - "◉": [t: "\\fisheye𝐖"]                # 0x25c9
+ - "◊": [t: "\\mdlgwhtlozenge𝐖"]         # 0x25ca
+# - "◊": [t: "\\lozenge𝐖"]               # 0x25ca
+ - "○": [t: "\\mdlgwhtcircle𝐖"]          # 0x25cb
+# - "○": [t: "\\bigcirc𝐖"]               # 0x25cb
+ - "◌": [t: "\\dottedcircle𝐖"]           # 0x25cc
+ - "◍": [t: "\\circlevertfill𝐖"]         # 0x25cd
+ - "◎": [t: "\\bullseye𝐖"]               # 0x25ce
+ - "●": [t: "\\mdlgblkcircle𝐖"]          # 0x25cf
+# - "●": [t: "\\ding{108}"]              # 0x25cf
+ - "◐": [t: "\\circlelefthalfblack𝐖"]    # 0x25d0
+# - "◐": [t: "\\Elzcirfl𝐖"]              # 0x25d0
+ - "◑": [t: "\\circlerighthalfblack𝐖"]   # 0x25d1
+# - "◑": [t: "\\Elzcirfr𝐖"]              # 0x25d1
+ - "◒": [t: "\\circlebottomhalfblack𝐖"]  # 0x25d2
+# - "◒": [t: "\\Elzcirfb𝐖"]              # 0x25d2
+ - "◓": [t: "\\circletophalfblack𝐖"]     # 0x25d3
+ - "◔": [t: "\\circleurquadblack𝐖"]      # 0x25d4
+ - "◕": [t: "\\blackcircleulquadwhite𝐖"] # 0x25d5
+ - "◖": [t: "\\blacklefthalfcircle𝐖"]    # 0x25d6
+ - "◗": [t: "\\blackrighthalfcircle𝐖"]   # 0x25d7
+# - "◗": [t: "\\ding{119}"]              # 0x25d7
+ - "◘": [t: "\\inversebullet𝐖"]          # 0x25d8
+# - "◘": [t: "\\Elzrvbull𝐖"]             # 0x25d8
+ - "◙": [t: "\\inversewhitecircle𝐖"]     # 0x25d9
+ - "◚": [t: "\\invwhiteupperhalfcircle𝐖"] # 0x25da
+ - "◛": [t: "\\invwhitelowerhalfcircle𝐖"] # 0x25db
+ - "◜": [t: "\\ularc𝐖"]                  # 0x25dc
+ - "◝": [t: "\\urarc𝐖"]                  # 0x25dd
+ - "◞": [t: "\\lrarc𝐖"]                  # 0x25de
+ - "◟": [t: "\\llarc𝐖"]                  # 0x25df
+ - "◠": [t: "\\topsemicircle𝐖"]          # 0x25e0
+ - "◡": [t: "\\botsemicircle𝐖"]          # 0x25e1
+ - "◢": [t: "\\lrblacktriangle𝐖"]        # 0x25e2
+ - "◣": [t: "\\llblacktriangle𝐖"]        # 0x25e3
+ - "◤": [t: "\\ulblacktriangle𝐖"]        # 0x25e4
+ - "◥": [t: "\\urblacktriangle𝐖"]        # 0x25e5
+ - "◦": [t: "\\smwhtcircle𝐖"]            # 0x25e6
+ - "◧": [t: "\\squareleftblack𝐖"]        # 0x25e7
+# - "◧": [t: "\\Elzsqfl𝐖"]               # 0x25e7
+ - "◨": [t: "\\squarerightblack𝐖"]       # 0x25e8
+# - "◨": [t: "\\Elzsqfr𝐖"]               # 0x25e8
+ - "◩": [t: "\\squareulblack𝐖"]          # 0x25e9
+ - "◪": [t: "\\squarelrblack𝐖"]          # 0x25ea
+# - "◪": [t: "\\Elzsqfse𝐖"]              # 0x25ea
+ - "◫": [t: "\\boxbar𝐖"]                 # 0x25eb
+ - "◬": [t: "\\trianglecdot𝐖"]           # 0x25ec
+ - "◭": [t: "\\triangleleftblack𝐖"]      # 0x25ed
+ - "◮": [t: "\\trianglerightblack𝐖"]     # 0x25ee
+ - "◯": [t: "\\lgwhtcircle𝐖"]            # 0x25ef
+# - "◯": [t: "\\bigcirc𝐖"]               # 0x25ef
+ - "◰": [t: "\\squareulquad𝐖"]           # 0x25f0
+ - "◱": [t: "\\squarellquad𝐖"]           # 0x25f1
+ - "◲": [t: "\\squarelrquad𝐖"]           # 0x25f2
+ - "◳": [t: "\\squareurquad𝐖"]           # 0x25f3
+ - "◴": [t: "\\circleulquad𝐖"]           # 0x25f4
+ - "◵": [t: "\\circlellquad𝐖"]           # 0x25f5
+ - "◶": [t: "\\circlelrquad𝐖"]           # 0x25f6
+ - "◷": [t: "\\circleurquad𝐖"]           # 0x25f7
+ - "◸": [t: "\\ultriangle𝐖"]             # 0x25f8
+ - "◹": [t: "\\urtriangle𝐖"]             # 0x25f9
+ - "◺": [t: "\\lltriangle𝐖"]             # 0x25fa
+ - "◻": [t: "\\mdwhtsquare𝐖"]            # 0x25fb
+ - "◼": [t: "\\mdblksquare𝐖"]            # 0x25fc
+ - "◽": [t: "\\mdsmwhtsquare𝐖"]          # 0x25fd
+ - "◾": [t: "\\mdsmblksquare𝐖"]          # 0x25fe
+ - "◿": [t: "\\lrtriangle𝐖"]             # 0x25ff
+ - "★": [t: "\\bigstar𝐖"]                # 0x2605
+# - "★": [t: "\\ding{72}"]               # 0x2605
+ - "☆": [t: "\\bigwhitestar𝐖"]           # 0x2606
+# - "☆": [t: "\\ding{73}"]               # 0x2606
+ - "☉": [t: "\\astrosun𝐖"]               # 0x2609
+ - "☎": [t: "\\ding{37}"]                # 0x260e
+ - "☛": [t: "\\ding{42}"]                # 0x261b
+ - "☞": [t: "\\ding{43}"]                # 0x261e
+ - "☡": [t: "\\danger𝐖"]                 # 0x2621
+ - "☻": [t: "\\blacksmiley𝐖"]            # 0x263b
+ - "☼": [t: "\\sun𝐖"]                    # 0x263c
+ - "☽": [t: "\\rightmoon𝐖"]              # 0x263d
+ - "☾": [t: "\\leftmoon𝐖"]               # 0x263e
+# - "☾": [t: "\\rightmoon𝐖"]             # 0x263e
+ - "☿": [t: "\\mercury𝐖"]                # 0x263f
+ - "♀": [t: "\\female𝐖"]                 # 0x2640
+# - "♀": [t: "\\venus𝐖"]                 # 0x2640
+ - "♂": [t: "\\male𝐖"]                   # 0x2642
+ - "♃": [t: "\\jupiter𝐖"]                # 0x2643
+ - "♄": [t: "\\saturn𝐖"]                 # 0x2644
+ - "♅": [t: "\\uranus𝐖"]                 # 0x2645
+ - "♆": [t: "\\neptune𝐖"]                # 0x2646
+ - "♇": [t: "\\pluto𝐖"]                  # 0x2647
+ - "♈": [t: "\\aries𝐖"]                  # 0x2648
+ - "♉": [t: "\\taurus𝐖"]                 # 0x2649
+ - "♊": [t: "\\gemini𝐖"]                 # 0x264a
+ - "♋": [t: "\\cancer𝐖"]                 # 0x264b
+ - "♌": [t: "\\leo𝐖"]                    # 0x264c
+ - "♍": [t: "\\virgo𝐖"]                  # 0x264d
+ - "♎": [t: "\\libra𝐖"]                  # 0x264e
+ - "♏": [t: "\\scorpio𝐖"]                # 0x264f
+ - "♐": [t: "\\sagittarius𝐖"]            # 0x2650
+ - "♑": [t: "\\capricornus𝐖"]            # 0x2651
+ - "♒": [t: "\\aquarius𝐖"]               # 0x2652
+ - "♓": [t: "\\pisces𝐖"]                 # 0x2653
+ - "♠": [t: "\\spadesuit𝐖"]              # 0x2660
+# - "♠": [t: "\\ding{171}"]              # 0x2660
+ - "♡": [t: "\\heartsuit𝐖"]              # 0x2661
+ - "♢": [t: "\\diamondsuit𝐖"]            # 0x2662
+# - "♢": [t: "\\diamond𝐖"]               # 0x2662
+ - "♣": [t: "\\clubsuit𝐖"]               # 0x2663
+# - "♣": [t: "\\ding{168}"]              # 0x2663
+ - "♤": [t: "\\varspadesuit𝐖"]           # 0x2664
+ - "♥": [t: "\\varheartsuit𝐖"]           # 0x2665
+# - "♥": [t: "\\ding{170}"]              # 0x2665
+ - "♦": [t: "\\vardiamondsuit𝐖"]         # 0x2666
+# - "♦": [t: "\\ding{169}"]              # 0x2666
+ - "♧": [t: "\\varclubsuit𝐖"]            # 0x2667
+ - "♩": [t: "\\quarternote𝐖"]            # 0x2669
+ - "♪": [t: "\\eighthnote𝐖"]             # 0x266a
+ - "♫": [t: "\\twonotes𝐖"]               # 0x266b
+ - "♭": [t: "\\flat𝐖"]                   # 0x266d
+ - "♮": [t: "\\natural𝐖"]                # 0x266e
+ - "♯": [t: "\\sharp𝐖"]                  # 0x266f
+ - "♾": [t: "\\acidfree𝐖"]               # 0x267e
+ - "⚀": [t: "\\dicei𝐖"]                  # 0x2680
+ - "⚁": [t: "\\diceii𝐖"]                 # 0x2681
+ - "⚂": [t: "\\diceiii𝐖"]                # 0x2682
+ - "⚃": [t: "\\diceiv𝐖"]                 # 0x2683
+ - "⚄": [t: "\\dicev𝐖"]                  # 0x2684
+ - "⚅": [t: "\\dicevi𝐖"]                 # 0x2685
+ - "⚆": [t: "\\circledrightdot𝐖"]        # 0x2686
+ - "⚇": [t: "\\circledtwodots𝐖"]         # 0x2687
+ - "⚈": [t: "\\blackcircledrightdot𝐖"]   # 0x2688
+ - "⚉": [t: "\\blackcircledtwodots𝐖"]    # 0x2689
+ - "⚥": [t: "\\Hermaphrodite𝐖"]          # 0x26a5
+ - "⚪": [t: "\\mdwhtcircle𝐖"]            # 0x26aa
+ - "⚫": [t: "\\mdblkcircle𝐖"]            # 0x26ab
+ - "⚬": [t: "\\mdsmwhtcircle𝐖"]          # 0x26ac
+ - "⚲": [t: "\\neuter𝐖"]                 # 0x26b2
+ - "✁": [t: "\\ding{33}"]                # 0x2701
+ - "✂": [t: "\\ding{34}"]                # 0x2702
+ - "✃": [t: "\\ding{35}"]                # 0x2703
+ - "✄": [t: "\\ding{36}"]                # 0x2704
+ - "✆": [t: "\\ding{38}"]                # 0x2706
+ - "✇": [t: "\\ding{39}"]                # 0x2707
+ - "✈": [t: "\\ding{40}"]                # 0x2708
+ - "✉": [t: "\\ding{41}"]                # 0x2709
+ - "✌": [t: "\\ding{44}"]                # 0x270c
+ - "✍": [t: "\\ding{45}"]                # 0x270d
+ - "✎": [t: "\\ding{46}"]                # 0x270e
+ - "✏": [t: "\\ding{47}"]                # 0x270f
+ - "✐": [t: "\\ding{48}"]                # 0x2710
+ - "✑": [t: "\\ding{49}"]                # 0x2711
+ - "✒": [t: "\\ding{50}"]                # 0x2712
+ - "✓": [t: "\\checkmark𝐖"]              # 0x2713
+# - "✓": [t: "\\ding{51}"]               # 0x2713
+ - "✔": [t: "\\ding{52}"]                # 0x2714
+ - "✕": [t: "\\ding{53}"]                # 0x2715
+ - "✖": [t: "\\ding{54}"]                # 0x2716
+ - "✗": [t: "\\ding{55}"]                # 0x2717
+ - "✘": [t: "\\ding{56}"]                # 0x2718
+ - "✙": [t: "\\ding{57}"]                # 0x2719
+ - "✚": [t: "\\ding{58}"]                # 0x271a
+ - "✛": [t: "\\ding{59}"]                # 0x271b
+ - "✜": [t: "\\ding{60}"]                # 0x271c
+ - "✝": [t: "\\ding{61}"]                # 0x271d
+ - "✞": [t: "\\ding{62}"]                # 0x271e
+ - "✟": [t: "\\ding{63}"]                # 0x271f
+ - "✠": [t: "\\maltese𝐖"]                # 0x2720
+# - "✠": [t: "\\ding{64}"]               # 0x2720
+ - "✡": [t: "\\ding{65}"]                # 0x2721
+ - "✢": [t: "\\ding{66}"]                # 0x2722
+ - "✣": [t: "\\ding{67}"]                # 0x2723
+ - "✤": [t: "\\ding{68}"]                # 0x2724
+ - "✥": [t: "\\ding{69}"]                # 0x2725
+ - "✦": [t: "\\ding{70}"]                # 0x2726
+ - "✧": [t: "\\ding{71}"]                # 0x2727
+ - "✩": [t: "\\ding{73}"]                # 0x2729
+ - "✪": [t: "\\circledstar𝐖"]            # 0x272a
+# - "✪": [t: "\\ding{74}"]               # 0x272a
+ - "✫": [t: "\\ding{75}"]                # 0x272b
+ - "✬": [t: "\\ding{76}"]                # 0x272c
+ - "✭": [t: "\\ding{77}"]                # 0x272d
+ - "✮": [t: "\\ding{78}"]                # 0x272e
+ - "✯": [t: "\\ding{79}"]                # 0x272f
+ - "✰": [t: "\\ding{80}"]                # 0x2730
+ - "✱": [t: "\\ding{81}"]                # 0x2731
+ - "✲": [t: "\\ding{82}"]                # 0x2732
+ - "✳": [t: "\\ding{83}"]                # 0x2733
+ - "✴": [t: "\\ding{84}"]                # 0x2734
+ - "✵": [t: "\\ding{85}"]                # 0x2735
+ - "✶": [t: "\\varstar𝐖"]                # 0x2736
+# - "✶": [t: "\\ding{86}"]               # 0x2736
+ - "✷": [t: "\\ding{87}"]                # 0x2737
+ - "✸": [t: "\\ding{88}"]                # 0x2738
+ - "✹": [t: "\\ding{89}"]                # 0x2739
+ - "✺": [t: "\\ding{90}"]                # 0x273a
+ - "✻": [t: "\\ding{91}"]                # 0x273b
+ - "✼": [t: "\\ding{92}"]                # 0x273c
+ - "✽": [t: "\\dingasterisk𝐖"]           # 0x273d
+# - "✽": [t: "\\ding{93}"]               # 0x273d
+ - "✾": [t: "\\ding{94}"]                # 0x273e
+ - "✿": [t: "\\ding{95}"]                # 0x273f
+ - "❀": [t: "\\ding{96}"]                # 0x2740
+ - "❁": [t: "\\ding{97}"]                # 0x2741
+ - "❂": [t: "\\ding{98}"]                # 0x2742
+ - "❃": [t: "\\ding{99}"]                # 0x2743
+ - "❄": [t: "\\ding{100}"]               # 0x2744
+ - "❅": [t: "\\ding{101}"]               # 0x2745
+ - "❆": [t: "\\ding{102}"]               # 0x2746
+ - "❇": [t: "\\ding{103}"]               # 0x2747
+ - "❈": [t: "\\ding{104}"]               # 0x2748
+ - "❉": [t: "\\ding{105}"]               # 0x2749
+ - "❊": [t: "\\ding{106}"]               # 0x274a
+ - "❋": [t: "\\ding{107}"]               # 0x274b
+ - "❍": [t: "\\ding{109}"]               # 0x274d
+ - "❏": [t: "\\ding{111}"]               # 0x274f
+ - "❐": [t: "\\ding{112}"]               # 0x2750
+ - "❑": [t: "\\ding{113}"]               # 0x2751
+ - "❒": [t: "\\ding{114}"]               # 0x2752
+ - "❖": [t: "\\ding{118}"]               # 0x2756
+ - "❘": [t: "\\ding{120}"]               # 0x2758
+ - "❙": [t: "\\ding{121}"]               # 0x2759
+ - "❚": [t: "\\ding{122}"]               # 0x275a
+ - "❛": [t: "\\ding{123}"]               # 0x275b
+ - "❜": [t: "\\ding{124}"]               # 0x275c
+ - "❝": [t: "\\ding{125}"]               # 0x275d
+ - "❞": [t: "\\ding{126}"]               # 0x275e
+ - "❡": [t: "\\ding{161}"]               # 0x2761
+ - "❢": [t: "\\ding{162}"]               # 0x2762
+ - "❣": [t: "\\ding{163}"]               # 0x2763
+ - "❤": [t: "\\ding{164}"]               # 0x2764
+ - "❥": [t: "\\ding{165}"]               # 0x2765
+ - "❦": [t: "\\ding{166}"]               # 0x2766
+ - "❧": [t: "\\ding{167}"]               # 0x2767
+ - "❲": [t: "\\lbrbrak𝐖"]                # 0x2772
+ - "❳": [t: "\\rbrbrak𝐖"]                # 0x2773
+ - "❶": [t: "\\ding{182}"]               # 0x2776
+ - "❷": [t: "\\ding{183}"]               # 0x2777
+ - "❸": [t: "\\ding{184}"]               # 0x2778
+ - "❹": [t: "\\ding{185}"]               # 0x2779
+ - "❺": [t: "\\ding{186}"]               # 0x277a
+ - "❻": [t: "\\ding{187}"]               # 0x277b
+ - "❼": [t: "\\ding{188}"]               # 0x277c
+ - "❽": [t: "\\ding{189}"]               # 0x277d
+ - "❾": [t: "\\ding{190}"]               # 0x277e
+ - "❿": [t: "\\ding{191}"]               # 0x277f
+ - "➀": [t: "\\ding{192}"]               # 0x2780
+ - "➁": [t: "\\ding{193}"]               # 0x2781
+ - "➂": [t: "\\ding{194}"]               # 0x2782
+ - "➃": [t: "\\ding{195}"]               # 0x2783
+ - "➄": [t: "\\ding{196}"]               # 0x2784
+ - "➅": [t: "\\ding{197}"]               # 0x2785
+ - "➆": [t: "\\ding{198}"]               # 0x2786
+ - "➇": [t: "\\ding{199}"]               # 0x2787
+ - "➈": [t: "\\ding{200}"]               # 0x2788
+ - "➉": [t: "\\ding{201}"]               # 0x2789
+ - "➊": [t: "\\ding{202}"]               # 0x278a
+ - "➋": [t: "\\ding{203}"]               # 0x278b
+ - "➌": [t: "\\ding{204}"]               # 0x278c
+ - "➍": [t: "\\ding{205}"]               # 0x278d
+ - "➎": [t: "\\ding{206}"]               # 0x278e
+ - "➏": [t: "\\ding{207}"]               # 0x278f
+ - "➐": [t: "\\ding{208}"]               # 0x2790
+ - "➑": [t: "\\ding{209}"]               # 0x2791
+ - "➒": [t: "\\ding{210}"]               # 0x2792
+ - "➓": [t: "\\ding{211}"]               # 0x2793
+ - "➔": [t: "\\ding{212}"]               # 0x2794
+ - "➘": [t: "\\ding{216}"]               # 0x2798
+ - "➙": [t: "\\ding{217}"]               # 0x2799
+ - "➚": [t: "\\ding{218}"]               # 0x279a
+ - "➛": [t: "\\draftingarrow𝐖"]          # 0x279b
+# - "➛": [t: "\\ding{219}"]              # 0x279b
+ - "➜": [t: "\\ding{220}"]               # 0x279c
+ - "➝": [t: "\\ding{221}"]               # 0x279d
+ - "➞": [t: "\\ding{222}"]               # 0x279e
+ - "➟": [t: "\\ding{223}"]               # 0x279f
+ - "➠": [t: "\\ding{224}"]               # 0x27a0
+ - "➡": [t: "\\ding{225}"]               # 0x27a1
+ - "➢": [t: "\\ding{226}"]               # 0x27a2
+ - "➣": [t: "\\ding{227}"]               # 0x27a3
+ - "➤": [t: "\\ding{228}"]               # 0x27a4
+ - "➥": [t: "\\ding{229}"]               # 0x27a5
+ - "➦": [t: "\\ding{230}"]               # 0x27a6
+ - "➧": [t: "\\ding{231}"]               # 0x27a7
+ - "➨": [t: "\\ding{232}"]               # 0x27a8
+ - "➩": [t: "\\ding{233}"]               # 0x27a9
+ - "➪": [t: "\\ding{234}"]               # 0x27aa
+ - "➫": [t: "\\ding{235}"]               # 0x27ab
+ - "➬": [t: "\\ding{236}"]               # 0x27ac
+ - "➭": [t: "\\ding{237}"]               # 0x27ad
+ - "➮": [t: "\\ding{238}"]               # 0x27ae
+ - "➯": [t: "\\ding{239}"]               # 0x27af
+ - "➱": [t: "\\ding{241}"]               # 0x27b1
+ - "➲": [t: "\\ding{242}"]               # 0x27b2
+ - "➳": [t: "\\ding{243}"]               # 0x27b3
+ - "➴": [t: "\\ding{244}"]               # 0x27b4
+ - "➵": [t: "\\ding{245}"]               # 0x27b5
+ - "➶": [t: "\\ding{246}"]               # 0x27b6
+ - "➷": [t: "\\ding{247}"]               # 0x27b7
+ - "➸": [t: "\\ding{248}"]               # 0x27b8
+ - "➹": [t: "\\ding{249}"]               # 0x27b9
+ - "➺": [t: "\\ding{250}"]               # 0x27ba
+ - "➻": [t: "\\ding{251}"]               # 0x27bb
+ - "➼": [t: "\\ding{252}"]               # 0x27bc
+ - "➽": [t: "\\ding{253}"]               # 0x27bd
+ - "➾": [t: "\\ding{254}"]               # 0x27be
+ - "⟀": [t: "\\threedangle𝐖"]            # 0x27c0
+ - "⟁": [t: "\\whiteinwhitetriangle𝐖"]   # 0x27c1
+ - "⟂": [t: "\\perp𝐖"]                   # 0x27c2
+ - "⟃": [t: "\\subsetcirc𝐖"]             # 0x27c3
+ - "⟄": [t: "\\supsetcirc𝐖"]             # 0x27c4
+ - "⟅": [t: "\\lbag𝐖"]                   # 0x27c5
+ - "⟆": [t: "\\rbag𝐖"]                   # 0x27c6
+ - "⟇": [t: "\\veedot𝐖"]                 # 0x27c7
+ - "⟈": [t: "\\bsolhsub𝐖"]               # 0x27c8
+ - "⟉": [t: "\\suphsol𝐖"]                # 0x27c9
+ - "⟌": [t: "\\longdivision𝐖"]           # 0x27cc
+ - "⟐": [t: "\\diamondcdot𝐖"]            # 0x27d0
+ - "⟑": [t: "\\wedgedot𝐖"]               # 0x27d1
+ - "⟒": [t: "\\upin𝐖"]                   # 0x27d2
+ - "⟓": [t: "\\pullback𝐖"]               # 0x27d3
+ - "⟔": [t: "\\pushout𝐖"]                # 0x27d4
+ - "⟕": [t: "\\leftouterjoin𝐖"]          # 0x27d5
+ - "⟖": [t: "\\rightouterjoin𝐖"]         # 0x27d6
+ - "⟗": [t: "\\fullouterjoin𝐖"]          # 0x27d7
+ - "⟘": [t: "\\bigbot𝐖"]                 # 0x27d8
+ - "⟙": [t: "\\bigtop𝐖"]                 # 0x27d9
+ - "⟚": [t: "\\DashVDash𝐖"]              # 0x27da
+ - "⟛": [t: "\\dashVdash𝐖"]              # 0x27db
+ - "⟜": [t: "\\multimapinv𝐖"]            # 0x27dc
+ - "⟝": [t: "\\vlongdash𝐖"]              # 0x27dd
+ - "⟞": [t: "\\longdashv𝐖"]              # 0x27de
+ - "⟟": [t: "\\cirbot𝐖"]                 # 0x27df
+ - "⟠": [t: "\\lozengeminus𝐖"]           # 0x27e0
+ - "⟡": [t: "\\concavediamond𝐖"]         # 0x27e1
+ - "⟢": [t: "\\concavediamondtickleft𝐖"] # 0x27e2
+ - "⟣": [t: "\\concavediamondtickright𝐖"] # 0x27e3
+ - "⟤": [t: "\\whitesquaretickleft𝐖"]    # 0x27e4
+ - "⟥": [t: "\\whitesquaretickright𝐖"]   # 0x27e5
+ - "⟦": [t: "\\lBrack𝐖"]                 # 0x27e6
+ - "⟧": [t: "\\rBrack𝐖"]                 # 0x27e7
+ - "⟨":                                  # 0x27e8
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\l<𝐖"]
+         else: [t: "\\langle𝐖"]
+ - "⟩":                                  # 0x27e9
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\r>𝐖"]
+         else: [t: "\\rangle𝐖"]
+ - "⟪": [t: "\\lAngle𝐖"]                 # 0x27ea
+ - "⟫": [t: "\\rAngle𝐖"]                 # 0x27eb
+ - "⟬": [t: "\\Lbrbrak𝐖"]                # 0x27ec
+ - "⟭": [t: "\\Rbrbrak𝐖"]                # 0x27ed
+ - "⟮": [t: "\\lgroup𝐖"]                 # 0x27ee
+ - "⟯": [t: "\\rgroup𝐖"]                 # 0x27ef
+ - "⟰": [t: "\\UUparrow𝐖"]               # 0x27f0
+ - "⟱": [t: "\\DDownarrow𝐖"]             # 0x27f1
+ - "⟲": [t: "\\acwgapcirclearrow𝐖"]      # 0x27f2
+ - "⟳": [t: "\\cwgapcirclearrow𝐖"]       # 0x27f3
+ - "⟴": [t: "\\rightarrowonoplus𝐖"]      # 0x27f4
+ - "⟵":                                  # 0x27f5
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\lgla𝐖"]
+         else: [t: "\\longleftarrow𝐖"]
+ - "⟶":                                  # 0x27f6
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\lgra𝐖"]
+         else: [t: "\\longrightarrow𝐖"]
+ - "⟷":                                  # 0x27f7
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\lglra𝐖"]
+         else: [t: "\\longleftrightarrow𝐖"]
+ - "⟸": [t: "\\Longleftarrow𝐖"]          # 0x27f8
+ - "⟹": [t: "\\implies𝐖"]                # 0x27f9
+# - "⟹": [t: "\\Longrightarrow𝐖"]        # 0x27f9
+ - "⟺": [t: "\\iff𝐖"]                    # 0x27fa
+ - "⟻": [t: "\\longmapsfrom𝐖"]           # 0x27fb
+ - "⟼":                                  # 0x27fc
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\lgmt𝐖"]
+         else: [t: "\\longmapsto𝐖"]
+ - "⟽": [t: "\\Longmapsfrom𝐖"]           # 0x27fd
+ - "⟾": [t: "\\Longmapsto𝐖"]             # 0x27fe
+ - "⟿": [t: "\\longrightsquigarrow𝐖"]    # 0x27ff
+# - "⟿": [t: "\\sim\\joinrel\\leadsto𝐖"] # 0x27ff
+ - "⤀": [t: "\\nvtwoheadrightarrow𝐖"]    # 0x2900
+ - "⤁": [t: "\\nVtwoheadrightarrow𝐖"]    # 0x2901
+ - "⤂": [t: "\\nvLeftarrow𝐖"]            # 0x2902
+ - "⤃": [t: "\\nvRightarrow𝐖"]           # 0x2903
+ - "⤄": [t: "\\nvLeftrightarrow𝐖"]       # 0x2904
+ - "⤅": [t: "\\twoheadmapsto𝐖"]          # 0x2905
+# - "⤅": [t: "\\ElsevierGlyph{E212}"]    # 0x2905
+ - "⤆": [t: "\\Mapsfrom𝐖"]               # 0x2906
+ - "⤇": [t: "\\Mapsto𝐖"]                 # 0x2907
+ - "⤈": [t: "\\downarrowbarred𝐖"]        # 0x2908
+ - "⤉": [t: "\\uparrowbarred𝐖"]          # 0x2909
+ - "⤊": [t: "\\Uuparrow𝐖"]               # 0x290a
+ - "⤋": [t: "\\Ddownarrow𝐖"]             # 0x290b
+ - "⤌": [t: "\\leftbkarrow𝐖"]            # 0x290c
+ - "⤍": [t: "\\rightbkarrow𝐖"]           # 0x290d
+ - "⤎": [t: "\\leftdbkarrow𝐖"]           # 0x290e
+ - "⤏": [t: "\\dbkarow𝐖"]                # 0x290f
+ - "⤐": [t: "\\drbkarow𝐖"]               # 0x2910
+ - "⤑": [t: "\\rightdotarrow𝐖"]          # 0x2911
+ - "⤒": [t: "\\baruparrow𝐖"]             # 0x2912
+# - "⤒": [t: "\\UpArrowBar𝐖"]            # 0x2912
+ - "⤓": [t: "\\downarrowbar𝐖"]           # 0x2913
+# - "⤓": [t: "\\DownArrowBar𝐖"]          # 0x2913
+ - "⤔": [t: "\\nvrightarrowtail𝐖"]       # 0x2914
+ - "⤕": [t: "\\nVrightarrowtail𝐖"]       # 0x2915
+ - "⤖": [t: "\\twoheadrightarrowtail𝐖"]  # 0x2916
+ - "⤗": [t: "\\nvtwoheadrightarrowtail𝐖"] # 0x2917
+ - "⤘": [t: "\\nVtwoheadrightarrowtail𝐖"] # 0x2918
+ - "⤙": [t: "\\lefttail𝐖"]               # 0x2919
+ - "⤚": [t: "\\righttail𝐖"]              # 0x291a
+ - "⤛": [t: "\\leftdbltail𝐖"]            # 0x291b
+ - "⤜": [t: "\\rightdbltail𝐖"]           # 0x291c
+ - "⤝": [t: "\\diamondleftarrow𝐖"]       # 0x291d
+ - "⤞": [t: "\\rightarrowdiamond𝐖"]      # 0x291e
+ - "⤟": [t: "\\diamondleftarrowbar𝐖"]    # 0x291f
+ - "⤠": [t: "\\barrightarrowdiamond𝐖"]   # 0x2920
+ - "⤡": [t: "\\nwsearrow𝐖"]              # 0x2921
+ - "⤢": [t: "\\neswarrow𝐖"]              # 0x2922
+ - "⤣": [t: "\\hknwarrow𝐖"]              # 0x2923
+# - "⤣": [t: "\\ElsevierGlyph{E20C}"]    # 0x2923
+ - "⤤": [t: "\\hknearrow𝐖"]              # 0x2924
+# - "⤤": [t: "\\ElsevierGlyph{E20D}"]    # 0x2924
+ - "⤥": [t: "\\hksearow𝐖"]               # 0x2925
+# - "⤥": [t: "\\ElsevierGlyph{E20B}"]    # 0x2925
+ - "⤦": [t: "\\hkswarow𝐖"]               # 0x2926
+# - "⤦": [t: "\\ElsevierGlyph{E20A}"]    # 0x2926
+ - "⤧": [t: "\\tona𝐖"]                   # 0x2927
+# - "⤧": [t: "\\ElsevierGlyph{E211}"]    # 0x2927
+ - "⤨": [t: "\\toea𝐖"]                   # 0x2928
+# - "⤨": [t: "\\ElsevierGlyph{E20E}"]    # 0x2928
+ - "⤩": [t: "\\tosa𝐖"]                   # 0x2929
+# - "⤩": [t: "\\ElsevierGlyph{E20F}"]    # 0x2929
+ - "⤪": [t: "\\towa𝐖"]                   # 0x292a
+# - "⤪": [t: "\\ElsevierGlyph{E210}"]    # 0x292a
+ - "⤫": [t: "\\rdiagovfdiag𝐖"]           # 0x292b
+ - "⤬": [t: "\\fdiagovrdiag𝐖"]           # 0x292c
+ - "⤭": [t: "\\seovnearrow𝐖"]            # 0x292d
+ - "⤮": [t: "\\neovsearrow𝐖"]            # 0x292e
+ - "⤯": [t: "\\fdiagovnearrow𝐖"]         # 0x292f
+ - "⤰": [t: "\\rdiagovsearrow𝐖"]         # 0x2930
+ - "⤱": [t: "\\neovnwarrow𝐖"]            # 0x2931
+ - "⤲": [t: "\\nwovnearrow𝐖"]            # 0x2932
+ - "⤳": [t: "\\rightcurvedarrow𝐖"]       # 0x2933
+# - "⤳": [t: "\\ElsevierGlyph{E21C}"]    # 0x2933
+ - "⤴": [t: "\\uprightcurvearrow𝐖"]      # 0x2934
+ - "⤵": [t: "\\downrightcurvedarrow𝐖"]   # 0x2935
+ - "⤶": [t: "\\leftdowncurvedarrow𝐖"]    # 0x2936
+# - "⤶": [t: "\\ElsevierGlyph{E21A}"]    # 0x2936
+ - "⤷": [t: "\\rightdowncurvedarrow𝐖"]   # 0x2937
+# - "⤷": [t: "\\ElsevierGlyph{E219}"]    # 0x2937
+ - "⤸": [t: "\\cwrightarcarrow𝐖"]        # 0x2938
+ - "⤹": [t: "\\acwleftarcarrow𝐖"]        # 0x2939
+ - "⤺": [t: "\\acwoverarcarrow𝐖"]        # 0x293a
+ - "⤻": [t: "\\acwunderarcarrow𝐖"]       # 0x293b
+ - "⤼": [t: "\\curvearrowrightminus𝐖"]   # 0x293c
+ - "⤽": [t: "\\curvearrowleftplus𝐖"]     # 0x293d
+ - "⤾": [t: "\\cwundercurvearrow𝐖"]      # 0x293e
+ - "⤿": [t: "\\ccwundercurvearrow𝐖"]     # 0x293f
+ - "⥀": [t: "\\acwcirclearrow𝐖"]         # 0x2940
+# - "⥀": [t: "\\Elolarr𝐖"]               # 0x2940
+ - "⥁": [t: "\\cwcirclearrow𝐖"]          # 0x2941
+# - "⥁": [t: "\\Elorarr𝐖"]               # 0x2941
+ - "⥂": [t: "\\rightarrowshortleftarrow𝐖"] # 0x2942
+# - "⥂": [t: "\\ElzRlarr𝐖"]              # 0x2942
+ - "⥃": [t: "\\leftarrowshortrightarrow𝐖"] # 0x2943
+ - "⥄": [t: "\\shortrightarrowleftarrow𝐖"] # 0x2944
+# - "⥄": [t: "\\ElzrLarr𝐖"]              # 0x2944
+ - "⥅": [t: "\\rightarrowplus𝐖"]         # 0x2945
+ - "⥆": [t: "\\leftarrowplus𝐖"]          # 0x2946
+ - "⥇": [t: "\\rightarrowx𝐖"]            # 0x2947
+# - "⥇": [t: "\\Elzrarrx𝐖"]              # 0x2947
+ - "⥈": [t: "\\leftrightarrowcircle𝐖"]   # 0x2948
+ - "⥉": [t: "\\twoheaduparrowcircle𝐖"]   # 0x2949
+ - "⥊": [t: "\\leftrightharpoonupdown𝐖"] # 0x294a
+ - "⥋": [t: "\\leftrightharpoondownup𝐖"] # 0x294b
+ - "⥌": [t: "\\updownharpoonrightleft𝐖"] # 0x294c
+ - "⥍": [t: "\\updownharpoonleftright𝐖"] # 0x294d
+ - "⥎": [t: "\\leftrightharpoonupup𝐖"]   # 0x294e
+# - "⥎": [t: "\\LeftRightVector𝐖"]       # 0x294e
+ - "⥏": [t: "\\updownharpoonrightright𝐖"] # 0x294f
+# - "⥏": [t: "\\RightUpDownVector𝐖"]     # 0x294f
+ - "⥐": [t: "\\leftrightharpoondowndown𝐖"] # 0x2950
+# - "⥐": [t: "\\DownLeftRightVector𝐖"]   # 0x2950
+ - "⥑": [t: "\\updownharpoonleftleft𝐖"]  # 0x2951
+# - "⥑": [t: "\\LeftUpDownVector𝐖"]      # 0x2951
+ - "⥒": [t: "\\barleftharpoonup𝐖"]       # 0x2952
+# - "⥒": [t: "\\LeftVectorBar𝐖"]         # 0x2952
+ - "⥓": [t: "\\rightharpoonupbar𝐖"]      # 0x2953
+# - "⥓": [t: "\\RightVectorBar𝐖"]        # 0x2953
+ - "⥔": [t: "\\barupharpoonright𝐖"]      # 0x2954
+# - "⥔": [t: "\\RightUpVectorBar𝐖"]      # 0x2954
+ - "⥕": [t: "\\downharpoonrightbar𝐖"]    # 0x2955
+# - "⥕": [t: "\\RightDownVectorBar𝐖"]    # 0x2955
+ - "⥖": [t: "\\barleftharpoondown𝐖"]     # 0x2956
+# - "⥖": [t: "\\DownLeftVectorBar𝐖"]     # 0x2956
+ - "⥗": [t: "\\rightharpoondownbar𝐖"]    # 0x2957
+# - "⥗": [t: "\\DownRightVectorBar𝐖"]    # 0x2957
+ - "⥘": [t: "\\barupharpoonleft𝐖"]       # 0x2958
+# - "⥘": [t: "\\LeftUpVectorBar𝐖"]       # 0x2958
+ - "⥙": [t: "\\downharpoonleftbar𝐖"]     # 0x2959
+# - "⥙": [t: "\\LeftDownVectorBar𝐖"]     # 0x2959
+ - "⥚": [t: "\\leftharpoonupbar𝐖"]       # 0x295a
+# - "⥚": [t: "\\LeftTeeVector𝐖"]         # 0x295a
+ - "⥛": [t: "\\barrightharpoonup𝐖"]      # 0x295b
+# - "⥛": [t: "\\RightTeeVector𝐖"]        # 0x295b
+ - "⥜": [t: "\\upharpoonrightbar𝐖"]      # 0x295c
+# - "⥜": [t: "\\RightUpTeeVector𝐖"]      # 0x295c
+ - "⥝": [t: "\\bardownharpoonright𝐖"]    # 0x295d
+# - "⥝": [t: "\\RightDownTeeVector𝐖"]    # 0x295d
+ - "⥞": [t: "\\leftharpoondownbar𝐖"]     # 0x295e
+# - "⥞": [t: "\\DownLeftTeeVector𝐖"]     # 0x295e
+ - "⥟": [t: "\\barrightharpoondown𝐖"]    # 0x295f
+# - "⥟": [t: "\\DownRightTeeVector𝐖"]    # 0x295f
+ - "⥠": [t: "\\upharpoonleftbar𝐖"]       # 0x2960
+# - "⥠": [t: "\\LeftUpTeeVector𝐖"]       # 0x2960
+ - "⥡": [t: "\\bardownharpoonleft𝐖"]     # 0x2961
+# - "⥡": [t: "\\LeftDownTeeVector𝐖"]     # 0x2961
+ - "⥢": [t: "\\leftharpoonsupdown𝐖"]     # 0x2962
+ - "⥣": [t: "\\upharpoonsleftright𝐖"]    # 0x2963
+ - "⥤": [t: "\\rightharpoonsupdown𝐖"]    # 0x2964
+ - "⥥": [t: "\\downharpoonsleftright𝐖"]  # 0x2965
+ - "⥦": [t: "\\leftrightharpoonsup𝐖"]    # 0x2966
+ - "⥧": [t: "\\leftrightharpoonsdown𝐖"]  # 0x2967
+ - "⥨": [t: "\\rightleftharpoonsup𝐖"]    # 0x2968
+ - "⥩": [t: "\\rightleftharpoonsdown𝐖"]  # 0x2969
+ - "⥪": [t: "\\leftharpoonupdash𝐖"]      # 0x296a
+ - "⥫": [t: "\\dashleftharpoondown𝐖"]    # 0x296b
+ - "⥬": [t: "\\rightharpoonupdash𝐖"]     # 0x296c
+ - "⥭": [t: "\\dashrightharpoondown𝐖"]   # 0x296d
+ - "⥮": [t: "\\updownharpoonsleftright𝐖"] # 0x296e
+# - "⥮": [t: "\\UpEquilibrium𝐖"]         # 0x296e
+ - "⥯": [t: "\\downupharpoonsleftright𝐖"] # 0x296f
+# - "⥯": [t: "\\ReverseUpEquilibrium𝐖"]  # 0x296f
+ - "⥰": [t: "\\rightimply𝐖"]             # 0x2970
+# - "⥰": [t: "\\RoundImplies𝐖"]          # 0x2970
+ - "⥱": [t: "\\equalrightarrow𝐖"]        # 0x2971
+ - "⥲": [t: "\\tilde{\\rightarrow}"]     # 0x2972
+ - "⥳": [t: "\\leftarrowsimilar𝐖"]       # 0x2973
+ - "⥴": [t: "\\rightarrowsimilar𝐖"]      # 0x2974
+ - "⥵": [t: "\\rightarrowapprox𝐖"]       # 0x2975
+ - "⥶": [t: "\\ltlarr𝐖"]                 # 0x2976
+ - "⥷": [t: "\\leftarrowless𝐖"]          # 0x2977
+ - "⥸": [t: "\\gtrarr𝐖"]                 # 0x2978
+ - "⥹": [t: "\\subrarr𝐖"]                # 0x2979
+ - "⥺": [t: "\\leftarrowsubset𝐖"]        # 0x297a
+ - "⥻": [t: "\\suplarr𝐖"]                # 0x297b
+ - "⥼": [t: "\\leftfishtail𝐖"]           # 0x297c
+# - "⥼": [t: "\\ElsevierGlyph{E214}"]    # 0x297c
+ - "⥽": [t: "\\rightfishtail𝐖"]          # 0x297d
+# - "⥽": [t: "\\ElsevierGlyph{E215}"]    # 0x297d
+ - "⥾": [t: "\\upfishtail𝐖"]             # 0x297e
+ - "⥿": [t: "\\downfishtail𝐖"]           # 0x297f
+ - "⦀": [t: "\\Vvert𝐖"]                  # 0x2980
+# - "⦀": [t: "\\Elztfnc𝐖"]               # 0x2980
+ - "⦁": [t: "\\mdsmblkcircle𝐖"]          # 0x2981
+ - "⦂": [t: "\\typecolon𝐖"]              # 0x2982
+ - "⦃": [t: "\\lBrace𝐖"]                 # 0x2983
+ - "⦄": [t: "\\rBrace𝐖"]                 # 0x2984
+ - "⦅": [t: "\\lParen𝐖"]                 # 0x2985
+# - "⦅": [t: "\\ElsevierGlyph{3018}"]    # 0x2985
+ - "⦆": [t: "\\rParen𝐖"]                 # 0x2986
+# - "⦆": [t: "\\Elroang𝐖"]               # 0x2986
+ - "⦇": [t: "\\llparenthesis𝐖"]          # 0x2987
+ - "⦈": [t: "\\rrparenthesis𝐖"]          # 0x2988
+ - "⦉": [t: "\\llangle𝐖"]                # 0x2989
+ - "⦊": [t: "\\rrangle𝐖"]                # 0x298a
+ - "⦋": [t: "\\lbrackubar𝐖"]             # 0x298b
+ - "⦌": [t: "\\rbrackubar𝐖"]             # 0x298c
+ - "⦍": [t: "\\lbrackultick𝐖"]           # 0x298d
+ - "⦎": [t: "\\rbracklrtick𝐖"]           # 0x298e
+ - "⦏": [t: "\\lbracklltick𝐖"]           # 0x298f
+ - "⦐": [t: "\\rbrackurtick𝐖"]           # 0x2990
+ - "⦑": [t: "\\langledot𝐖"]              # 0x2991
+ - "⦒": [t: "\\rangledot𝐖"]              # 0x2992
+ - "⦓": [t: "\\lparenless𝐖"]             # 0x2993
+# - "⦓": [t: "\\<\\kern-0.58em(𝐖"]       # 0x2993
+ - "⦔": [t: "\\rparengtr𝐖"]              # 0x2994
+# - "⦔": [t: "\\ElsevierGlyph{E291}"]    # 0x2994
+ - "⦕": [t: "\\Lparengtr𝐖"]              # 0x2995
+ - "⦖": [t: "\\Rparenless𝐖"]             # 0x2996
+ - "⦗": [t: "\\lblkbrbrak𝐖"]             # 0x2997
+ - "⦘": [t: "\\rblkbrbrak𝐖"]             # 0x2998
+ - "⦙": [t: "\\fourvdots𝐖"]              # 0x2999
+# - "⦙": [t: "\\Elzddfnc𝐖"]              # 0x2999
+ - "⦚": [t: "\\vzigzag𝐖"]                # 0x299a
+ - "⦛": [t: "\\measuredangleleft𝐖"]      # 0x299b
+ - "⦜": [t: "\\rightanglesqr𝐖"]          # 0x299c
+# - "⦜": [t: "\\Angle𝐖"]                 # 0x299c
+ - "⦝": [t: "\\rightanglemdot𝐖"]         # 0x299d
+ - "⦞": [t: "\\angles𝐖"]                 # 0x299e
+ - "⦟": [t: "\\angdnr𝐖"]                 # 0x299f
+ - "⦠": [t: "\\gtlpar𝐖"]                 # 0x29a0
+# - "⦠": [t: "\\Elzlpargt𝐖"]             # 0x29a0
+ - "⦡": [t: "\\sphericalangleup𝐖"]       # 0x29a1
+ - "⦢": [t: "\\turnangle𝐖"]              # 0x29a2
+ - "⦣": [t: "\\revangle𝐖"]               # 0x29a3
+ - "⦤": [t: "\\angleubar𝐖"]              # 0x29a4
+ - "⦥": [t: "\\revangleubar𝐖"]           # 0x29a5
+ - "⦦": [t: "\\wideangledown𝐖"]          # 0x29a6
+ - "⦧": [t: "\\wideangleup𝐖"]            # 0x29a7
+ - "⦨": [t: "\\measanglerutone𝐖"]        # 0x29a8
+ - "⦩": [t: "\\measanglelutonw𝐖"]        # 0x29a9
+ - "⦪": [t: "\\measanglerdtose𝐖"]        # 0x29aa
+ - "⦫": [t: "\\measangleldtosw𝐖"]        # 0x29ab
+ - "⦬": [t: "\\measangleurtone𝐖"]        # 0x29ac
+ - "⦭": [t: "\\measangleultonw𝐖"]        # 0x29ad
+ - "⦮": [t: "\\measangledrtose𝐖"]        # 0x29ae
+ - "⦯": [t: "\\measangledltosw𝐖"]        # 0x29af
+ - "⦰": [t: "\\revemptyset𝐖"]            # 0x29b0
+ - "⦱": [t: "\\emptysetobar𝐖"]           # 0x29b1
+ - "⦲": [t: "\\emptysetocirc𝐖"]          # 0x29b2
+ - "⦳": [t: "\\emptysetoarr𝐖"]           # 0x29b3
+ - "⦴": [t: "\\emptysetoarrl𝐖"]          # 0x29b4
+ - "⦵": [t: "\\circlehbar𝐖"]             # 0x29b5
+# - "⦵": [t: "\\ElsevierGlyph{E260}"]    # 0x29b5
+ - "⦶": [t: "\\circledvert𝐖"]            # 0x29b6
+# - "⦶": [t: "\\ElsevierGlyph{E61B}"]    # 0x29b6
+ - "⦷": [t: "\\circledparallel𝐖"]        # 0x29b7
+ - "⦸": [t: "\\obslash𝐖"]                # 0x29b8
+ - "⦹": [t: "\\operp𝐖"]                  # 0x29b9
+ - "⦺": [t: "\\obot𝐖"]                   # 0x29ba
+ - "⦻": [t: "\\olcross𝐖"]                # 0x29bb
+ - "⦼": [t: "\\odotslashdot𝐖"]           # 0x29bc
+ - "⦽": [t: "\\uparrowoncircle𝐖"]        # 0x29bd
+ - "⦾": [t: "\\circledwhitebullet𝐖"]     # 0x29be
+ - "⦿": [t: "\\circledbullet𝐖"]          # 0x29bf
+ - "⧀": [t: "\\olessthan𝐖"]              # 0x29c0
+ - "⧁": [t: "\\ogreaterthan𝐖"]           # 0x29c1
+ - "⧂": [t: "\\cirscir𝐖"]                # 0x29c2
+ - "⧃": [t: "\\cirE𝐖"]                   # 0x29c3
+ - "⧄": [t: "\\boxdiag𝐖"]                # 0x29c4
+ - "⧅": [t: "\\boxbslash𝐖"]              # 0x29c5
+ - "⧆": [t: "\\boxast𝐖"]                 # 0x29c6
+ - "⧇": [t: "\\boxcircle𝐖"]              # 0x29c7
+ - "⧈": [t: "\\boxbox𝐖"]                 # 0x29c8
+ - "⧉": [t: "\\boxonbox𝐖"]               # 0x29c9
+ - "⧊": [t: "\\triangleodot𝐖"]           # 0x29ca
+# - "⧊": [t: "\\ElzLap𝐖"]                # 0x29ca
+ - "⧋": [t: "\\triangleubar𝐖"]           # 0x29cb
+# - "⧋": [t: "\\Elzdefas𝐖"]              # 0x29cb
+ - "⧌": [t: "\\triangles𝐖"]              # 0x29cc
+ - "⧍": [t: "\\triangleserifs𝐖"]         # 0x29cd
+ - "⧎": [t: "\\rtriltri𝐖"]               # 0x29ce
+ - "⧏": [t: "\\ltrivb𝐖"]                 # 0x29cf
+# - "⧏": [t: "\\LeftTriangleBar𝐖"]       # 0x29cf
+ - "⧐": [t: "\\vbrtri𝐖"]                 # 0x29d0
+# - "⧐": [t: "\\RightTriangleBar𝐖"]      # 0x29d0
+ - "⧑": [t: "\\lfbowtie𝐖"]               # 0x29d1
+ - "⧒": [t: "\\rfbowtie𝐖"]               # 0x29d2
+ - "⧓": [t: "\\fbowtie𝐖"]                # 0x29d3
+ - "⧔": [t: "\\lftimes𝐖"]                # 0x29d4
+ - "⧕": [t: "\\rftimes𝐖"]                # 0x29d5
+ - "⧖": [t: "\\hourglass𝐖"]              # 0x29d6
+ - "⧗": [t: "\\blackhourglass𝐖"]         # 0x29d7
+ - "⧘": [t: "\\lvzigzag𝐖"]               # 0x29d8
+ - "⧙": [t: "\\rvzigzag𝐖"]               # 0x29d9
+ - "⧚": [t: "\\Lvzigzag𝐖"]               # 0x29da
+ - "⧛": [t: "\\Rvzigzag𝐖"]               # 0x29db
+ - "⧜": [t: "\\iinfin𝐖"]                 # 0x29dc
+# - "⧜": [t: "\\ElsevierGlyph{E372}"]    # 0x29dc
+ - "⧝": [t: "\\tieinfty𝐖"]               # 0x29dd
+ - "⧞": [t: "\\nvinfty𝐖"]                # 0x29de
+ - "⧟": [t: "\\dualmap𝐖"]                # 0x29df
+ - "⧠": [t: "\\laplac𝐖"]                 # 0x29e0
+ - "⧡": [t: "\\lrtriangleeq𝐖"]           # 0x29e1
+ - "⧢": [t: "\\shuffle𝐖"]                # 0x29e2
+ - "⧣": [t: "\\eparsl𝐖"]                 # 0x29e3
+ - "⧤": [t: "\\smeparsl𝐖"]               # 0x29e4
+ - "⧥": [t: "\\eqvparsl𝐖"]               # 0x29e5
+ - "⧦": [t: "\\gleichstark𝐖"]            # 0x29e6
+ - "⧧": [t: "\\thermod𝐖"]                # 0x29e7
+ - "⧨": [t: "\\downtriangleleftblack𝐖"]  # 0x29e8
+ - "⧩": [t: "\\downtrianglerightblack𝐖"] # 0x29e9
+ - "⧪": [t: "\\blackdiamonddownarrow𝐖"]  # 0x29ea
+ - "⧫": [t: "\\mdlgblklozenge𝐖"]         # 0x29eb
+# - "⧫": [t: "\\blacklozenge𝐖"]          # 0x29eb
+ - "⧬": [t: "\\circledownarrow𝐖"]        # 0x29ec
+ - "⧭": [t: "\\blackcircledownarrow𝐖"]   # 0x29ed
+ - "⧮": [t: "\\errbarsquare𝐖"]           # 0x29ee
+ - "⧯": [t: "\\errbarblacksquare𝐖"]      # 0x29ef
+ - "⧰": [t: "\\errbardiamond𝐖"]          # 0x29f0
+ - "⧱": [t: "\\errbarblackdiamond𝐖"]     # 0x29f1
+ - "⧲": [t: "\\errbarcircle𝐖"]           # 0x29f2
+ - "⧳": [t: "\\errbarblackcircle𝐖"]      # 0x29f3
+ - "⧴": [t: "\\ruledelayed𝐖"]            # 0x29f4
+# - "⧴": [t: "\\RuleDelayed𝐖"]           # 0x29f4
+ - "⧵": [t: "\\setminus𝐖"]               # 0x29f5
+ - "⧶": [t: "\\dsol𝐖"]                   # 0x29f6
+ - "⧷": [t: "\\rsolbar𝐖"]                # 0x29f7
+ - "⧸": [t: "\\xsol𝐖"]                   # 0x29f8
+ - "⧹": [t: "\\xbsol𝐖"]                  # 0x29f9
+ - "⧺": [t: "\\doubleplus𝐖"]             # 0x29fa
+ - "⧻": [t: "\\tripleplus𝐖"]             # 0x29fb
+ - "⧼": [t: "\\lcurvyangle𝐖"]            # 0x29fc
+ - "⧽": [t: "\\rcurvyangle𝐖"]            # 0x29fd
+ - "⧾": [t: "\\tplus𝐖"]                  # 0x29fe
+ - "⧿": [t: "\\tminus𝐖"]                 # 0x29ff
+ - "⨀": [t: "\\bigodot𝐖"]                # 0x2a00
+ - "⨁": [t: "\\bigoplus𝐖"]               # 0x2a01
+ - "⨂": [t: "\\bigotimes𝐖"]              # 0x2a02
+ - "⨃": [t: "\\bigcupdot𝐖"]              # 0x2a03
+ - "⨄": [t: "\\biguplus𝐖"]               # 0x2a04
+# - "⨄": [t: "\\Elxuplus𝐖"]              # 0x2a04
+ - "⨅": [t: "\\bigsqcap𝐖"]               # 0x2a05
+# - "⨅": [t: "\\ElzThr𝐖"]                # 0x2a05
+ - "⨆": [t: "\\bigsqcup𝐖"]               # 0x2a06
+# - "⨆": [t: "\\Elxsqcup𝐖"]              # 0x2a06
+ - "⨇": [t: "\\conjquant𝐖"]              # 0x2a07
+# - "⨇": [t: "\\ElzInf𝐖"]                # 0x2a07
+ - "⨈": [t: "\\disjquant𝐖"]              # 0x2a08
+# - "⨈": [t: "\\ElzSup𝐖"]                # 0x2a08
+ - "⨉": [t: "\\bigtimes𝐖"]               # 0x2a09
+ - "⨊": [t: "\\modtwosum𝐖"]              # 0x2a0a
+ - "⨋": [t: "\\sumint𝐖"]                 # 0x2a0b
+ - "⨌": [t: "\\iiiint𝐖"]                 # 0x2a0c
+ - "⨍": [t: "\\intbar𝐖"]                 # 0x2a0d
+# - "⨍": [t: "\\ElzCint𝐖"]               # 0x2a0d
+ - "⨎": [t: "\\intBar𝐖"]                 # 0x2a0e
+ - "⨏": [t: "\\fint𝐖"]                   # 0x2a0f
+# - "⨏": [t: "\\clockoint𝐖"]             # 0x2a0f
+ - "⨐": [t: "\\cirfnint𝐖"]               # 0x2a10
+# - "⨐": [t: "\\ElsevierGlyph{E395}"]    # 0x2a10
+ - "⨑": [t: "\\awint𝐖"]                  # 0x2a11
+ - "⨒": [t: "\\rppolint𝐖"]               # 0x2a12
+ - "⨓": [t: "\\scpolint𝐖"]               # 0x2a13
+ - "⨔": [t: "\\npolint𝐖"]                # 0x2a14
+ - "⨕": [t: "\\pointint𝐖"]               # 0x2a15
+ - "⨖": [t: "\\sqint𝐖"]                  # 0x2a16
+# - "⨖": [t: "\\sqrint𝐖"]                # 0x2a16
+ - "⨗": [t: "\\intlarhk𝐖"]               # 0x2a17
+ - "⨘": [t: "\\intx𝐖"]                   # 0x2a18
+ - "⨙": [t: "\\intcap𝐖"]                 # 0x2a19
+ - "⨚": [t: "\\intcup𝐖"]                 # 0x2a1a
+ - "⨛": [t: "\\upint𝐖"]                  # 0x2a1b
+ - "⨜": [t: "\\lowint𝐖"]                 # 0x2a1c
+ - "⨝": [t: "\\Join𝐖"]                   # 0x2a1d
+ - "⨞": [t: "\\bigtriangleleft𝐖"]        # 0x2a1e
+ - "⨟": [t: "\\zcmp𝐖"]                   # 0x2a1f
+ - "⨠": [t: "\\zpipe𝐖"]                  # 0x2a20
+ - "⨡": [t: "\\zproject𝐖"]               # 0x2a21
+ - "⨢": [t: "\\ringplus𝐖"]               # 0x2a22
+ - "⨣": [t: "\\plushat𝐖"]                # 0x2a23
+ - "⨤": [t: "\\simplus𝐖"]                # 0x2a24
+ - "⨥": [t: "\\plusdot𝐖"]                # 0x2a25
+# - "⨥": [t: "\\ElsevierGlyph{E25A}"]    # 0x2a25
+ - "⨦": [t: "\\plussim𝐖"]                # 0x2a26
+ - "⨧": [t: "\\plussubtwo𝐖"]             # 0x2a27
+ - "⨨": [t: "\\plustrif𝐖"]               # 0x2a28
+ - "⨩": [t: "\\commaminus𝐖"]             # 0x2a29
+ - "⨪": [t: "\\minusdot𝐖"]               # 0x2a2a
+# - "⨪": [t: "\\ElsevierGlyph{E25B}"]    # 0x2a2a
+ - "⨫": [t: "\\minusfdots𝐖"]             # 0x2a2b
+ - "⨬": [t: "\\minusrdots𝐖"]             # 0x2a2c
+ - "⨭": [t: "\\opluslhrim𝐖"]             # 0x2a2d
+# - "⨭": [t: "\\ElsevierGlyph{E25C}"]    # 0x2a2d
+ - "⨮": [t: "\\oplusrhrim𝐖"]             # 0x2a2e
+# - "⨮": [t: "\\ElsevierGlyph{E25D}"]    # 0x2a2e
+ - "⨯":                                  # 0x2a2f
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "\\x"]
+         else: [t: "\\times𝐖"]
+ - "⨰": [t: "\\dottimes𝐖"]               # 0x2a30
+ - "⨱": [t: "\\timesbar𝐖"]               # 0x2a31
+ - "⨲": [t: "\\btimes𝐖"]                 # 0x2a32
+ - "⨳": [t: "\\smashtimes𝐖"]             # 0x2a33
+ - "⨴": [t: "\\otimeslhrim𝐖"]            # 0x2a34
+# - "⨴": [t: "\\ElsevierGlyph{E25E}"]    # 0x2a34
+ - "⨵": [t: "\\otimesrhrim𝐖"]            # 0x2a35
+# - "⨵": [t: "\\ElsevierGlyph{E25E}"]    # 0x2a35
+ - "⨶": [t: "\\otimeshat𝐖"]              # 0x2a36
+ - "⨷": [t: "\\Otimes𝐖"]                 # 0x2a37
+ - "⨸": [t: "\\odiv𝐖"]                   # 0x2a38
+ - "⨹": [t: "\\triangleplus𝐖"]           # 0x2a39
+ - "⨺": [t: "\\triangleminus𝐖"]          # 0x2a3a
+ - "⨻": [t: "\\triangletimes𝐖"]          # 0x2a3b
+ - "⨼": [t: "\\intprod𝐖"]                # 0x2a3c
+# - "⨼": [t: "\\ElsevierGlyph{E259}"]    # 0x2a3c
+ - "⨽": [t: "\\intprodr𝐖"]               # 0x2a3d
+ - "⨾": [t: "\\fcmp𝐖"]                   # 0x2a3e
+ - "⨿": [t: "\\amalg𝐖"]                  # 0x2a3f
+ - "⩀": [t: "\\dot\\cap𝐖"]               # 0x2a40
+ - "⩁": [t: "\\uminus𝐖"]                 # 0x2a41
+ - "⩂": [t: "\\barcup𝐖"]                 # 0x2a42
+ - "⩃": [t: "\\barcap𝐖"]                 # 0x2a43
+ - "⩄": [t: "\\capwedge𝐖"]               # 0x2a44
+ - "⩅": [t: "\\cupvee𝐖"]                 # 0x2a45
+ - "⩆": [t: "\\cupovercap𝐖"]             # 0x2a46
+ - "⩇": [t: "\\capovercup𝐖"]             # 0x2a47
+ - "⩈": [t: "\\cupbarcap𝐖"]              # 0x2a48
+ - "⩉": [t: "\\capbarcup𝐖"]              # 0x2a49
+ - "⩊": [t: "\\twocups𝐖"]                # 0x2a4a
+ - "⩋": [t: "\\twocaps𝐖"]                # 0x2a4b
+ - "⩌": [t: "\\closedvarcup𝐖"]           # 0x2a4c
+ - "⩍": [t: "\\closedvarcap𝐖"]           # 0x2a4d
+ - "⩎": [t: "\\Sqcap𝐖"]                  # 0x2a4e
+ - "⩏": [t: "\\Sqcup𝐖"]                  # 0x2a4f
+ - "⩐": [t: "\\closedvarcupsmashprod𝐖"]  # 0x2a50
+ - "⩑": [t: "\\wedgeodot𝐖"]              # 0x2a51
+ - "⩒": [t: "\\dot\\lor𝐖"]               # 0x2a52
+# - "⩒": [t: "\\dot\\bigvee𝐖"]           # 0x2a52
+ - "⩓": [t: "\\Wedge𝐖"]                  # 0x2a53
+# - "⩓": [t: "\\ElzAnd𝐖"]                # 0x2a53
+ - "⩔": [t: "\\Vee𝐖"]                    # 0x2a54
+# - "⩔": [t: "\\ElzOr𝐖"]                 # 0x2a54
+ - "⩕": [t: "\\wedgeonwedge𝐖"]           # 0x2a55
+# - "⩕": [t: "\\ElsevierGlyph{E36E}"]    # 0x2a55
+ - "⩖": [t: "\\veeonvee𝐖"]               # 0x2a56
+# - "⩖": [t: "\\ElOr𝐖"]                  # 0x2a56
+ - "⩗": [t: "\\bigslopedvee𝐖"]           # 0x2a57
+ - "⩘": [t: "\\bigslopedwedge𝐖"]         # 0x2a58
+ - "⩙": [t: "\\veeonwedge𝐖"]             # 0x2a59
+ - "⩚": [t: "\\wedgemidvert𝐖"]           # 0x2a5a
+ - "⩛": [t: "\\veemidvert𝐖"]             # 0x2a5b
+ - "⩜": [t: "\\midbarwedge𝐖"]            # 0x2a5c
+ - "⩝": [t: "\\midbarvee𝐖"]              # 0x2a5d
+ - "⩞": [t: "\\doublebarwedge𝐖"]         # 0x2a5e
+# - "⩞": [t: "\\perspcorrespond𝐖"]       # 0x2a5e
+ - "⩟": [t: "\\wedgebar𝐖"]               # 0x2a5f
+# - "⩟": [t: "\\Elzminhat𝐖"]             # 0x2a5f
+ - "⩠": [t: "\\wedgedoublebar𝐖"]         # 0x2a60
+ - "⩡": [t: "\\varveebar𝐖"]              # 0x2a61
+ - "⩢": [t: "\\doublebarvee𝐖"]           # 0x2a62
+ - "⩣": [t: "\\veedoublebar𝐖"]           # 0x2a63
+# - "⩣": [t: "\\ElsevierGlyph{225A}"]    # 0x2a63
+ - "⩤": [t: "\\dsub𝐖"]                   # 0x2a64
+ - "⩥": [t: "\\rsub𝐖"]                   # 0x2a65
+ - "⩦": [t: "\\eqdot𝐖"]                  # 0x2a66
+ - "⩧": [t: "\\dotequiv𝐖"]               # 0x2a67
+ - "⩨": [t: "\\equivVert𝐖"]              # 0x2a68
+ - "⩩": [t: "\\equivVvert𝐖"]             # 0x2a69
+ - "⩪": [t: "\\dotsim𝐖"]                 # 0x2a6a
+ - "⩫": [t: "\\simrdots𝐖"]               # 0x2a6b
+ - "⩬": [t: "\\simminussim𝐖"]            # 0x2a6c
+ - "⩭": [t: "\\congdot𝐖"]                # 0x2a6d
+ - "⩮": [t: "\\asteq𝐖"]                  # 0x2a6e
+# - "⩮": [t: "\\stackrel{*}𝐖=𝐖"]         # 0x2a6e
+ - "⩯": [t: "\\hatapprox𝐖"]              # 0x2a6f
+ - "⩰": [t: "\\approxeqq𝐖"]              # 0x2a70
+ - "⩱": [t: "\\eqqplus𝐖"]                # 0x2a71
+ - "⩲": [t: "\\pluseqq𝐖"]                # 0x2a72
+ - "⩳": [t: "\\eqqsim𝐖"]                 # 0x2a73
+ - "⩴": [t: "\\Coloneq𝐖"]                # 0x2a74
+ - "⩵": [t: "\\eqeq𝐖"]                   # 0x2a75
+# - "⩵": [t: "\\Equal𝐖"]                 # 0x2a75
+ - "⩶": [t: "\\eqeqeq𝐖"]                 # 0x2a76
+ - "⩷": [t: "\\ddotseq𝐖"]                # 0x2a77
+ - "⩸": [t: "\\equivDD𝐖"]                # 0x2a78
+ - "⩹": [t: "\\ltcir𝐖"]                  # 0x2a79
+ - "⩺": [t: "\\gtcir𝐖"]                  # 0x2a7a
+ - "⩻": [t: "\\ltquest𝐖"]                # 0x2a7b
+ - "⩼": [t: "\\gtquest𝐖"]                # 0x2a7c
+ - "⩽": [t: "\\leqslant𝐖"]               # 0x2a7d
+ - "⩾": [t: "\\geqslant𝐖"]               # 0x2a7e
+ - "⩿": [t: "\\lesdot𝐖"]                 # 0x2a7f
+ - "⪀": [t: "\\gesdot𝐖"]                 # 0x2a80
+ - "⪁": [t: "\\lesdoto𝐖"]                # 0x2a81
+ - "⪂": [t: "\\gesdoto𝐖"]                # 0x2a82
+ - "⪃": [t: "\\lesdotor𝐖"]               # 0x2a83
+ - "⪄": [t: "\\gesdotol𝐖"]               # 0x2a84
+ - "⪅": [t: "\\lessapprox𝐖"]             # 0x2a85
+ - "⪆": [t: "\\gtrapprox𝐖"]              # 0x2a86
+ - "⪇": [t: "\\lneq𝐖"]                   # 0x2a87
+ - "⪈": [t: "\\gneq𝐖"]                   # 0x2a88
+ - "⪉": [t: "\\lnapprox𝐖"]               # 0x2a89
+ - "⪊": [t: "\\gnapprox𝐖"]               # 0x2a8a
+ - "⪋": [t: "\\lesseqqgtr𝐖"]             # 0x2a8b
+ - "⪌": [t: "\\gtreqqless𝐖"]             # 0x2a8c
+ - "⪍": [t: "\\lsime𝐖"]                  # 0x2a8d
+ - "⪎": [t: "\\gsime𝐖"]                  # 0x2a8e
+ - "⪏": [t: "\\lsimg𝐖"]                  # 0x2a8f
+ - "⪐": [t: "\\gsiml𝐖"]                  # 0x2a90
+ - "⪑": [t: "\\lgE𝐖"]                    # 0x2a91
+ - "⪒": [t: "\\glE𝐖"]                    # 0x2a92
+ - "⪓": [t: "\\lesges𝐖"]                 # 0x2a93
+ - "⪔": [t: "\\gesles𝐖"]                 # 0x2a94
+ - "⪕": [t: "\\eqslantless𝐖"]            # 0x2a95
+ - "⪖": [t: "\\eqslantgtr𝐖"]             # 0x2a96
+ - "⪗": [t: "\\elsdot𝐖"]                 # 0x2a97
+ - "⪘": [t: "\\egsdot𝐖"]                 # 0x2a98
+ - "⪙": [t: "\\eqqless𝐖"]                # 0x2a99
+ - "⪚": [t: "\\eqqgtr𝐖"]                 # 0x2a9a
+ - "⪛": [t: "\\eqqslantless𝐖"]           # 0x2a9b
+ - "⪜": [t: "\\eqqslantgtr𝐖"]            # 0x2a9c
+ - "⪝": [t: "\\simless𝐖"]                # 0x2a9d
+# - "⪝": [t: "\\Pisymbol{ppi020}{117}"]  # 0x2a9d
+ - "⪞": [t: "\\simgtr𝐖"]                 # 0x2a9e
+# - "⪞": [t: "\\Pisymbol{ppi020}{105}"]  # 0x2a9e
+ - "⪟": [t: "\\simlE𝐖"]                  # 0x2a9f
+ - "⪠": [t: "\\simgE𝐖"]                  # 0x2aa0
+ - "⪡": [t: "\\Lt𝐖"]                     # 0x2aa1
+# - "⪡": [t: "\\NestedLessLess𝐖"]        # 0x2aa1
+ - "⪢": [t: "\\Gt𝐖"]                     # 0x2aa2
+# - "⪢": [t: "\\NestedGreaterGreater𝐖"]  # 0x2aa2
+ - "⪣": [t: "\\partialmeetcontraction𝐖"] # 0x2aa3
+ - "⪤": [t: "\\glj𝐖"]                    # 0x2aa4
+ - "⪥": [t: "\\gla𝐖"]                    # 0x2aa5
+ - "⪦": [t: "\\ltcc𝐖"]                   # 0x2aa6
+ - "⪧": [t: "\\gtcc𝐖"]                   # 0x2aa7
+ - "⪨": [t: "\\lescc𝐖"]                  # 0x2aa8
+ - "⪩": [t: "\\gescc𝐖"]                  # 0x2aa9
+ - "⪪": [t: "\\smt𝐖"]                    # 0x2aaa
+ - "⪫": [t: "\\lat𝐖"]                    # 0x2aab
+ - "⪬": [t: "\\smte𝐖"]                   # 0x2aac
+ - "⪭": [t: "\\late𝐖"]                   # 0x2aad
+ - "⪮": [t: "\\bumpeqq𝐖"]                # 0x2aae
+ - "⪯": [t: "\\preceq𝐖"]                 # 0x2aaf
+ - "⪰": [t: "\\succeq𝐖"]                 # 0x2ab0
+ - "⪱": [t: "\\precneq𝐖"]                # 0x2ab1
+ - "⪲": [t: "\\succneq𝐖"]                # 0x2ab2
+ - "⪳": [t: "\\preceqq𝐖"]                # 0x2ab3
+ - "⪴": [t: "\\succeqq𝐖"]                # 0x2ab4
+ - "⪵": [t: "\\precneqq𝐖"]               # 0x2ab5
+ - "⪶": [t: "\\succneqq𝐖"]               # 0x2ab6
+ - "⪷": [t: "\\precapprox𝐖"]             # 0x2ab7
+ - "⪸": [t: "\\succapprox𝐖"]             # 0x2ab8
+ - "⪹": [t: "\\precnapprox𝐖"]            # 0x2ab9
+ - "⪺": [t: "\\succnapprox𝐖"]            # 0x2aba
+ - "⪻": [t: "\\Prec𝐖"]                   # 0x2abb
+ - "⪼": [t: "\\Succ𝐖"]                   # 0x2abc
+ - "⪽": [t: "\\subsetdot𝐖"]              # 0x2abd
+ - "⪾": [t: "\\supsetdot𝐖"]              # 0x2abe
+ - "⪿": [t: "\\subsetplus𝐖"]             # 0x2abf
+ - "⫀": [t: "\\supsetplus𝐖"]             # 0x2ac0
+ - "⫁": [t: "\\submult𝐖"]                # 0x2ac1
+ - "⫂": [t: "\\supmult𝐖"]                # 0x2ac2
+ - "⫃": [t: "\\subedot𝐖"]                # 0x2ac3
+ - "⫄": [t: "\\supedot𝐖"]                # 0x2ac4
+ - "⫅": [t: "\\subseteqq𝐖"]              # 0x2ac5
+ - "⫆": [t: "\\supseteqq𝐖"]              # 0x2ac6
+ - "⫇": [t: "\\subsim𝐖"]                 # 0x2ac7
+ - "⫈": [t: "\\supsim𝐖"]                 # 0x2ac8
+ - "⫉": [t: "\\subsetapprox𝐖"]           # 0x2ac9
+ - "⫊": [t: "\\supsetapprox𝐖"]           # 0x2aca
+ - "⫋": [t: "\\subsetneqq𝐖"]             # 0x2acb
+ - "⫌": [t: "\\supsetneqq𝐖"]             # 0x2acc
+ - "⫍": [t: "\\lsqhook𝐖"]                # 0x2acd
+ - "⫎": [t: "\\rsqhook𝐖"]                # 0x2ace
+ - "⫏": [t: "\\csub𝐖"]                   # 0x2acf
+ - "⫐": [t: "\\csup𝐖"]                   # 0x2ad0
+ - "⫑": [t: "\\csube𝐖"]                  # 0x2ad1
+ - "⫒": [t: "\\csupe𝐖"]                  # 0x2ad2
+ - "⫓": [t: "\\subsup𝐖"]                 # 0x2ad3
+ - "⫔": [t: "\\supsub𝐖"]                 # 0x2ad4
+ - "⫕": [t: "\\subsub𝐖"]                 # 0x2ad5
+ - "⫖": [t: "\\supsup𝐖"]                 # 0x2ad6
+ - "⫗": [t: "\\suphsub𝐖"]                # 0x2ad7
+ - "⫘": [t: "\\supdsub𝐖"]                # 0x2ad8
+ - "⫙": [t: "\\forkv𝐖"]                  # 0x2ad9
+ - "⫚": [t: "\\topfork𝐖"]                # 0x2ada
+ - "⫛": [t: "\\mlcp𝐖"]                   # 0x2adb
+ - "⫝̸": [t: "\\forks𝐖"]                  # 0x2adc
+ - "⫝": [t: "\\forksnot𝐖"]               # 0x2add
+ - "⫞": [t: "\\shortlefttack𝐖"]          # 0x2ade
+ - "⫟": [t: "\\shortdowntack𝐖"]          # 0x2adf
+ - "⫠": [t: "\\shortuptack𝐖"]            # 0x2ae0
+ - "⫡": [t: "\\perps𝐖"]                  # 0x2ae1
+ - "⫢": [t: "\\vDdash𝐖"]                 # 0x2ae2
+ - "⫣": [t: "\\dashV𝐖"]                  # 0x2ae3
+ - "⫤": [t: "\\Dashv𝐖"]                  # 0x2ae4
+ - "⫥": [t: "\\DashV𝐖"]                  # 0x2ae5
+ - "⫦": [t: "\\varVdash𝐖"]               # 0x2ae6
+ - "⫧": [t: "\\Barv𝐖"]                   # 0x2ae7
+ - "⫨": [t: "\\vBar𝐖"]                   # 0x2ae8
+ - "⫩": [t: "\\vBarv𝐖"]                  # 0x2ae9
+ - "⫪": [t: "\\barV𝐖"]                   # 0x2aea
+ - "⫫": [t: "\\Vbar𝐖"]                   # 0x2aeb
+# - "⫫": [t: "\\ElsevierGlyph{E30D}"]    # 0x2aeb
+ - "⫬": [t: "\\Not𝐖"]                    # 0x2aec
+ - "⫭": [t: "\\bNot𝐖"]                   # 0x2aed
+ - "⫮": [t: "\\revnmid𝐖"]                # 0x2aee
+ - "⫯": [t: "\\cirmid𝐖"]                 # 0x2aef
+ - "⫰": [t: "\\midcir𝐖"]                 # 0x2af0
+ - "⫱": [t: "\\topcir𝐖"]                 # 0x2af1
+ - "⫲": [t: "\\nhpar𝐖"]                  # 0x2af2
+ - "⫳": [t: "\\parsim𝐖"]                 # 0x2af3
+ - "⫴": [t: "\\interleave𝐖"]             # 0x2af4
+ - "⫵": [t: "\\nhVvert𝐖"]                # 0x2af5
+ - "⫶": [t: "\\threedotcolon𝐖"]          # 0x2af6
+# - "⫶": [t: "\\Elztdcol𝐖"]              # 0x2af6
+ - "⫷": [t: "\\lllnest𝐖"]                # 0x2af7
+ - "⫸": [t: "\\gggnest𝐖"]                # 0x2af8
+ - "⫹": [t: "\\leqqslant𝐖"]              # 0x2af9
+ - "⫺": [t: "\\geqqslant𝐖"]              # 0x2afa
+ - "⫻": [t: "\\trslash𝐖"]                # 0x2afb
+ - "⫼": [t: "\\biginterleave𝐖"]          # 0x2afc
+ - "⫽": [t: "\\sslash𝐖"]                 # 0x2afd
+# - "⫽": [t: "{{/}\\!\\!𝐖/}"]            # 0x2afd
+ - "⫾": [t: "\\talloblong𝐖"]             # 0x2afe
+ - "⫿": [t: "\\bigtalloblong𝐖"]          # 0x2aff
+ - "⬒": [t: "\\squaretopblack𝐖"]         # 0x2b12
+ - "⬓": [t: "\\squarebotblack𝐖"]         # 0x2b13
+ - "⬔": [t: "\\squareurblack𝐖"]          # 0x2b14
+ - "⬕": [t: "\\squarellblack𝐖"]          # 0x2b15
+ - "⬖": [t: "\\diamondleftblack𝐖"]       # 0x2b16
+ - "⬗": [t: "\\diamondrightblack𝐖"]      # 0x2b17
+ - "⬘": [t: "\\diamondtopblack𝐖"]        # 0x2b18
+ - "⬙": [t: "\\diamondbotblack𝐖"]        # 0x2b19
+ - "⬚": [t: "\\dottedsquare𝐖"]           # 0x2b1a
+ - "⬛": [t: "\\lgblksquare𝐖"]            # 0x2b1b
+ - "⬜": [t: "\\lgwhtsquare𝐖"]            # 0x2b1c
+ - "⬝": [t: "\\vysmblksquare𝐖"]          # 0x2b1d
+ - "⬞": [t: "\\vysmwhtsquare𝐖"]          # 0x2b1e
+ - "⬟": [t: "\\pentagonblack𝐖"]          # 0x2b1f
+ - "⬠": [t: "\\pentagon𝐖"]               # 0x2b20
+ - "⬡": [t: "\\varhexagon𝐖"]             # 0x2b21
+ - "⬢": [t: "\\varhexagonblack𝐖"]        # 0x2b22
+ - "⬣": [t: "\\hexagonblack𝐖"]           # 0x2b23
+ - "⬤": [t: "\\lgblkcircle𝐖"]            # 0x2b24
+ - "⬥": [t: "\\mdblkdiamond𝐖"]           # 0x2b25
+ - "⬦": [t: "\\mdwhtdiamond𝐖"]           # 0x2b26
+ - "⬧": [t: "\\mdblklozenge𝐖"]           # 0x2b27
+ - "⬨": [t: "\\mdwhtlozenge𝐖"]           # 0x2b28
+ - "⬩": [t: "\\smblkdiamond𝐖"]           # 0x2b29
+ - "⬪": [t: "\\smblklozenge𝐖"]           # 0x2b2a
+ - "⬫": [t: "\\smwhtlozenge𝐖"]           # 0x2b2b
+ - "⬬": [t: "\\blkhorzoval𝐖"]            # 0x2b2c
+ - "⬭": [t: "\\whthorzoval𝐖"]            # 0x2b2d
+ - "⬮": [t: "\\blkvertoval𝐖"]            # 0x2b2e
+ - "⬯": [t: "\\whtvertoval𝐖"]            # 0x2b2f
+ - "⬰": [t: "\\circleonleftarrow𝐖"]      # 0x2b30
+ - "⬱": [t: "\\leftthreearrows𝐖"]        # 0x2b31
+ - "⬲": [t: "\\leftarrowonoplus𝐖"]       # 0x2b32
+ - "⬳": [t: "\\longleftsquigarrow𝐖"]     # 0x2b33
+ - "⬴": [t: "\\nvtwoheadleftarrow𝐖"]     # 0x2b34
+ - "⬵": [t: "\\nVtwoheadleftarrow𝐖"]     # 0x2b35
+ - "⬶": [t: "\\twoheadmapsfrom𝐖"]        # 0x2b36
+ - "⬷": [t: "\\twoheadleftdbkarrow𝐖"]    # 0x2b37
+ - "⬸": [t: "\\leftdotarrow𝐖"]           # 0x2b38
+ - "⬹": [t: "\\nvleftarrowtail𝐖"]        # 0x2b39
+ - "⬺": [t: "\\nVleftarrowtail𝐖"]        # 0x2b3a
+ - "⬻": [t: "\\twoheadleftarrowtail𝐖"]   # 0x2b3b
+ - "⬼": [t: "\\nvtwoheadleftarrowtail𝐖"] # 0x2b3c
+ - "⬽": [t: "\\nVtwoheadleftarrowtail𝐖"] # 0x2b3d
+ - "⬾": [t: "\\leftarrowx𝐖"]             # 0x2b3e
+ - "⬿": [t: "\\leftcurvedarrow𝐖"]        # 0x2b3f
+ - "⭀": [t: "\\equalleftarrow𝐖"]         # 0x2b40
+ - "⭁": [t: "\\bsimilarleftarrow𝐖"]      # 0x2b41
+ - "⭂": [t: "\\leftarrowbackapprox𝐖"]    # 0x2b42
+ - "⭃": [t: "\\rightarrowgtr𝐖"]          # 0x2b43
+ - "⭄": [t: "\\rightarrowsupset𝐖"]       # 0x2b44
+ - "⭅": [t: "\\LLeftarrow𝐖"]             # 0x2b45
+ - "⭆": [t: "\\RRightarrow𝐖"]            # 0x2b46
+ - "⭇": [t: "\\bsimilarrightarrow𝐖"]     # 0x2b47
+ - "⭈": [t: "\\rightarrowbackapprox𝐖"]   # 0x2b48
+ - "⭉": [t: "\\similarleftarrow𝐖"]       # 0x2b49
+ - "⭊": [t: "\\leftarrowapprox𝐖"]        # 0x2b4a
+ - "⭋": [t: "\\leftarrowbsimilar𝐖"]      # 0x2b4b
+ - "⭌": [t: "\\rightarrowbsimilar𝐖"]     # 0x2b4c
+ - "⭐": [t: "\\medwhitestar𝐖"]           # 0x2b50
+ - "⭑": [t: "\\medblackstar𝐖"]           # 0x2b51
+ - "⭒": [t: "\\smwhitestar𝐖"]            # 0x2b52
+ - "⭓": [t: "\\rightpentagonblack𝐖"]     # 0x2b53
+ - "⭔": [t: "\\rightpentagon𝐖"]          # 0x2b54
+ - "《": [t: "\\ElsevierGlyph{300A}"]     # 0x300a
+ - "》": [t: "\\ElsevierGlyph{300B}"]     # 0x300b
+ - "〒": [t: "\\postalmark𝐖"]             # 0x3012
+ - "〔": [t: "\\lbrbrak𝐖"]                # 0x3014
+ - "〕": [t: "\\rbrbrak𝐖"]                # 0x3015
+ - "〘": [t: "\\Lbrbrak𝐖"]                # 0x3018
+# - "〘": [t: "\\ElsevierGlyph{3018}"]    # 0x3018
+ - "〙": [t: "\\Rbrbrak𝐖"]                # 0x3019
+# - "〙": [t: "\\ElsevierGlyph{3019}"]    # 0x3019
+ - "〚": [t: "\\openbracketleft𝐖"]        # 0x301a
+ - "〛": [t: "\\openbracketright𝐖"]       # 0x301b
+ - "〰": [t: "\\hzigzag𝐖"]                # 0x3030
+ - "ﬀ": [t: "\\ff𝐖"]                     # 0xfb00
+ - "ﬁ": [t: "\\fi𝐖"]                     # 0xfb01
+ - "ﬂ": [t: "\\fl𝐖"]                     # 0xfb02
+ - "ﬃ": [t: "\\ffi𝐖"]                    # 0xfb03
+ - "ﬄ": [t: "\\ffl𝐖"]                    # 0xfb04
+
+ - "𝐀-𝐙":    # 0x1d400 - 0x1d419
+     - tc: "\\mathbf𝐖"
+     - spell: "translate('.', '𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝐚-𝐳":    # 0x1d41a - 0x1d433
+     - tc: "\\mathbf𝐖"
+     - spell: "translate('.', '𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+
+# don't mark these as italic
+ - "𝐴-𝑍":    # 0x1d434 - 0x1d44d
+     - spell: "translate('.', '𝐴𝐵𝐶𝐷𝐸𝐹𝐺𝐻𝐼𝐽𝐾𝐿𝑀𝑁𝑂𝑃𝑄𝑅𝑆𝑇𝑈𝑉𝑊𝑋𝑌𝑍', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+
+ - "𝑎-𝑧":    # 0x1d44e - 0x1d467
+     - spell: "translate('.', '𝑎𝑏𝑐𝑑𝑒𝑓𝑔𝑕𝑖𝑗𝑘𝑙𝑚𝑛𝑜𝑝𝑞𝑟𝑠𝑡𝑢𝑣𝑤𝑥𝑦𝑧', 'abcdefghijklmnopqrstuvwxyz')"
+
+
+ - "𝑨-𝒁":    # 0x1d468 - 0x1d481
+     - tc: "\\mathbit𝐖"
+     - spell: "translate('.', '𝑨𝑩𝑪𝑫𝑬𝑭𝑮𝑯𝑰𝑱𝑲𝑳𝑴𝑵𝑶𝑷𝑸𝑹𝑺𝑻𝑼𝑽𝑾𝑿𝒀𝒁', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "W"
+
+ - "𝒂-𝒛":    # 0x1d482 - 0x1d49b
+     - tc: "\\mathbit𝐖"
+     - spell: "translate('.', '𝒂𝒃𝒄𝒅𝒆𝒇𝒈𝒉𝒊𝒋𝒌𝒍𝒎𝒏𝒐𝒑𝒒𝒓𝒔𝒕𝒖𝒗𝒘𝒙𝒚𝒛', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "W"
+
+ - "𝒜-𝒩":    # 0x1d49c - 0x1d4b5
+     - tc: "\\mathscr𝐖"
+     - spell: "translate('.', '𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩', 'ABCDEFGHIJKLMN')"
+     - tc: "W"
+
+ - "𝒬-𝒵":    # 0x1d49c - 0x1d4b5
+     - tc: "\\mathscr𝐖"
+     - spell: "translate('.', '𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵', 'QRSTUVWXYZ')"
+     - tc: "W"
+
+ - "𝒪": [t: "\\mathcal𝐖O𝐖"]              # 0x1d4aa
+ - "𝒫": [t: "\\mathcal𝐖P𝐖"]              # 0x1d4ab
+
+ - "𝒶-𝓏":    # 0x1d4b6 - 0x1d4cf
+     - tc: "\\mathscr𝐖"
+     - spell: "translate('.', '𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝓐-𝓩":    # 0x1d4d0 - 0x1d4e9
+     - tc: "\\mathbcal𝐖"
+     - spell: "translate('.', '𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝓪-𝔃":    # 0x1d4ea - 0x1d503
+     - tc: "\\mathbcal𝐖"
+     - spell: "translate('.', '𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+
+ - "𝔄-𝔜":    # 0x1d504 - 0x1d51c
+     - tc: "\\mathfrak𝐖"
+     - spell: "translate('.', '𝔄𝔅𝔇𝔈𝔉𝔊𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔𝔖𝔗𝔘𝔙𝔚𝔛𝔜', 'ABDEFGJKLMNOPQSTUVWXY')"
+     - tc: "𝐖"
+ - "𝔞-𝔷":    # 0x1d51e - 0x1d537
+     - tc: "\\mathfrak𝐖"
+     - spell: "translate('.', '𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝔸-𝔹":    # 0x1d538 - 0x1d539 (A B)
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [tc: "\\mathbb𝐖"]
+     - spell: "translate('.', '𝔸𝔹', 'AB')"
+     - tc: "𝐖"
+ - "𝔻-𝔾":    # 0x1d53b - 0x1d53e (D E F G)
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [tc: "\\mathbb𝐖"]
+     - spell: "translate('.', '𝔻𝔼𝔽𝔾', 'DEFG')"
+     - tc: "𝐖"
+ - "𝕀-𝕄":    # 0x1d540 - 0x1d544 (I J K L M)
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [tc: "\\mathbb𝐖"]
+     - spell: "translate('.', '𝕀𝕁𝕂𝕃𝕄', 'IJKLM')"
+     - tc: "𝐖"
+ - "𝕆":                                  # 0x1d546 (O)
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [tc: "\\mathbb𝐖"]
+     - spell: "translate('.', '𝕆', 'O')"
+     - tc: "𝐖"
+ - "𝕊-𝕐":    # 0x1d54a - 0x1d550 (S T U V W X Y)
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [tc: "\\mathbb𝐖"]
+     - spell: "translate('.', '𝕊𝕋𝕌𝕍𝕎𝕏𝕐', 'STUVWXY')"
+     - tc: "𝐖"
+ - "𝕒-𝕫":    # 0x1d552 - 0x1d56b (a-z)
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [tc: "\\mathbb𝐖"]
+     - spell: "translate('.', '𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝕬-𝖅":    # 0x1d56c - 0x1d585
+     - tc: "\\mathbfrak𝐖"
+     - spell: "translate('.', '𝕬𝕭𝕮𝕯𝕰𝕱𝕲𝕳𝕴𝕵𝕶𝕷𝕸𝕹𝕺𝕻𝕼𝕽𝕾𝕿𝖀𝖁𝖂𝖃𝖄𝖅', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝖆-𝖟":    # 0x1d586 - 0x1d59f
+     - tc: "\\mathbfrak𝐖"
+     - spell: "translate('.', '𝖆𝖇𝖈𝖉𝖊𝖋𝖌𝖍𝖎𝖏𝖐𝖑𝖒𝖓𝖔𝖕𝖖𝖗𝖘𝖙𝖚𝖛𝖜𝖝𝖞𝖟', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝖠-𝖹":    # 0x1d5a0 - 0x1d5b9
+     - tc: "\\mathsf𝐖"
+     - spell: "translate('.', '𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝖺-𝗓":    # 0x1d5ba - 0x1d5d3
+     - tc: "\\mathsf𝐖"
+     - spell: "translate('.', '𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝗔-𝗭":    # 0x1d5d4 - 0x1d5ed
+     - tc: "\\mathsfbf𝐖"
+     - spell: "translate('.', '𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝗮-𝘇":    # 0x1d5ee - 0x1d607
+     - tc: "\\mathsfbf𝐖"
+     - spell: "translate('.', '𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝘈-𝘡":    # 0x1d608 - 0x1d621
+     - tc: "\\mathsfsl𝐖"
+     - spell: "translate('.', '𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝘢-𝘻":    # 0x1d622 - 0x1d63b
+     - tc: "\\mathsfsl𝐖"
+     - spell: "translate('.', '𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝘼-𝙯":    # 0x1d63c - 0x1d66f
+     - tc: "\\mathsfbfsl𝐖"
+     - spell: "translate('.', '𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯', 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝙰-𝚉":    # 0x1d670 - 0x1d689
+     - tc: "\\mathtt𝐖"
+     - spell: "translate('.', '𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')"
+     - tc: "𝐖"
+ - "𝚊-𝚣":    # 0x1d68a - 0x1d6a3
+     - tc: "\\mathtt𝐖"
+     - spell: "translate('.', '𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣', 'abcdefghijklmnopqrstuvwxyz')"
+     - tc: "𝐖"
+ - "𝚨-𝚲":    # 0x1d6a8 - 0x1d6b2
+    - tc: "\\mathbf𝐖"
+    - spell: "translate('.', '𝚨𝚩𝚪𝚫𝚬𝚭𝚮𝚯𝚰𝚱𝚲', 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞ')"
+    - tc: "𝐖"
+ - "𝚳": [t: "\\mathbf𝐖M𝐖"]               # 0x1d6b3
+ - "𝚴": [t: "\\N"]                       # 0x1d6b4
+ - "𝚵": [t: "\\mathbf{\\Xi}"]            # 0x1d6b5
+ - "𝚶":                                  # 0x1d6b6
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~O"]
+         else: [t: "\\O"]
+ - "𝚷-𝚿":    # 0x1d6b7 - 0x1d6bf
+    - tc: "\\mathbf𝐖"
+    - spell: "translate('.', '𝚷𝚸𝚹𝚺𝚻𝚼𝚽𝚾𝚿', 'ΠΡ΢ΣΤΥΦΧΨ')"
+    - tc: "𝐖"
+ - "𝛀": [t: "\\mathbf{\\Omega}"]         # 0x1d6c0
+ - "𝛁": [t: "\\mathbf{\\nabla}"]         # 0x1d6c1
+ - "𝛂-𝛏":    # 0x1d6c2 - 0x1d6cf
+    - tc: "\\mathbf𝐖"
+    - spell: "translate('.', '𝛂𝛃𝛄𝛅𝛆𝛇𝛈𝛉𝛊𝛋𝛌𝛍𝛎𝛏', 'αβγδεζηθικλμνξ')"
+    - tc: "𝐖"
+ - "𝛐": [t: "\\mathbf𝐖o𝐖"]               # 0x1d6d0
+ - "𝛑-𝛚":    # 0x1d6d1 - 0x1d6da
+    - tc: "\\mathbf𝐖"
+    - spell: "translate('.', '𝛑𝛒𝛓𝛔𝛕𝛖𝛗𝛘𝛙𝛚', 'πρςστυφχψω')"
+    - tc: "𝐖"
+ - "𝛛": [t: "\\partial𝐖"]                # 0x1d6db
+ - "𝛜": [t: "\\mathbf{\\varepsilon}"]    # 0x1d6dc
+ - "𝛝": [t: "\\mathbf{\\vartheta}"]      # 0x1d6dd
+ - "𝛞": [t: "\\mathbf{\\varkappa}"]      # 0x1d6de
+ - "𝛟": [t: "\\mathbf{\\phi}"]           # 0x1d6df
+ - "𝛠": [t: "\\mathbf{\\varrho}"]        # 0x1d6e0
+ - "𝛡": [t: "\\mathbf{\\varpi}"]         # 0x1d6e1
+ - "𝛢-𝛯":    # 0x1d6e2 - 0x1d6ef (Alpha - Xi)
+    - tc: "\\mathmit"
+    - spell: "translate('.', '𝛢𝛣𝛤𝛥𝛦𝛧𝛨𝛩𝛪𝛫𝛬𝛭𝛮𝛯', 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞ')"
+ - "𝛰":                                  # 0x1d6f0
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~O"]
+         else: [t: "\\O"]
+ - "𝛱-𝛺":    # 0x1d6f1 - 0x1d6fa (Pi - Omega)
+    - tc: "\\mathmit"
+    - spell: "translate('.', '𝛱𝛲𝛳𝛴𝛵𝛶𝛷𝛸𝛹𝛺', 'ΠΡΣΤΥΦΧΨΩ')"
+ - "𝛻": [t: "\\mathmit{\\nabla}"]        # 0x1d6fb
+ - "𝛼-𝜔":    # 0x1d6fc - 0x1d714 (alpha - omega)
+    - tc: "\\mathmit"
+    - spell: "translate('.', '𝛼𝛽𝛾𝛿𝜀𝜁𝜂𝜃𝜄𝜅𝜆𝜇𝜈𝜉𝜊𝜋𝜌𝜍𝜎𝜏𝜐𝜑𝜒𝜓𝜔', 'αβγδεζηθικλμνξοπρςστυφχψω')"
+ - "𝜕": [t: "\\partial𝐖"]                # 0x1d715
+ - "𝜖": [t: "\\in𝐖"]                     # 0x1d716
+ - "𝜗": [t: "\\mathmit{\\vartheta}"]     # 0x1d717
+ - "𝜘": [t: "\\mathmit{\\varkappa}"]     # 0x1d718
+ - "𝜙": [t: "\\mathmit{\\phi}"]          # 0x1d719
+ - "𝜚": [t: "\\mathmit{\\varrho}"]       # 0x1d71a
+ - "𝜛": [t: "\\mathmit{\\varpi}"]        # 0x1d71b
+ - "𝜜-𝜩":    # 0x1d71c - 0x1d729 (Alpha - Xi)
+    - tc: "\\mathbit"
+    - spell: "translate('.', '𝜜𝜝𝜞𝜟𝜠𝜡𝜢𝜣𝜤𝜥𝜦𝜧𝜨𝜩', 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞ')"
+ - "𝜪":                                  # 0x1d72a
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~O"]
+         else: [t: "\\O"]
+ - "𝜫-𝜴":    # 0x1d72b - 0x1d734 (Pi - Omega)
+    - tc: "\\mathbit"
+    - spell: "translate('.', '𝜫𝜬𝜭𝜮𝜯𝜰𝜱𝜲𝜳𝜴', 'ΠΡΣΤΥΦΧΨΩ')"
+ - "𝜵": [t: "\\mathbit{\\nabla}"]        # 0x1d735
+ - "𝜶-𝝎":    # 0x1d736 - 0x1d74e
+    - tc: "\\mathbit"
+    - spell: "translate('.', '𝜶𝜷𝜸𝜹𝜺𝜻𝜼𝜽𝜾𝜿𝝀𝝁𝝂𝝃𝝄𝝅𝝆𝝇𝝈𝝉𝝊𝝋𝝌𝝍𝝎', 'αβγδεζηθικλμνξοπρςστυφχψω')"
+ - "𝝏": [t: "\\partial𝐖"]                # 0x1d74f
+ - "𝝐": [t: "\\in𝐖"]                     # 0x1d750
+ - "𝝑": [t: "\\mathbit{\\vartheta}"]     # 0x1d751
+ - "𝝒": [t: "\\mathbit{\\varkappa}"]     # 0x1d752
+ - "𝝓": [t: "\\mathbit{\\phi}"]          # 0x1d753
+ - "𝝔": [t: "\\mathbit{\\varrho}"]       # 0x1d754
+ - "𝝕": [t: "\\mathbit{\\varpi}"]        # 0x1d755
+ - "𝝖-𝝠":    # 0x1d756 - 0x1d760 (Alpha - Lambda)
+    - tc: "\\mathsfbf"
+    - spell: "translate('.', '𝝖𝝗𝝘𝝙𝝚𝝛𝝜𝝝𝝞𝝟𝝠', 'ΑΒΓΔΕΖΗΘΙΚΛ')"
+ - "𝝡": [t: "\\mathsfbf𝐖M𝐖"]             # 0x1d761
+ - "𝝢": [t: "\\mathsfbf𝐖N𝐖"]             # 0x1d762
+ - "𝝣": [t: "\\mathsfbf{\\Xi}"]          # 0x1d763
+ - "𝝤":                                  # 0x1d764
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~O"]
+         else: [t: "\\O"]
+ - "𝝥-𝝰":    # 0x1d765 - 0x1d76f
+    - tc: "\\mathsfbf"
+    - spell: "translate('.', '𝝥𝝦𝝧𝝨𝝩𝝪𝝫𝝬𝝭𝝮𝝯', 'ΠΡΣΤΥΦΧΨΩ∇')"
+ - "𝝱-𝝽":    # 0x1d770 - 0x1d77d
+    - tc: "\\mathsfbf"
+    - spell: "translate('.', '𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽', 'αβγδεζηθικλμνξ')"
+ - "𝝾": [t: "\\mathsfbf𝐖o𝐖"]             # 0x1d77e
+ - "𝝿-𝞇":    # 0x1d77f - 0x1d787 (pi - psi)
+    - tc: "\\mathsfbf"
+    - spell: "translate('.', '𝝿𝞀𝞁𝞂𝞃𝞄𝞅𝞆𝞇', 'πρςστυφχψ')"
+ - "𝞈": [t: "\\mathsfbf{\\omega}"]       # 0x1d788
+ - "𝞉": [t: "\\partial𝐖"]                # 0x1d789
+ - "𝞊": [t: "\\mathsfbf{\\varepsilon}"]  # 0x1d78a
+ - "𝞋": [t: "\\mathsfbf{\\vartheta}"]    # 0x1d78b
+ - "𝞌": [t: "\\mathsfbf{\\varkappa}"]    # 0x1d78c
+ - "𝞍": [t: "\\mathsfbf{\\phi}"]         # 0x1d78d
+ - "𝞎": [t: "\\mathsfbf{\\varrho}"]      # 0x1d78e
+ - "𝞏": [t: "\\mathsfbf{\\varpi}"]       # 0x1d78f
+ - "𝞐-𝞚":    # 0x1d790 - 0x1d79a (Alpha - Lambda)
+    - tc: "\\mathsfbfsl"
+    - spell: "translate('.', '𝞐𝞑𝞒𝞓𝞔𝞕𝞖𝞗𝞘𝞙𝞚', 'ΑΒΓΔΕΖΗΘΙΚΛ')"
+ - "𝞛": [t: "\\mathsfbfsl𝐖M𝐖"]           # 0x1d79b
+ - "𝞜": [t: "\\mathsfbfsl𝐖N𝐖"]           # 0x1d79c
+ - "𝞝": [t: "\\mathsfbfsl{\\Xi}"]        # 0x1d79d
+ - "𝞞":                                  # 0x1d79e
+     - test:
+         if: "$LaTeX_UseShortName"
+         then: [t: "~O"]
+         else: [t: "\\O"]
+ - "𝞟-𝞨":    # 0x1d79f - 0x1d7a8 (Pi - Omega)
+    - tc: "\\mathsfbfsl"
+    - spell: "translate('.', '𝞟𝞠𝞡𝞢𝞣𝞤𝞥𝞦𝞧𝞨', 'ΠΡΣΤΥΦΧΨΩ')"
+ - "𝞩": [t: "\\mathsfbfsl{\\nabla}"]     # 0x1d7a9
+ - "𝞪-𝞷":    # 0x1d7aa - 0x1d7b7 (alpha - xi)
+    - tc: "\\mathsfbfsl"
+    - spell: "translate('.', '𝞪𝞫𝞬𝞭𝞮𝞯𝞰𝞱𝞲𝞳𝞴𝞵𝞶𝞷', 'αβγδεζηθικλμνξ')"
+ - "𝞸": [t: "\\mathsfbfsl𝐖o𝐖"]           # 0x1d7b8
+ - "𝞹-𝟀":    # 0x1d7b9 - 0x1d7c0 (pi - chi)
+    - tc: "\\mathsfbfsl"
+    - spell: "translate('.', '𝞹𝞺𝞻𝞼𝞽𝞾𝞿𝟀', 'πρςστυφχ')"
+ - "𝟁": [t: "\\mathsfbfsl{\\psi}"]       # 0x1d7c1
+ - "𝟂": [t: "\\mathsfbfsl{\\omega}"]     # 0x1d7c2
+ - "𝟃": [t: "\\partial𝐖"]                # 0x1d7c3
+ - "𝟄": [t: "\\in𝐖"]                     # 0x1d7c4
+ - "𝟅": [t: "\\mathsfbfsl{\\vartheta}"]  # 0x1d7c5
+ - "𝟆": [t: "\\mathsfbfsl{\\varkappa}"]  # 0x1d7c6
+ - "𝟇": [t: "\\mathsfbfsl{\\phi}"]       # 0x1d7c7
+ - "𝟈": [t: "\\mathsfbfsl{\\varrho}"]    # 0x1d7c8
+ - "𝟉": [t: "\\mathsfbfsl{\\varpi}"]     # 0x1d7c9
+ - "𝟎-𝟗":    # 0x1d7ce - 0x1d7d7 (bold digits 0-9)
+    - tc: "\\mathbf𝐖"
+    - spell: "translate('.', '𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗', '0123456789')"
+    - tc: "𝐖"
+ - "𝟘-𝟡":    # 0x1d7d9 - 0x1d7e1
+     - tc: "\\mathbb𝐖"
+     - spell: "translate('.', '0𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡', '0123456789')"
+     - tc: "𝐖"
+ - "𝟢-𝟫":    # 0x1d7e2 - 0x1d7eb
+     - tc: "\\mathsf𝐖"
+     - spell: "translate('.', '𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫', '0123456789')"
+     - tc: "𝐖"
+ - "𝟬-𝟵":    # 0x1d7ec - 0x1d7f5
+     - tc: "\\mathsfbf𝐖"
+     - spell: "translate('.', '𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵', '0123456789')"
+     - tc: "𝐖"
+ - "𝟶-𝟿":    # 0x1d7f6 - 0x1d7ff
+     - tc: "\\mathtt𝐖"
+     - spell: "translate('.', '𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿', '0123456789')"
+     - tc: "𝐖"
+ - "𞻰": [t: "\\arabicmaj𝐖"]              # 0x1eef0
+ - "𞻱": [t: "\\arabichad𝐖"]              # 0x1eef1

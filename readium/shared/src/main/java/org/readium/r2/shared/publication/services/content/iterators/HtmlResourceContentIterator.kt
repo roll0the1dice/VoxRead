@@ -46,6 +46,7 @@ import org.readium.r2.shared.util.resource.Resource
 import org.readium.r2.shared.util.toDebugDescription
 import org.readium.r2.shared.util.use
 import timber.log.Timber
+import android.content.Context
 
 /**
  * Iterates an HTML [resource], starting from the given [locator].
@@ -63,6 +64,7 @@ public class HtmlResourceContentIterator internal constructor(
     private val totalProgressionRange: ClosedRange<Double>?,
     private val locator: Locator,
     private val beforeMaxLength: Int = 50,
+    private val mathEngine: MathSpeechEngine? = null,
 ) : Content.Iterator {
 
     public class Factory : ResourceContentIteratorFactory {
@@ -78,19 +80,34 @@ public class HtmlResourceContentIterator internal constructor(
                 return null
             }
 
-            val positions = servicesHolder.positionsByReadingOrder()
-            return HtmlResourceContentIterator(
-                resource,
-                totalProgressionRange = positions.getOrNull(readingOrderIndex)
-                    ?.firstOrNull()?.locations?.totalProgression
-                    ?.let { start ->
-                        val end = positions.getOrNull(readingOrderIndex + 1)
-                            ?.firstOrNull()?.locations?.totalProgression
-                            ?: 1.0
+            val positions = tryOrNull { servicesHolder.positionsByReadingOrder() }
+            val totalProgressionRange = positions?.getOrNull(readingOrderIndex)
+                ?.firstOrNull()?.locations?.totalProgression
+                ?.let { start ->
+                    val end = positions.getOrNull(readingOrderIndex + 1)
+                        ?.firstOrNull()?.locations?.totalProgression ?: 1.0
+                    start..end
+                }
 
-                        start..end
-                    },
-                locator = locator
+            // 🌟 自动兜底获取全局 Context，防止外部无参调用时 mathEngine 为 null
+            // ✅ 修改后：
+            val appContext = tryOrNull {
+                Class.forName("android.app.ActivityThread")
+                    .getMethod("currentApplication")
+                    .invoke(null) as? Context
+            }
+
+            //android.util.Log.d("MathCAT_DEBUG", "Step 1: appContext 获取结果 = ${appContext != null}")
+
+            val engine = appContext?.let { MathSpeechEngine.getInstance(it) }
+
+            //android.util.Log.d("MathCAT_DEBUG", "Step 1: MathSpeechEngine 实例 = ${engine != null}")
+
+            return HtmlResourceContentIterator(
+                resource = resource,
+                totalProgressionRange = totalProgressionRange,
+                locator = locator,
+                mathEngine = engine
             )
         }
     }
@@ -172,6 +189,9 @@ public class HtmlResourceContentIterator internal constructor(
                 Jsoup.parse(html)
             }
 
+                      // 预先处理公式朗读转换（挂起执行）
+            preprocessMathElements(document.body())
+
             val contentParser = ContentParser(
                 baseLocator = locator,
                 startElement = locator.locations.cssSelector?.let {
@@ -186,7 +206,15 @@ public class HtmlResourceContentIterator internal constructor(
                 return@withContext elements
             }
 
+            val adjustedStartIndex = if (elements.startIndex == 0 && locator.locations.progression != null) {
+                val prog = locator.locations.progression!!.coerceIn(0.0, 1.0)
+                (prog * elementCount).toInt().coerceIn(0, elementCount - 1)
+            } else {
+                elements.startIndex
+            }
+
             elements.copy(
+                startIndex = adjustedStartIndex,
                 elements = elements.elements.mapIndexed { index, element ->
                     val progression = index.toDouble() / elementCount
                     element.copy(
@@ -198,6 +226,51 @@ public class HtmlResourceContentIterator internal constructor(
                 }
             )
         }
+
+            /**
+     * 🌟 在 NodeTraversor 之前，将 MathML / KaTeX / MathJax 替换为带 cssSelector 的发音节点
+     */
+    private suspend fun preprocessMathElements(root: Element) {
+        val mathNodes = root.select("math, .katex, .MathJax")
+        for (node in mathNodes) {
+            val mathmlElement = if (node.normalName() == "math") node else node.getElementsByTag("math").firstOrNull()
+            
+            // 在修改 DOM 树前，先计算出它在真实 WebView DOM 中的 CSS 选择器
+            val targetElement = mathmlElement ?: node
+            val cssSelector = targetElement.cssSelector()
+
+            var spokenText = ""
+
+            //android.util.Log.d("MathCAT_DEBUG", "--- 正在处理第 $index 个公式 ---")
+            //android.util.Log.d("MathCAT_DEBUG", "公式标签 = ${node.tagName()}，mathmlElement存在 = ${mathmlElement != null}，mathEngine存在 = ${mathEngine != null}")
+
+            if (mathmlElement != null && mathEngine != null) {
+                val outerHtml = mathmlElement.outerHtml()
+              try {
+                    spokenText = mathEngine.toSpeech(outerHtml, locale = "zh")
+                    //android.util.Log.d("MathCAT_DEBUG", "Step 3: MathCAT 转换返回 = '$spokenText'")
+                } catch (t: Throwable) {
+                    android.util.Log.e("MathCAT_DEBUG", "Step 3 异常: 调用 toSpeech 崩溃", t)
+                }
+            }
+
+            // 兜底提取 LaTeX 并降级
+            if (spokenText.isBlank()) {
+                val annotation = node.getElementsByTag("annotation").firstOrNull()
+                val latex = annotation?.text() ?: node.toMathmlLatex()
+                spokenText = latexToChineseSpeech(latex)
+                //Log.d(TAG, "[MathSpeech] LaTeX 降级转换: '$spokenText'")
+            }
+
+            if (spokenText.isNotBlank()) {
+                // 用带有 data-math-selector 属性的节点替换，以便 ContentParser 生成对应的 CSS 定位
+                val replacement = Element("span")
+                    .attr("data-math-selector", cssSelector)
+                    .text(" $spokenText ")
+                node.replaceWith(replacement)
+            }
+        }
+    }
 
     private fun Content.Element.copy(progression: Double?, totalProgression: Double?): Content.Element {
         fun Locator.update(): Locator =

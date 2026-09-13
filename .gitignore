@@ -98,3 +98,7 @@ lcp.patch
 
 # Script outpouts
 readium/navigators/web/scripts/dist/
+
+**/android-ndk-r26b/
+
+**/target/

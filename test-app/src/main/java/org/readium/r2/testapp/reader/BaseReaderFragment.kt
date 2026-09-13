@@ -18,6 +18,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import org.readium.r2.lcp.lcpLicense
 import org.readium.r2.navigator.Navigator
+import org.readium.r2.navigator.VisualNavigator
 import org.readium.r2.navigator.preferences.Configurable
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
@@ -60,6 +61,12 @@ abstract class BaseReaderFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // 🌟 核心修复 1：在视图就绪时，把 visualNavigator 注入给 TtsViewModel
+// 🌟 正确写法：属性名叫 model.tts
+(navigator as? VisualNavigator)?.let { visualNav ->
+    model.tts?.bindVisualNavigator(visualNav)
+}
 
         val menuHost: MenuHost = requireActivity()
 
@@ -105,6 +112,13 @@ abstract class BaseReaderFragment : Fragment() {
             },
             viewLifecycleOwner
         )
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 🌟 核心修复 2：视图销毁时解绑，防止持有销毁的 Fragment 实例导致内存泄漏
+// 🌟 正确写法：
+model.tts?.unbindVisualNavigator()
     }
 
     override fun onHiddenChanged(hidden: Boolean) {

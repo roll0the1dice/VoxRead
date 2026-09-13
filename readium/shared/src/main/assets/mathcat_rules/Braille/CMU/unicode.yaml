@@ -1,0 +1,698 @@
+---
+# UEB characters
+#
+# Some chars that originally came from an Excel spreadsheet, converted to csv, and the greatly expanded
+# 
+# The UEB translation makes use of some non-braille chars as flags
+#    L -- what follows is a letter
+#    N -- what follows is a digit
+#    C -- precedes L for capital letters
+#    G -- precedes L for Greek Letters (after C for capitals)
+#  Typeface Indicators ("typeforms")
+#    B bold, I Italic, S Sans-serif, T script, D, Fraktur, 𝔹 blackboard-bold
+#    the type face indicators can be combined with B (first) and I (second)
+#  Standing alone chars:
+#    Any character which acts as a standing alone character (e.g, "{") needs each braille symbol to be labeled
+#    o -- opening/left side, c -- closing/right side, b -- both open and close (e.g, '"')
+
+ - "0": [t: "N⠚"]               # 0x30 
+ - "1": [t: "N⠁"]               # 0x31 
+ - "2": [t: "N⠃"]               # 0x32 
+ - "3": [t: "N⠉"]               # 0x33 
+ - "4": [t: "N⠙"]               # 0x34 
+ - "5": [t: "N⠑"]               # 0x35 
+ - "6": [t: "N⠋"]               # 0x36 
+ - "7": [t: "N⠛"]               # 0x37 
+ - "8": [t: "N⠓"]               # 0x38 
+ - "9": [t: "N⠊"]               # 0x39 
+
+# we stick the drop numbers into the private use area for consistency
+ - "\ue000": [t: "N⠴"]               # 0 
+ - "\ue001": [t: "N⠂"]               # 1 
+ - "\ue002": [t: "N⠆"]               # 2 
+ - "\ue003": [t: "N⠒"]               # 3 
+ - "\ue004": [t: "N⠲"]               # 4 
+ - "\ue005": [t: "N⠢"]               # 5 
+ - "\ue006": [t: "N⠖"]               # 6 
+ - "\ue007": [t: "N⠶"]               # 7 
+ - "\ue008": [t: "N⠦"]               # 8 
+ - "\ue009": [t: "N⠔"]               # 9 
+
+# we stick hex digits into the private use area for consistency
+# these are used when we don't want to add a numeric indicator for subsequent digits (3.3)
+ - "\ue00A": [t: "N⠐N⠁"]               # A 
+ - "\ue00B": [t: "N⠐N⠃"]               # B 
+ - "\ue00C": [t: "N⠐N⠉"]               # C 
+ - "\ue00D": [t: "N⠐N⠙"]               # D 
+ - "\ue00E": [t: "N⠐N⠑"]               # E 
+ - "\ue00F": [t: "N⠐N⠋"]               # F 
+
+# leave room for the rest of the alphabet
+ - "\ue01A": [t: "N⠨N⠁"]               # A 
+ - "\ue01B": [t: "N⠨N⠃"]               # B 
+ - "\ue01C": [t: "N⠨N⠉"]               # C 
+ - "\ue01D": [t: "N⠨N⠙"]               # D 
+ - "\ue01E": [t: "N⠨N⠑"]               # E 
+ - "\ue01F": [t: "N⠨N⠋"]               # F 
+
+# Omission char -- there isn't a specific code point, so we use a private use area
+ - "\ue020": [t: "⠰"]        # omission (three dot 5s with letter indicator) 
+
+
+ - "a": [t: "L⠁"]               # 0x61 
+ - "b": [t: "L⠃"]               # 0x62 
+ - "c": [t: "L⠉"]               # 0x63 
+ - "d": [t: "L⠙"]               # 0x64 
+ - "e": [t: "L⠑"]               # 0x65 
+ - "f": [t: "L⠋"]               # 0x66 
+ - "g": [t: "L⠛"]               # 0x67 
+ - "h": [t: "L⠓"]               # 0x68 
+ - "i": [t: "L⠊"]               # 0x69 
+ - "j": [t: "L⠚"]               # 0x6a 
+ - "k": [t: "L⠅"]               # 0x6b 
+ - "l": [t: "L⠇"]               # 0x6c 
+ - "m": [t: "L⠍"]               # 0x6d 
+ - "n": [t: "L⠝"]               # 0x6e 
+ - "o":                         # 0x6f 
+    - test:     # special case because these have the same dot pattern
+        if: "preceding-sibling::*[1][self::m:mo and (.='>' or .='≫')]"
+        then: [t: "⠐"]
+    - t: "L⠕"
+ - "p": [t: "L⠏"]               # 0x70 
+ - "q": [t: "L⠟"]               # 0x71 
+ - "r": [t: "L⠗"]               # 0x72 
+ - "s": [t: "L⠎"]               # 0x73 
+ - "t": [t: "L⠞"]               # 0x74 
+ - "u": [t: "L⠥"]               # 0x75 
+ - "v": [t: "L⠧"]               # 0x76 
+ - "w": [t: "L⠺"]               # 0x77 
+ - "x": [t: "L⠭"]               # 0x78 
+ - "y": [t: "L⠽"]               # 0x79 
+ - "z": [t: "L⠵"]               # 0x7a 
+
+
+ - "á": [t: "L⠷"]               # 0xE1 
+ - "é": [t: "L⠮"]               # 0xE9 
+ - "í": [t: "L⠌"]               # 0xED 
+ - "ñ": [t: "L⠻"]               # 0xF1 
+ - "ó": [t: "L⠬"]               # 0xF3 
+ - "ú": [t: "L⠾"]               # 0xFA 
+ - "ü": [t: "L⠳"]               # 0xFC 
+
+ - "Á": [t: "CL⠷"]               # 0xC0 
+ - "É": [t: "CL⠮"]               # 0xC9 
+ - "Í": [t: "CL⠌"]               # 0xCD 
+ - "Ñ": [t: "CL⠻"]               # 0xD1 
+ - "Ó": [t: "CL⠬"]               # 0xD3 
+ - "Û": [t: "CL⠾"]               # 0xDA 
+ - "Ü": [t: "CL⠳"]               # 0xDC 
+
+ # Latin capitals: chem-element letters use 𝐶 (no word indicator); others use C.
+ # Cells come from lowercase a-z via spell/translate.
+ - "BCHIKNOPSUVWY":              # chemistry-capable capitals
+    - test:
+        if: "@data-chem-element"
+        then: [tc: "𝐶"]
+        else: [tc: "C"]
+    - spell: "translate('.', 'BCHIKNOPSUVWY', 'bchiknopsuvwy')"
+ - "ADEFGJLMQRTXZ":              # remaining capitals
+    - tc: "C"
+    - spell: "translate('.', 'ADEFGJLMQRTXZ', 'adefgjlmqrtxz')"
+
+ - "α": [t: "GL⠁"]              # 0x3b1 
+ - "β": [t: "GL⠃"]              # 0x3b2 
+ - "γ": [t: "GL⠛"]              # 0x3b3 
+ - "δ": [t: "GL⠙"]              # 0x3b4 
+ - "ε": [t: "GL⠑"]              # 0x3b5 
+ - "ζ": [t: "GL⠵"]              # 0x3b6 
+ - "η": [t: "GL⠱"]             # 0x3b7 
+ - "θ": [t: "GL⠹"]              # 0x3b8 
+ - "ι": [t: "GL⠊"]              # 0x3b9 
+ - "κ": [t: "GL⠅"]              # 0x3ba 
+ - "λ": [t: "GL⠇"]              # 0x3bb 
+ - "μ": [t: "GL⠍"]              # 0x3bc 
+ - "ν": [t: "GL⠝"]              # 0x3bd 
+ - "ξ": [t: "GL⠭"]              # 0x3be 
+ - "ο": [t: "GL⠕"]              # 0x3bf 
+ - "π": [t: "GL⠏"]              # 0x3c0 
+ - "ρ": [t: "GL⠗"]              # 0x3c1 
+ - "ς": [t: "VL⠎"]              # 0x3c2 
+ - "σ": [t: "GL⠎"]              # 0x3c3 
+ - "τ": [t: "GL⠞"]              # 0x3c4 
+ - "υ": [t: "GL⠥"]              # 0x3c5 
+ - "φ": [t: "GL⠋"]              # 0x3c6 
+ - "χ": [t: "GL⠯"]              # 0x3c7 
+ - "ψ": [t: "GL⠽"]              # 0x3c8 
+ - "ω": [t: "GL⠺"]              # 0x3c9 
+
+ - "Α": [t: "CGL⠁"]             # 0x391 
+ - "Β": [t: "CGL⠃"]             # 0x392 
+ - "Γ": [t: "CGL⠛"]             # 0x393 
+ - "Δ": [t: "CGL⠙"]             # 0x394 
+ - "Ε": [t: "CGL⠑"]             # 0x395 
+ - "Ζ": [t: "CGL⠵"]             # 0x396 
+ - "Η": [t: "CGL⠱ "]            # 0x397 
+ - "Θ": [t: "CGL⠹"]             # 0x398 
+ - "Ι": [t: "CGL⠊"]             # 0x399 
+ - "Κ": [t: "CGL⠅"]             # 0x39a 
+ - "Λ": [t: "CGL⠇"]             # 0x39b 
+ - "Μ": [t: "CGL⠍"]             # 0x39c 
+ - "Ν": [t: "CGL⠝"]             # 0x39d 
+ - "Ξ": [t: "CGL⠭"]             # 0x39e 
+ - "Ο": [t: "CGL⠕"]             # 0x39f 
+ - "Π": [t: "CGL⠏"]             # 0x3a0 
+ - "Ρ": [t: "CGL⠗"]             # 0x3a1 
+ - "΢": [t: "CGL⠎"]             # 0x3a2 
+ - "Σ": [t: "CGL⠎"]             # 0x3a3 
+ - "Τ": [t: "CGL⠞"]             # 0x3a4 
+ - "Υ": [t: "CGL⠥"]             # 0x3a5 
+ - "Φ": [t: "CGL⠋"]             # 0x3a6 
+ - "Χ": [t: "CGL⠯"]             # 0x3a7 
+ - "Ψ": [t: "CGL⠽"]             # 0x3a8 
+ - "Ω": [t: "CGL⠺"]             # 0x3a9
+
+ - "ϑ": [t: "VL⠹"]              # 0x3d1
+ - "ϵ": [t: "VL⠑"]              # 0x3f5
+ - "ϰ": [t: "VL⠅"]              # 0x3f0
+ - "ϕ": [t: "VL⠋"]              # 0x3d5
+ - "ϱ": [t: "VL⠗"]              # 0x3f1
+ - "ϖ": [t: "VL⠏"]              # 0x3d6
+ - "Ϝ": [t: "VL⠧"]              # 0x3d7
+
+ - "µ": [t: "GL⠍"]              # 0x00B5 (Micro (Greek mu))
+ - "Ω": [t: "CGL⠺"]             # 0x2126 (Ohm sign (capital Greek omega))
+ - "∆": [t: "⠸⠦"]               # 0x2206 (Increment)
+ - "∏":                         # 0x220F (Product (capital Greek pi))
+    - t: "CGL⠏"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "∐":                         # 0x2210 (CoProduct (capital Greek pi))
+    - t: "⠘⠻"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "∑":                          # 0x2211 (Sum (capital Greek sigma))
+    - t: "CGL⠎"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+
+ - "<": [t: "⠪"]               # 0x003C (Less than)
+ - "≨": [t: "⠪"]               # 0x2268 (Less-Than But Not Equal To)
+ - "⋦": [t: "⠪"]               # 0x22E6 (Less-Than But Not Equivalent To)
+ - ">": [t: "⠕"]               # 0x003E (Greater than)
+ - "≩": [t: "⠕"]               # 0x2269 (Greater-Than But Not Equal To)
+ - "⋧": [t: "⠕"]               # 0x22E7 (Greater-Than But Not Equivalent To)
+#  - "≮": [t: "⠈⠣⠈⠱"]             # 0x226E (Not less than)
+#  - "≯": [t: "⠈⠜⠈⠱"]             # 0x226F (Not greater than)
+#  - "≰": [t: "⠸⠈⠣⠈⠱"]            # 0x2270 (Neither less than nor equal to)
+#  - "≱": [t: "⠸⠈⠜⠈⠱"]            # 0x2271 (Neither greater than nor equal to)
+#  - "∝": [t: "⠸⠐⠶"]              # 0x221D (Proportional to)
+#  - "≃": [t: "⠸⠔"]               # 0x2243 (Approximately equal to (tilde over horizontal line))
+#  - "≅": [t: "⠐⠸⠔"]               # 0x2245 (Approximately equal to (tilde over equals sign))
+#  - "≏": [t: "⠘⠐⠶"]              # 0x224F (Equals with bump in top bar (difference between))
+#  - "≢": [t: "⠸⠿⠈⠱"]             # 0x2262 (Not identical to)
+#  - "∈": [t: "⠘⠑"]               # 0x2208 (Element of (member of))
+#  - "∉": [t: "⠘⠑⠈⠱"]            # 0x2209 (Not Element of)
+ - "+": [t: "⠖"]               # 0x002B (Plus sign)
+#  - "∋": [t: "⠈⠘⠑"]              # 0x220B (Contains)
+#  - "⊂": [t: "⠘⠣"]              # 0x2282 (Subset of)
+#  - "⊃": [t: "⠘⠜"]              # 0x2283 (Superset of)
+#  - "⊆": [t: "⠸⠘⠣"]             # 0x2286 (Subset of or equal)
+#  - "⊇": [t: "⠸⠘⠜"]             # 0x2287 (Superset of or equal)
+#  - "⊊": [t: "⠨⠘⠣"]             # 0x228A (Subset of with not equal)
+#  - "⊋": [t: "⠨⠘⠜"]             # 0x228B (Superset of with not equal)
+#  - "⊲": [t: "⠈⠸⠣"]             # 0x22B2 (Normal subgroup of)
+#  - "⊳": [t: "⠈⠸⠜"]             # 0x22B3 (Contains as normal subgroup)
+#  - "⊴": [t: "⠸⠸⠣"]             # 0x22B4 (Normal subgroup of or equal)
+#  - "⊵": [t: "⠸⠸⠜"]             # 0x22B5 (Contains as normal subgroup or equal)
+#  - "⋬": [t: "⠨⠸⠣"]             # 0x22EC (not normal subgroup) -- this isn't the same as what is in GTM 10, but that similar has no Unicode equiv
+#  - "⋭": [t: "⠨⠸⠣"]             # 0x22ED (does not contain as normal subgroup) -- this isn't the same as what is in GTM 10, but that similar has no Unicode equiv
+#  - "⊢": [t: "⠸⠒"]               # 0x22a2 (Right tack)
+#  - "⊣": [t: "⠈⠸⠒"]              # 0x22a3 (Left tack)
+ - "−": [t: "⠐⠤"]               # 0x2212 (Minus sign)
+ - "·": [t: "⠠𝘄"]               # 0x00B7 (Multiplication dot (times))
+#  - "∗": [t: "⠐⠔"]               # 0x2217 (Asterisk operator)
+ - "∘": [t: "⠠⠆"]               # 0x2218 (Ring operator)  value based on last row in 5.1 (probably what they should have used)
+ - "◦": [t: "⠠⠆"]               # 0x25E6 (White bullet) (value based on 2218)
+ - "⋅": [t: "⠰⠄"]               # 0x22C5 (Dot operator)(value based on 2218)
+#  - "∖": [t: "⠸⠡"]               # 0x2216 (Set minus)
+ - "(": [t: "⠣"]               # 0x0028 (Left parenthesis)
+ - ")": [t: "⠜"]               # 0x0029 (Right parenthesis)
+ - "[": [t: "⠷"]               # 0x005B (Left square bracket)
+ - "]": [t: "⠾"]               # 0x005D (Right square bracket)
+ - "!":                       # 0x21 (Exclamation (factorial))
+     - test:    # CMU seems to use a different char for factorial (7.5) -- this weak guess for factorial
+        if: "self::m:mo and preceding-sibling::*"
+        then: [t: "⠘⠄"]
+        else: [t: "⠖"]
+ - "&": [t: "⠠⠯"]               # 0x26 (Ampersand)
+ - "*": [t: "⠲"]               # 0x002A (Asterisk)
+ - "?": [t: "⠢"]               # 0x003F (Question mark)
+ - "¿": [t: "⠢"]               # 0x00BF (Question mark)
+ - "@": [t: "⠐"]               # 0x0040 (Commercial at sign)
+ - "^":                        # 0x005E (Caret (hat, up arrow)) 4.3.2 uses one form as a circumflex, and 11.1 as a geometric angle
+    - test:    # it is not clear how to distinguish one form from another -- the following passes the tests, but is almost certainly wrong
+        - if: "..[self::m:mover][ *[1][self::m:mi and string-length(.)=1 and translate(., 'abcdefghijklmnopqrstuvwxyz', '') = ''] ]"
+          then: [t: "⠰⠒"]   # circumflex
+          else: [t: "⠘⠒"]   # angle and everything else
+ - "_": [t: "⠤"]               # 0x005F (Low line (underscore))
+ - "¯": [t: "⠈⠉"]               # 0x00AF (macron)
+ - "═": [t: "⠈⠉⠈⠉"]             # 0x2550 (BOX DRAWINGS DOUBLE HORIZONTAL)
+ - "~":                        # 0x007E (Tilde (swung dash))
+    - test:           # unclear what really should happen see 4.3.2, 4.3.3, 6.1, and 8.2 -- all use different codes
+        - if: "..[self::m:mover]"
+          then: [t: "⠐⠢"]
+        - else_if: "..[self::m:munder]"
+          then: [t: "⠠⠢"] 
+        - else_if: "not(preceding-sibling::*)"
+          then: [t: "⠠⠄"]     # (8.2 -- prefix?)
+          else: [t: "⠐⠢⠠"]   # (6.1 -- infix?)
+ - ∼:                        # 223c (Tilde operator)
+    - test:           # unclear what really should happen see 4.3.2, 4.3.3, 6.1, and 8.2 -- all use different codes
+        - if: "..[self::m:mover]"
+          then: [t: "⠐⠢"]
+        - else_if: "..[self::m:munder]"
+          then: [t: "⠠⠢"] 
+        - else_if: "not(preceding-sibling::*)"
+          then: [t: "⠠⠄"]     # (8.2 -- prefix?)
+          else: [t: "⠐⠢⠠"]   # (6.1 -- infix?)
+ - "—": [t: "⠤⠤"]               # 0x2014 (Em dash)
+ - "‖": [t: "⠸⠇"]               # 0x2016
+#  - "¦": [t: "⠨⠳"]               # 0x00A6 (Broken bar)
+#  - "¬": [t: "⠈⠹"]               # 0x00AC (Not sign)
+ - "°": [t: "⠴"]                 # 0x00B0 (Degree sign)
+ - "²": [t: "⠡⠼⠃⠉"]              # 0x00B2 (superscripted 2)
+ - "³": [t: "⠡⠼⠉"]               # 0x00B3 (superscripted 3)
+#  - "†": [t: "⠈⠠⠹"]              # 0x2020 (Dagger)
+#  - "‡": [t: "⠈⠠⠻"]              # 0x2021 (Double dagger)
+#  - "‰": [t: "⠸⠴⠴"]              # 0x2030 (Per mille)
+ - "′": [t: "⠳"]                  # 0x2032 (Prime sign)
+ - "″": [t: "⠳⠳"]                 # 0x2033 (Double prime sign)
+ - "‴": [t: "⠳⠳⠳"]                # 0x2034 (Triple prime sign)
+#  - "Å": [t: "⠠⠘⠫⠁"]             # 0x212B (Angstrom symbol)
+#  - "Å": [t: "⠠⠘⠫⠁"]             # 0x00C5 (WIRIS uses this for Angstrom)
+#  - "∀": [t: "⠘⠁"]               # 0x2200 (For all)
+ - "∂": [t: "⠸⠙"]               # 0x2202 (Partial differential)
+#  - "∃": [t: "⠘⠢"]               # 0x2203 (There exists)
+#  - "∄": [t: "⠘⠢⠈⠱"]             # 0x2204 (There does not exist)
+#  - "∅": [t: "⠈⠚"]               # 0x2205 (Empty set)
+#  - "∎": [t: "⠸⠫⠼⠙t"]            # 0x220E (End of proof)
+#  - "√": [t: "⠐⠩"]               # 0x221A (Square root (radical) without vinculum)
+#  - "∠": [t: "⠸⠪"]               # 0x2220 (Angle)
+#  - "∡": [t: "⠨⠸⠪"]              # 0x2221 (Measured angle)
+#  - "⊾": [t: "⠼⠸⠪"]              # 0x22BE (Right angle with arc)
+ - "∫":                            # 0x222B (Integral)
+    - t: "⠯"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "∬":                           # 0x222c (Double integral)
+    - t: "⠯⠯"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "∭":                           # 0x222d (Triple integral)
+    - t: "⠯⠯⠯"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "∮":                           # 0x222E (Contour integral (closed line integral))
+    - t: "⠯⠴"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+#  - "∷": [t: "⠒⠒"]              # 0x2237 (Proportion)
+#  - "∣": [t: "⠸⠳"]               # 0x2223 (Divides)
+#  - "∤": [t: "⠸⠳⠈⠱"]             # 0x2224 (Does not divide)
+ - "←":                            # 0x2190 (Leftwards arrow)
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow)
+        - "(..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "(..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        then: [t: "⠐⠒⠒"]  # 9.1
+        else: [t: "⠐⠒"]   # 9.2
+ - "⟵":                         # 0x27F5 (Long leftwards arrow)
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow)
+        - "(..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "(..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        then: [t: "⠐⠒⠒"]  # 9.1
+        else: [t: "⠐⠒"]   # 9.2
+ - "→":                          # 0x2192 (Rightwards arrow)
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow), but rule out limit
+        - "("
+        - "  (..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "  (..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        - ") and"
+        - "not(../..[self::m:munder or self::m:msub][*[1][self::m:mi and starts-with(., 'lim')]])"
+        then: [t: "⠒⠒⠂"]  # 9.1
+        else: [t: "⠒⠂"]   # 9.2
+ - "⟶":                       # 0x27F6 (Long rightwards arrow)
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow), but rule out limit
+        - "("
+        - "  (..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "  (..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        - ") and"
+        - "not(../..[self::m:munder or self::m:msub][*[1][self::m:mi and starts-with(., 'lim')]])"
+        then: [t: "⠒⠒⠂"]  # 9.1
+        else: [t: "⠒⠂"]   # 9.2
+ - "⇀":                       # 0x21C0 (RIGHTWARDS HARPOON WITH BARB UPWARDS)  [not mentioned in spec]
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow), but rule out limit
+        - "("
+        - "  (..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "  (..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        - ") and"
+        - "not(../..[self::m:munder or self::m:msub][*[1][self::m:mi and starts-with(., 'lim')]])"
+        then: [t: "⠒⠒⠂"]  # 9.1
+        else: [t: "⠒⠂"]   # 9.2
+ - "↔":                     # 0x2194 (Left right arrow)
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow)
+        - "(..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "(..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        then: [t: "⠐⠒⠒⠂"]  # 9.1
+        else: [t: "⠐⠒⠂"]   # 9.2
+ - "⟷":                 # 0x27F7 (Long Left right arrow)
+    - test:  # this is a guess as to when to use each
+        if:  # mi on either side or if parent is mover, mi on either side of the parent (e.g., A⟶B or labeled arrow)
+        - "(..[self::m:mrow] and preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]) or "
+        - "(..[self::m:mover][ ..[self::m:mrow][preceding-sibling::*[1][self::m:mi] and following-sibling::*[1][self::m:mi]] ])"
+        then: [t: "⠐⠒⠒⠂"]  # 9.1
+        else: [t: "⠐⠒⠂"]   # 9.2
+#  - "↚": [t: "1⠳⠪⠈⠱"]            # 0x219A (Leftwards arrow with stroke)
+#  - "↛": [t: "1⠳⠕⠈⠱"]            # 0x219B (Rightwards arrow with stroke)
+#  - "↜": [t: "1⠳⠔⠢⠪"]            # 0x219C (Leftwards wave arrow)
+#  - "↝": [t: "1⠳⠢⠔⠕"]            # 0x219D (Rightwards wave arrow)
+#  - "↞": [t: "1⠳⠒⠗⠗⠪"]           # 0x219E (Leftwards two headed arrow)
+#  - "↟": [t: "1⠳⠒⠗⠗⠬"]           # 0x219F (Upwards two headed arrow)
+#  - "↠": [t: "1⠳⠒⠗⠗⠕"]           # 0x21A0 (Rightwards two headed arrow)
+#  - "↡": [t: "1⠳⠒⠗⠗⠩"]           # 0x21A1 (Downwards two headed arrow)
+#  - "↢": [t: "1⠳⠗⠗⠪"]            # 0x21A2 (Leftwards arrow with tail)
+#  - "↣": [t: "1⠳⠗⠗⠕"]            # 0x21A3 (Rightwards arrow with tail)
+#  - "↤": [t: "1⠳⠳⠗⠪"]            # 0x21A4 (Leftwards arrow from bar)
+#  - "↥": [t: "1⠳⠳⠗⠬"]            # 0x21A5 (Upwards arrow from bar)
+#  - "↦": [t: "1⠳⠳⠗⠕"]            # 0x21A6 (Rightwards arrow from bar)
+#  - "↧": [t: "1⠳⠳⠗⠩"]            # 0x21A7 (Downwards arrow from bar)
+#  - "↭": [t: "1⠳⠺⠔⠢⠗⠕"]          # 0x21AD (Left right wave arrow)
+#  - "↮": [t: "1⠳⠺⠗⠕⠈⠱"]          # 0x21AE (Left right arrow with stroke)
+#  - "↰": [t: "1⠳⠴⠬"]             # 0x21B0 (Upwards arrow with tip left)
+#  - "↱": [t: "1⠳⠲⠬"]             # 0x21B1 (Upwards arrow with tip right)
+#  - "↲": [t: "1⠳⠲⠩"]             # 0x21B2 (Downwards arrow with tip left)
+#  - "↳": [t: "1⠳⠴⠩"]             # 0x21B3 (Downwards arrow with tip right)
+#  - "↶": [t: "1⠳⠔⠔⠪"]            # 0x21B6 (Anticlockwise top semicircle arrow)
+#  - "↷": [t: "1⠳⠢⠢⠕"]            # 0x21B7 (Clockwise top semicircle arrow)
+#  - "↼": [t: "1⠳⠈⠗⠪"]            # 0x21BC (Leftwards harpoon with barb upwards)
+#  - "↽": [t: "1⠳⠠⠗⠪"]            # 0x21BD (Leftwards harpoon with barb downwards)
+#  - "↾": [t: "1⠳⠠⠗⠬"]            # 0x21BE (Upwards harpoon with barb rightwards)
+#  - "↿": [t: "1⠳⠈⠗⠬"]            # 0x21BF (Upwards harpoon with barb leftwards)
+#  - "⇀": [t: "1⠳⠈⠗⠕"]            # 0x21C0 (Rightwards harpoon with barb upwards)
+#  - "⇁": [t: "1⠳⠠⠗⠕"]            # 0x21C1 (Rightwards harpoon with barb downwards)
+#  - "⇂": [t: "1⠳⠈⠗⠩"]            # 0x21C2 (Downwards harpoon with barb rightwards)
+#  - "⇃": [t: "1⠳⠠⠗⠩"]            # 0x21C3 (Downwards harpoon with barb leftwards)
+#  - "⇄": [t: "1⠳⠕⠻⠳⠪"]           # 0x21C4 (Rightwards arrow over leftwards arrow)
+#  - "⇅": [t: "1⠳⠬⠿⠳⠩"]           # 0x21C5 (Upwards arrow left of Downwards arrow)
+#  - "⇌": [t: "⠘⠸⠶"]              # 0x21CC (Rightwards harpoon over leftwards harpoon (equilibrium))
+#  - "⇑": [t: "1⠳⠶⠬"]             # 0x21D1 (Upwards double arrow)
+#  - "⇓": [t: "1⠳⠶⠩"]             # 0x21D3 (Downwards double arrow)
+#  - "⇕": [t: "1⠳⠺⠶⠗⠬"]           # 0x21D5 (Up down double arrow)
+#  - "⇠": [t: "1⠳⠂⠪"]             # 0x21E0 (Leftwards dashed arrow)
+#  - "⇡": [t: "1⠳⠂⠬"]             # 0x21E1 (Upwards dashed arrow)
+#  - "⇢": [t: "1⠳⠂⠕"]             # 0x21E2 (Rightwards dashed arrow)
+#  - "⇣": [t: "1⠳⠂⠩"]             # 0x21E3 (Downwards dashed arrow)
+#  - "⥂": [t: "⠸⠶"]               # 0x2942 (Rightwards arrow above short leftwards arrow (equilibrium, trend to the right))
+#  - "⥄": [t: "⠈⠸⠶"]              # 0x2944 (Short rightwards arrow above leftwards arrow (equilibrium, trend to the left))
+#  - "▤": [t: "⠨⠫⠼⠙t"]            # 0x25A4 (Square with horizontal fill)
+#  - "▥": [t: "⠨⠫⠼⠙t"]            # 0x25A5 (Square with vertical fill)
+#  - "▦": [t: "⠨⠫⠼⠙t"]            # 0x25A6 (Square with orthogonal crosshatch fill)
+#  - "▧": [t: "⠨⠫⠼⠙t"]            # 0x25A7 (Square with upper left to lower right fill)
+#  - "▨": [t: "⠨⠫⠼⠙t"]            # 0x25A8 (Square with upper right to lower left fill)
+#  - "▩": [t: "⠨⠫⠼⠙t"]            # 0x25A9 (Square with diagonal crosshatch fill)
+#  - "◍": [t: "⠨⠫⠿t"]             # 0x25CD (Circle with vertical fill)
+#  - "▱": [t: "1⠫⠈⠼⠙t"]           # 0x25B1 (Parallelogram)
+#  - "▲": [t: "⠸⠫⠼⠉t"]            # 0x25B2 (Filled triangle)
+#  - "■": [t: "⠸⠫⠼⠙t"]            # 0x25A0 (Filled square)
+#  - "≜": [t: "⠠⠨⠙⠻⠐⠶"]           # 0x225C (Delta equal to)
+#  - "≝": [t: "1⠣⠙⠑⠋⠜⠻⠐⠶"]        # 0x225D (Equal to by definition)
+#  - "⊕": [t: "1⠫⠿⠪⠐⠖t"]          # 0x2295 (Circled plus)
+#  - "⊖": [t: "1⠫⠿⠪⠐⠤t"]          # 0x2296 (Circled minus)
+#  - "⊗": [t: "1⠫⠿⠪⠐⠦t"]          # 0x2297 (Circled times)
+#  - "⊛": [t: "1⠫⠿⠪⠐⠔t"]          # 0x229B (Circled asterisk operator)
+#  - "⊞": [t: "1⠫⠼⠙⠪⠐⠖t"]         # 0x229E (Squared plus)
+#  - "⊟": [t: "1⠫⠼⠙⠪⠐⠤t"]         # 0x229F (Squared minus)
+#  - "⊠": [t: "1⠫⠼⠙⠪⠐⠦t"]         # 0x22A0 (Squared times)
+#  - "⋇": [t: "1⠌⠯⠦"]              # 0x22C7 (Division times)
+#  - "⊩": [t: "⠸⠳⠿⠸⠒"]            # 0x22A9 (Forces)
+ - "˙": [t: "⠈"]                     # 0x02D9 ( Dot Above)
+ - "¨": [t: "⠈⠈"]                   # 0x00A8 ( Diaeresis/Double Dot Above )
+ - "⃛": [t: "⠈⠈⠈"]                  # 0x20db (combining triple dot)
+ - "©": [t: "⠣⠨⠉⠜"]                 # 0xa9 (Copyright)
+ - "®": [t: "⠣⠨⠗⠜"]                 # 0xa9 (Registered sign)
+
+ - "…": [t: "⠄⠄⠄"]                    # 0x2026 (Ellipsis)
+ - "⋯": [t: "⠄⠄⠄"]               # 0x22EF (mid-line Ellipsis) -- seems to be same based on Example 10.1.3
+
+
+# All the quotes are the same
+ - "\"": [t: "⠦"]
+ - "'": [t: "⠄"]
+ - "“": [t: "⠦"]             # 0x201C
+ - "”": [t: "⠦"]             # 0x201C
+ - "‘": [t: "⠦"]
+ - "’":                      # 0x2019  (2.3_3)
+    - test:
+        if: "self::m:mn"
+        then: [t: "N⠂"]     # same as '.' block separator
+        else: [t: "⠦"]
+ - "«": [t: "⠦"]
+ - "»": [t: "⠦"]
+
+ - " ":                        # 0x20 (Space)
+     - test:
+        - if: "self::m:mn"
+          then: [t: "N⠄"]
+        - else_if: "@data-added='missing-content' or @data-empty-in-2D or @width > 1.1"
+          then: [t: "⠰⠤⠆"]       # omission
+        - else_if: "@width < 0.25"
+          then: [t: ""]       # tweaking space -- ignore
+          else: [t: "W"]      # space in text or wide enough space
+ - " ":                        # 0xa0 (Non-breaking Space)
+     - test:
+        - if: "self::m:mn"
+          then: [t: "N⠄"]
+          else: [t: "W"]
+ - ",":                        # 0x2c (Comma)
+     - test:
+        if: "self::m:mn"
+        then: [t: "N⠂"]
+        else: [t: "W⠂"]
+ - ".":                        # 0x2e (Period) -- 2.3 says that if this is acting like a decimal separator, it should be brailled like "," 
+     - test:
+        if: "self::m:mn"
+        then:
+        # presunme this is likely uses "," for a decimal separator, so just do a few checks
+        # 1. if there are < 3 chars after the first ".", then not a block separator
+        # 2. if there is a '.' or other likely block separator after the first '.', then not decimal separator
+        # likely other (complicated?) other tests that could be used
+        - with:
+            variables: [StringAfter: "substring-after(., '.')"]
+            replace:
+            - test:
+                if: "string-length($StringAfter) >= 3 and string-length($StringAfter)=string-length( translate($StringAfter, $BlockSeparators, '') )"
+                then: [t: "N⠄"]   # really is a block separator
+                else: [t: "N⠂"]   # treat as decimal separator
+        else: [t: "W⠄"]
+ - ":": [t: "⠐⠂"]              # 0x003A (Colon)
+ - "-": [t: "⠤"]              # 0x2d (Minus sign or hyphen)
+ - "⁡": [t: ""]                # 0x2061⁡ (invisible function apply)
+ - "⁢": [t: ""]                # 0x2062 (invisible times)
+ - "⁣": [t: ""]                 # 0x2063⁡ (invisible separator)
+ - "⁤": [t: ""]                 # 0x2064 (invisible plus)
+
+ - "`": [t: "⠢"]                # 0x0060 (GRAVE ACCEN)
+ 
+ - "א": [t: "⠠⠳"]                # 0x05D0 (aleph)
+ - "○": [t: "⠪⠕"]                # 0x25CB (círculo)
+ - "∞": [t: "⠼⠳"]                # 0x221E (infinito)
+ - "⎔": [t: "⠯⠕"]                # 0x2394 (polígono)
+ - "‰": [t: "⠸⠴⠴"]                # 0x2030 (tanto por mil)
+ - "¬": [t: "⠠⠄"]                # 0x00AC (negación lógica)
+ - "↕": [t: "⠸⠅"]                # 0x2195 (flecha arriba-abajo)
+ - "↖": [t: "⠐⠡"]                # 0x2196 (flecha oblicua arriba-izquierda)
+ - "↙": [t: "⠐⠌"]                # 0x2199 (flecha abajo-izquierda)
+ - "↓": [t: "⠸⠄"]                # 0x2193 (flecha hacia abajo)
+ - "↘": [t: "⠡⠂"]                # 0x2198 (flecha oblicua abajo-derecha)
+ - "↗": [t: "⠌⠂"]                # 0x2197 (flecha arriba-derecha)
+ - "↑": [t: "⠸⠁"]                # 0x2191 (flecha hacia arriba)
+ - "△": [t: "⠠⠾"]               # 0x25B3 (Triangle)
+ - "▭": [t: "⠯⠽"]                # 0x25AD (rectángulo)
+ - "□": [t: "⠸⠽"]                # 0x25A1 (cuadrado)
+ - "⟺": [t: "⠪⠒⠕"]                # 0x27FA (doble implicación «si y solo si»)
+ - "⟸": [t: "⠪⠒"]                # 0x27F8 (implicación recíproca; porque)
+ - "⟹": [t: "⠒⠕"]                # 0x27F9 (implicación directa; implica)
+ - "⇔": [t: "⠪⠒⠕"]                # 0x21D4 (LEFT RIGHT DOUBLE ARROW)
+ - "⇐": [t: "⠪⠒"]                # 0x21D0 (LEFTWARDS DOUBLE ARROW)
+ - "⇒": [t: "⠒⠕"]                # 0x21D2 (RIGHTWARDS DOUBLE ARROW)
+ - "⤡": [t: "⠐⠡⠂"]                # 0x2921 (flecha abajo-derecha y arriba izquierda)
+ - "⤢": [t: "⠐⠌⠂"]                # 0x2922 (flecha abajo-izquierda y arriba derecha)
+ - "⌋": [t: "⠠⠾"]                # 0x230B (cerrar suelo)
+ - "⌊": [t: "⠷⠄"]                # 0x230A (abrir suelo)
+ - "⌉": [t: "⠐⠾"]                # 0x2309 (cerrar techo)
+ - "⌈": [t: "⠷⠂"]                # 0x2308 (abrir techo)
+ - "⋩": [t: "⠕⠂"]                # 0x22E9 (posterior a MULTI)
+ - "⋨": [t: "⠐⠪"]                # 0x22E8 (anterior a MULTI)
+ - "⋟": [t: "⠕⠂⠶"]                # 0x22DF (posterior o igual a)
+ - "⋞": [t: "⠐⠪⠶"]                # 0x22DE (anterior o igual a)
+ - "⋝": [t: "⠕⠶"]                # 0x22DD (mayor o igual que MULTI)
+ - "⋜": [t: "⠪⠶"]                # 0x22DC (menor o igual que  MULTI)
+ - "⋏": [t: "⠸⠣"]                # 0x22CF (proposición falsa)
+ - "⋎": [t: "⠸⠎"]                # 0x22CE (proposición verdadera)
+ - "⨂": [t: "⠪⠦"]                # 0x2A02 (producto tensorial)
+ - "⨁": [t: "⠪⠖"]                # 0x2A01 (suma directa)
+ - "⋃":                           # 0x22C3 (unión de una familia de conjuntos)
+    - t: "⠿⠜"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "⋂":                          # 0x22C2 (intersección de una familia de conjuntos)
+    - t: "⠿⠱"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "⋁":                          # 0x22C1 (disyunción de una familia de proposiciones)
+    - t: "⠿⠊"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "⋀":                          # 0x22C0 (conjunción de una familia de proposiciones)
+    - t: "⠿⠢"
+    - test:
+        if: "not(IsNode(.., 'modified'))"
+        then: [t: "⠱"]
+ - "⊿": [t: "⠸⠦"]                # 0x22BF (triángulo rectángulo)
+ - "⊩": [t: "⠸⠶"]                # 0x22A9 (tautología)
+ - "⊮": [t: "⠘⠸⠶"]                # 0x22AE (no tautología)
+ - "⊇": [t: "⠰⠜"]                # 0x2287 (incluye o es igual a)
+ - "⊉": [t: "⠘⠰⠜"]                # 0x2289 (no incluye ni es igual a)
+ - "⊆": [t: "⠣⠆"]                # 0x2286 (incluido o es igual a)
+ - "⊈": [t: "⠘⠣⠆"]                # 0x2288 (no incluido ni es igual a)
+ - "⊃": [t: "⠠⠜"]                # 0x2283 (Incluye; tiene como subconjunto)
+ - "⊅": [t: "⠘⠠⠜"]                # 0x2285 (no incluye a)
+ - "⊂": [t: "⠣⠄"]                # 0x2282 (Incluido; subconjunto)
+ - "⊄": [t: "⠘⠣⠄"]                # 0x2284 (no incluido en)
+ - "⋡": [t: "⠘⠕⠂⠶"]                # 0x22E1 (no es posterior ni igual a)
+ - "≽": [t: "⠕⠂⠶"]                # 0x227D (sigue o igual a)
+ - "⋠": [t: "⠘⠐⠪⠶"]                # 0x22E0 (no es anterior ni igual a)
+ - "≼": [t: "⠐⠪⠶"]                # 0x227C (precede o igual a)
+ - "≹": [t: "⠘⠕⠪"]                # 0x2279 (ni mayor ni menor que)
+ - "≸": [t: "⠘⠕⠪"]                # 0x2278 (ni mayor ni menor que)
+ - "≧": [t: "⠕⠶"]                # 0x2267 (mayor o igual que MULTI)
+ - "≦": [t: "⠪⠶"]                # 0x2266 (menor o igual que  MULTI)
+ - "≱": [t: "⠘⠕⠶"]                # 0x2271 (no es mayor ni igual que)
+ - "≥": [t: "⠕⠶"]                # 0x2265 (mayor o igual que MULTI)
+ - "≤": [t: "⠪⠶"]                # 0x2264 (menor o igual que  MULTI)
+ - "≰": [t: "⠘⠪⠶"]                # 0x2270 (no es menor ni igual que)
+ - "⩽": [t: "⠪⠶"]                # 0x227D
+ - "⩾": [t: "⠕⠶"]                # 0x2A7E (greater-than-or-slanted-equals)
+ # FIX: ≈" p99 has "⠐⠶"
+ - "≈": [t: "⠐⠶⠄"]                # 0x2248 (casi igual a; asintóticamente igual a)
+ - "≄": [t: "⠘⠐⠶⠄"]                # 0x2244 (no es asintóticamente igual a)
+ - "≁": [t: "⠘⠐⠢⠄"]                # 0x2241 (tilde sube-baja tachada)
+ - "∺": [t: "⠨⠒⠅"]                # 0x223A (progresión geométrica)
+ - "∷": [t: "⠰⠆"]                # 0x2237 (proporción; igualdad de razones)
+ - "∶": [t: "⠐⠂"]                # 0x2236 (ratio)
+ - "∵": [t: "⠀⠈⠌⠀"]                # 0x2235 (puesto que)
+ - "∴": [t: "⠀⠠⠡⠀"]                # 0x2234 (por lo tanto)
+ - "∪": [t: "⠸⠜"]                # 0x222A (unión)
+ - "⩊": [t: "⠢⠔"]                # 0x2A4A (curva geométrica)
+ - "∩": [t: "⠸⠱"]                # 0x2229 (intersección)
+ - "⊻": [t: "⠸⠮"]                # 0x2228 (disyunción excluyente)
+ - "∨": [t: "⠸⠊"]                # 0x2228 (disyunción (o))
+ - "∧": [t: "⠸⠢"]                # 0x2227 (conjunción (y))
+ - "∤": [t: "⠘⠸⠀"]                # 0x2224 (no es divisor de)
+ - "∝": [t: "⠸⠲"]                # 0x221D (proporcional a)
+ - "∖": [t: "⠐⠄"]                # 0x2216 (diferencia de conjuntos)
+ - "∌": [t: "⠘⠐⠜"]                # 0x220C (no comprende; no tiene como elemento)
+ - "∋": [t: "⠐⠜"]                # 0x220B (comprende; tiene como elemento)
+ - "∈": [t: "⠣⠂"]                # 0x2208 (es elemento de; pertenece a)
+ - "∉": [t: "⠘⠣⠂"]                # 0x2209 (no es un elemento de; no pertenece a)
+ - "∅": [t: "⠸⠚"]                # 0x2205 (conjunto vacío)
+ - "∃": [t: "⠨⠢"]                # 0x2203 (cuantificador existencial: existe por lo menos un elemento)
+ - "∄": [t: "⠘⠨⠢"]                # 0x2204 (no existe)
+ - "∀": [t: "⠨⠄"]                # 0x2200 (cuantificador universal: para todo)
+ - "ǁ": [t: "⠸⠇"]                # 0x01C1 (doble barra)
+ - "÷": [t: "⠲"]                # 0x00F7 (dividido por)
+ - "×":                          # 0x00D7 (multiplicar (aspas))
+    # FIX: this is a hacky attempt to figure out whether this is vector multiplication or regular multiplication
+    # Look for an arrow above or a bold on each side
+    - test:
+        if:
+        - "preceding-sibling::*[1][@math-variant='bold' or self::m:mover[*[2][.='→' or .='⟶' or .='⇀']]] and"
+        - "following-sibling::*[1][@math-variant='bold' or self::m:mover[*[2][.='→' or .='⟶' or .='⇀']]]"
+        then: [t: "⠈⠦"]
+        else: [t: "⠦"]
+ - "≫": [t: "⠕⠕"]                # 0x226B (mucho mayor que)
+ - "≪": [t: "⠪⠪"]                # 0x226A (mucho menor que)
+ - "±": [t: "⠖⠒⠤"]                # 0x00B1 (más o menos)
+ - "⊁": [t: "⠘⠕⠂"]                # 0x2281 (no es posterior a)
+ - "≻": [t: "⠕⠂"]                # 0x227B (sigue a; posterior a)
+ - "≯": [t: "⠘⠕"]                # 0x226F (no mayor que)
+ - "=": [t: "⠶"]                # 0x003D (igual a)
+ - "≠": [t: "⠘⠶"]                # 0x2260 (distinto de)
+ - "⊀": [t: "⠘⠐⠪"]                # 0x2280 (no es anterior a)
+ - "⪼": [t: "⠕⠕⠂"]                # 0x2ABC (muy posterior a)
+ - "⪻": [t: "⠐⠪⠪"]                # 0x2ABB (muy anterior a)
+ - "≺": [t: "⠐⠪"]                # 0x227A (precede a; anterior a)
+ - "≮": [t: "⠘⠪"]                # 0x226E (no menor que)
+ - "∓": [t: "⠤⠒⠖"]                # 0x2213 (menos o más)
+ - "∕": [t: "⠠⠂"]                # 0x2215 (conjunto cociente)
+ - "〛": [t: "⠾⠂"]                # 0x301B (cerrar corchetes de clase)
+ - "〚": [t: "⠐⠷"]                # 0x301A (abrir corchetes de clase)
+ - "₡": [t: "⠸⠉"]                # 0x20A1 (colón)
+ - "€": [t: "⠸⠑"]                # 0x20AC (euro)
+ - "¥": [t: "⠸⠽"]                # 0x00A5 (yen)
+ - "£": [t: "⠐⠮"]                # 0x00A3 (libra)
+ - "¢": [t: "⠘⠉"]                # 0x00A2 (centavo)
+ - "〉": [t: "⠨⠂"]                # 0x232A (cerrar paréntesis angulares)
+ - "〈": [t: "⠐⠅"]                # 0x2329 (abrir paréntesis angulares)
+ - "⟨": [t: "⠐⠅"]                # 0x27E8 (Mathematical left angle bracket)
+ - "⟩": [t: "⠨⠂"]                # 0x27E9 (Mathematical right angle bracket)
+ - "}": [t: "⠸⠂"]                # 0x007D (cerrar llaves)
+ - "|": [t: "⠸𝘄"]                # 0x007C (barra vertical)
+ - "{": [t: "⠐⠇"]                # 0x007B (abrir llaves)
+ - "\\": [t: "⠐⠄"]               # 0x005C (barra inversa)
+ - ";": [t: "⠀⠆"]                # 0x003B (punto y coma de separación)
+ - "/": [t: "⠲"]                # 0x002F (barra oblicua)
+ - "%": [t: "⠸⠴"]                # 0x0025 (tanto por ciento)
+ - "$":
+    - test:
+        if: "following-sibling::*[self::m:mn]"
+        then: [t: "⠸⠏"]                # 0x0024 (peso)
+        else: [t: "⠸⠎"]                # 0x0024 (dólar)
+ - "#": [t: "⠼⠅"]                # 0x0023 (cardinal de un conjunto)
+ - "₿": [t: "⠸⠃"]                # 0x20BF (bitcoin)
+ - "⟧": [t: "⠾⠂"]                # 0x27E7 (cerrar corchete de clase)
+ - "⟦": [t: "⠐⠷"]                # 0x27E6 (abrir corchete de clase)
+ - "∇": [t: "⠈⠻"]                # 0x2207 (Nabla (del, inverted capital delta))
+
+ - "≐": [t: "⠈⠶"]                # 0x2250 (aproximadamente igual a)
+ - "≟": [t: "⠶⠢⠀"]                # 0x225F (cuestionado que sea igual a)
+ - "≔": [t: "⠰⠶"]                # 0x2254 (igual por definición)
+ - "≙": [t: "⠰⠒⠶"]                # 0x2259 (corresponde a)
+ - "≡": [t: "⠶⠶"]                # 0x2261 (idéntico a; congruente con)
+
+ - "∥": [t: "⠸⠇"]                # 0x2225 (es paralela a)
+ - "∦": [t: "⠘⠸⠇"]                # 0x2226 (no paralela)
+ - "≅": [t: "⠐⠢⠶"]                # 0x2245 (congruente con)
+ - "⊥": [t: "⠼⠄"]                # 0x22A5 (perpendicular a/ortogonal a) [symbol used in spec]
+ - "⟂": [t: "⠼⠤"]               # 0x27C2 (Perpendicular)
+
+ - "⊙": [t: "⠰⠄"]                # 0x2299 (operador genérico (suele utilizarse para representar una operación entre elementos de un conjunto)
+ - "⊚": [t: "⠰⠄"]                # 0x229A (operador genérico (suele utilizarse para representar una operación entre elementos de un conjunto)
+ - "⋆": [t: "⠰⠄"]                # 0x22C6 (operador genérico (suele utilizarse para representar una operación entre elementos de un conjunto)
+ - "†": [t: "⠰⠄"]                # 0x2020 (operador genérico (suele utilizarse para representar una operación entre elementos de un conjunto)
+ - "∗": [t: "⠰⠄"]                # 0x2217 (operador genérico (suele utilizarse para representar una operación entre elementos de un conjunto)
