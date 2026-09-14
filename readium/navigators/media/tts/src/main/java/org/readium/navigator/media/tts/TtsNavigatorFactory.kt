@@ -124,32 +124,45 @@ public class TtsNavigatorFactory<
             )
         }
 
-        /**
-         * The default content tokenizer will split the [Content.Element] items into individual sentences.
-         */
+        // =========================================================================
+        // 【核心优化 1】：公式与中西文混排容错分词器
+        // 确保断句切片时，首尾不留任何多余空格与换行，保证前后端 text.highlight 100% 匹配
+        // =========================================================================
         private val defaultTokenizerFactory: (Language?) -> TextTokenizer = { language ->
-            DefaultTextContentTokenizer(TextUnit.Sentence, language)
+            val baseTokenizer = DefaultTextContentTokenizer(TextUnit.Sentence, language)
+            TextTokenizer { text ->
+                // 调用原生分词并去除由于 MathML 标签引起的边缘异常空白
+                baseTokenizer.tokenize(text).map { range ->
+                    val rawSubstring = text.substring(range)
+                    val trimmed = rawSubstring.trim()
+                    if (trimmed.isEmpty()) {
+                        range
+                    } else {
+                        val startOffset = rawSubstring.indexOf(trimmed)
+                        val start = range.first + startOffset
+                        start until (start + trimmed.length)
+                    }
+                }
+            }
         }
 
         private val defaultMediaMetadataProvider: MediaMetadataProvider =
             DefaultMediaMetadataProvider()
 
-private val defaultVoiceSelector: (Language?, Set<AndroidTtsEngine.Voice>) -> AndroidTtsEngine.Voice? =
-    { language, voices ->
-        val matching = voices.filter { voice ->
-            language == null || voice.language.removeRegion() == language.removeRegion()
-        }.ifEmpty { voices }
+        private val defaultVoiceSelector: (Language?, Set<AndroidTtsEngine.Voice>) -> AndroidTtsEngine.Voice? =
+            { language, voices ->
+                val matching = voices.filter { voice ->
+                    language == null || voice.language.removeRegion() == language.removeRegion()
+                }.ifEmpty { voices }
 
-        // 🌟 纯通用逻辑：标准语（无方言前缀）> 音质 > 离线
-        matching
-            .filter { voice ->
-                // 排除带有特定方言段的标识符（如 zh-CN-shaanxi-xxx、zh-CN-liaoning-xxx）
-                // 标准普通话是 zh-CN-YunyangNeural（只有两个连字符），方言是 3 个连字符
-                voice.id.value.count { it == '-' } <= 2 
+                // 🌟 纯通用逻辑：标准语（无方言前缀）> 音质 > 离线
+                matching
+                    .filter { voice ->
+                        voice.id.value.count { it == '-' } <= 2
+                    }
+                    .ifEmpty { matching }
+                    .maxByOrNull { it.quality }
             }
-            .ifEmpty { matching }
-            .maxByOrNull { it.quality }
-    }
     }
 
     public sealed class Error(

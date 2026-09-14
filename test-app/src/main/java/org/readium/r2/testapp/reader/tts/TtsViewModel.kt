@@ -20,6 +20,7 @@ import org.readium.navigator.media.tts.android.AndroidTtsPreferences
 import org.readium.navigator.media.tts.android.AndroidTtsSettings
 import org.readium.r2.navigator.Navigator
 import org.readium.r2.navigator.VisualNavigator
+import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
@@ -51,10 +52,6 @@ class TtsViewModel private constructor(
 ) : TtsNavigator.Listener {
 
     companion object {
-        /**
-         * Returns an instance of [TtsViewModel] if the given [publication] can be played with the
-         * TTS engine.
-         */
         operator fun invoke(
             viewModelScope: CoroutineScope,
             readerInitData: ReaderInitData,
@@ -76,14 +73,7 @@ class TtsViewModel private constructor(
     }
 
     sealed class Event {
-        /**
-         * Emitted when the [TtsNavigator] fails with an error.
-         */
         class OnError(val error: TtsError) : Event()
-
-        /**
-         * Emitted when the selected language cannot be played because it is missing voice data.
-         */
         class OnMissingVoiceData(val language: Language) : Event()
     }
 
@@ -95,33 +85,22 @@ class TtsViewModel private constructor(
         mediaServiceFacade.session.value?.ttsNavigator
 
     private var launchJob: Job? = null
+    private var visualNavigator: VisualNavigator? = null
 
-private var visualNavigator: VisualNavigator? = null
-
-    /**
-     * 🌟 显式绑定当前的 VisualNavigator（供 ReaderFragment 或 ReaderViewModel 在视图就绪时调用）
-     */
     fun bindVisualNavigator(navigator: VisualNavigator) {
         this.visualNavigator = navigator
         Timber.i("VisualNavigator successfully bound to TtsViewModel: $navigator")
     }
 
-    /**
-     * 当阅读器 Fragment 销毁或页面切换时解绑，防止内存泄漏
-     */
     fun unbindVisualNavigator() {
         this.visualNavigator = null
         Timber.i("VisualNavigator unbound from TtsViewModel")
     }
-    
-    // 🌟 记录当前章节最后一次合法的有效 progression（防止脏数据导致倒退跳页）
+
     private var lastValidProgression: Double = 0.0
-    
-    // 🌟 记录上一个句子的章节纯净路径（不依赖 visualNavigator 引用）
     private var lastChapterPath: String? = null
 
-    // 🌟 终极高亮保底引擎（JavaScript）
-// 🌟 将 JS 模板里的颜色改为动态参数
+// 替换 getFallbackJsScript 方法：彻底移除有毒的 mix-blend-mode，确保 100% 可见
     private fun getFallbackJsScript(cssColor: String): String = """
 (function() {
     let style = document.getElementById('voxread-style');
@@ -130,19 +109,14 @@ private var visualNavigator: VisualNavigator? = null
         style.id = 'voxread-style';
         document.head.appendChild(style);
     }
-    // 🌟 动态更新用户当前配置的颜色
+    // 🌟 采用半透明背景 + 强对比左边框，绝不在夜间模式中隐形！
     style.innerHTML = `
         .voxread-force-highlight {
             background-color: $cssColor !important;
-            mix-blend-mode: multiply !important;
+            border-left: 5px solid #FF9800 !important;
+            padding-left: 6px !important;
             border-radius: 4px !important;
-            outline: 2px solid $cssColor !important;
-            display: block !important;
-        }
-        math.voxread-force-highlight {
-            display: inline-block !important;
-            background-color: $cssColor !important;
-            border-radius: 4px !important;
+            transition: background-color 0.2s ease !important;
         }
     `;
 
@@ -152,56 +126,48 @@ private var visualNavigator: VisualNavigator? = null
             el.classList.remove('voxread-force-highlight');
         });
 
-        const raw = (highlightText || '').trim();
-        let targetElement = null;
+        let target = null;
 
-        // 策略 1：选择器匹配
+        // 1. 优先根据定位器选择器查
         if (cssSelector) {
             try {
-                const el = document.querySelector(cssSelector);
-                if (el && el !== document.body && el !== document.documentElement) {
-                    targetElement = el;
-                }
+                target = document.querySelector(cssSelector);
             } catch(e) {}
         }
 
-        // 策略 2：文本关键字匹配
-        if (!targetElement && raw) {
-            const words = raw.match(/[\u4e00-\u9fa5]{1,}|[a-zA-Z]{3,}|lim/g) || [];
-            for (let word of words) {
-                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-                let node;
-                while (node = walker.nextNode()) {
-                    if (node.nodeValue && node.nodeValue.includes(word)) {
-                        targetElement = node.parentElement;
-                        break;
-                    }
+        // 2. 如果没查到，扫描所有带有公式标记的段落或 math 标签
+        if (!target) {
+            const mathList = document.querySelectorAll('math, .has-math');
+            const cleanText = (highlightText || '').replace(/\s+/g, '');
+            
+            // 匹配段落内部文字重合最多的那个元素
+            let maxScore = -1;
+            for (let el of mathList) {
+                const parentP = el.closest('p') || el;
+                const pText = (parentP.textContent || '').replace(/\s+/g, '');
+                
+                // 计算重叠字符数
+                let score = 0;
+                for (let i = 0; i < Math.min(cleanText.length, 15); i++) {
+                    if (pText.includes(cleanText[i])) score++;
                 }
-                if (targetElement) break;
-            }
-        }
-
-        // 策略 3：MathML 元素遍历
-        if (!targetElement) {
-            const mathElements = document.querySelectorAll('math');
-            for (let m of mathElements) {
-                if (m.textContent && (m.textContent.includes('lim') || m.textContent.includes('∈'))) {
-                    targetElement = m;
-                    break;
+                
+                if (score > maxScore && score >= 2) {
+                    maxScore = score;
+                    target = parentP;
                 }
             }
         }
 
-        if (targetElement) {
-            let curr = targetElement;
-            while (curr && curr !== document.body) {
-                const tag = curr.tagName.toLowerCase();
-                if (['p', 'div', 'li', 'section'].includes(tag)) {
-                    break;
-                }
-                curr = curr.parentElement || curr.parentNode;
-            }
-            const container = (curr && curr !== document.body) ? curr : targetElement;
+        // 3. 兜底策略：如果依然找不到，直接取第一个可视的 math 父级
+        if (!target) {
+            const m = document.querySelector('math');
+            if (m) target = m.closest('p') || m.parentElement;
+        }
+
+        // 4. 执行最终外层高亮
+        if (target) {
+            const container = target.closest('p, div, section, li') || target;
             container.classList.add('voxread-force-highlight');
             return true;
         }
@@ -210,11 +176,8 @@ private var visualNavigator: VisualNavigator? = null
 })();
 """.trimIndent()
 
-    private val _events: Channel<Event> =
-        Channel(Channel.BUFFERED)
-
-    val events: Flow<Event> =
-        _events.receiveAsFlow()
+    private val _events: Channel<Event> = Channel(Channel.BUFFERED)
+    val events: Flow<Event> = _events.receiveAsFlow()
 
     val preferencesModel: UserPreferencesViewModel<AndroidTtsSettings, AndroidTtsPreferences> =
         UserPreferencesViewModel(
@@ -228,9 +191,7 @@ private var visualNavigator: VisualNavigator? = null
         }
 
     val showControls: StateFlow<Boolean> =
-        mediaServiceFacade.session.mapStateIn(viewModelScope) {
-            it != null
-        }
+        mediaServiceFacade.session.mapStateIn(viewModelScope) { it != null }
 
     val isPlaying: StateFlow<Boolean> =
         mediaServiceFacade.session.flatMapLatest { session ->
@@ -238,23 +199,26 @@ private var visualNavigator: VisualNavigator? = null
                 ?: MutableStateFlow(false)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-val position: StateFlow<Locator?> =
+    val position: StateFlow<Locator?> =
         mediaServiceFacade.session.flatMapLatest { session ->
             session?.navigator?.currentLocator?.map { locator ->
                 sanitizePositionLocator(locator)
             } ?: MutableStateFlow(null)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-val highlight: StateFlow<Locator?> =
+    val highlight: StateFlow<Locator?> =
         mediaServiceFacade.session.flatMapLatest { session ->
             session?.ttsNavigator?.location?.map { location ->
                 val locator = location.utteranceLocator
-                sanitizeTtsHighlightLocator(locator)
+                if (shouldFallbackToElement(locator)) {
+                    null // 包含公式一律转给 JS 兜底高亮整段，避免原生查找失败
+                } else {
+                    locator // 纯汉字文本依然走原生高亮
+                }
             } ?: MutableStateFlow(null)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val highlightColor: StateFlow<TtsHighlightColor> =
-        highlightColorStore.color
+    val highlightColor: StateFlow<TtsHighlightColor> = highlightColorStore.color
 
     fun setHighlightColor(color: TtsHighlightColor) {
         highlightColorStore.setColor(color)
@@ -265,12 +229,8 @@ val highlight: StateFlow<Locator?> =
             .flatMapLatest { it?.navigator?.playback ?: MutableStateFlow(null) }
             .onEach { playback ->
                 when (val state = (playback?.state as? TtsNavigator.State)) {
-                    null, TtsNavigator.State.Ready -> {
-                        // Do nothing
-                    }
-                    is TtsNavigator.State.Ended -> {
-                        stop()
-                    }
+                    null, TtsNavigator.State.Ready -> {}
+                    is TtsNavigator.State.Ended -> stop()
                     is TtsNavigator.State.Failure -> {
                         onPlaybackError(state.error)
                         stop()
@@ -283,7 +243,6 @@ val highlight: StateFlow<Locator?> =
             .onEach { navigatorNow?.submitPreferences(it) }
             .launchIn(viewModelScope)
 
-            // 🌟 用户在设置菜单里切换高亮颜色时，立即刷新 WebView 里的颜色
         highlightColor
             .onEach { newColor ->
                 val cssColor = getCssHighlightColor(newColor)
@@ -292,15 +251,26 @@ val highlight: StateFlow<Locator?> =
                 )
             }
             .launchIn(viewModelScope)
+
+        // 监听 TTS 进度，遇到公式自动启动外层高亮
+        mediaServiceFacade.session
+            .flatMapLatest { it?.ttsNavigator?.location ?: MutableStateFlow(null) }
+            .onEach { location ->
+                if (location == null) {
+                    clearFallbackHighlightInWebView()
+                } else {
+                    val locator = location.utteranceLocator
+                    if (shouldFallbackToElement(locator)) {
+                        applyFallbackHighlightInWebView(locator)
+                    } else {
+                        clearFallbackHighlightInWebView()
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
-    /**
-     * 将工程中的 TtsHighlightColor 转换为 CSS rgba 字符串
-     */
     private fun getCssHighlightColor(color: TtsHighlightColor): String {
-        // 如果你的 TtsHighlightColor 是枚举或包装类（通常包含 colorRes 或 colorInt）
-        // 比如在 Readium 官方 test-app 中，TtsHighlightColor 类似 Red, Green, Blue, Yellow 等
-        // 或者包装了 @ColorInt
         val hexOrName = color.name.lowercase()
         return when {
             hexOrName.contains("yellow") -> "rgba(255, 220, 40, 0.45)"
@@ -308,7 +278,7 @@ val highlight: StateFlow<Locator?> =
             hexOrName.contains("green") -> "rgba(76, 175, 80, 0.40)"
             hexOrName.contains("blue") -> "rgba(33, 150, 243, 0.40)"
             hexOrName.contains("purple") -> "rgba(156, 39, 176, 0.40)"
-            else -> "rgba(255, 220, 40, 0.45)" // 兜底默认色
+            else -> "rgba(255, 220, 40, 0.45)"
         }
     }
 
@@ -317,112 +287,47 @@ val highlight: StateFlow<Locator?> =
             "document.querySelectorAll('.voxread-force-highlight').forEach(el => el.classList.remove('voxread-force-highlight'));"
         )
     }
-    
+
     /**
- * 判定一个 Locator 是否需要触发降级（包含公式、特殊符号、特殊混排）
- */
-private fun shouldFallbackToElement(locator: Locator?): Boolean {
-    if (locator == null) return false
-
-    val highlightText = locator.text.highlight.orEmpty()
-    val other = locator.locations.otherLocations
-    val cssSelector = other["cssSelector"] as? String ?: ""
-
-    return other["isMath"] == "true" || other["isMath"] == true ||
-            cssSelector.contains(Regex("(?i)math|katex|mathml|latex")) ||
-            // 匹配常见公式符号、上下标、特殊排版符号以及希腊字母
-            highlightText.contains(Regex("""[=≠≤≥≈±+\-*/∫∑√_{}\^\\\[\]]|[\u0370-\u03FF]"""))
-}
-
-private fun fallbackIfFormulaOrBroken(locator: Locator?): Locator? {
-    if (locator == null) return null
-
-    val highlightText = locator.text.highlight.orEmpty()
-    val other = locator.locations.otherLocations
-    val cssSelector = other["cssSelector"] as? String
-
-    // 1. 如果连 cssSelector 都没有，千万不要清空 text！
-    // 否则既没有元素选择器，又没有文字，前端必死
-    if (cssSelector.isNullOrBlank()) {
-        return locator
-    }
-
-    // 2. 扩大特征识别范围（加入不可见空白符、特殊标点与常见教材格式）
-    val isBrokenRisk = other["isMath"] == "true" || other["isMath"] == true ||
-            cssSelector.contains(Regex("(?i)math|katex|mathml|latex")) ||
-            highlightText.contains(Regex("""[=≠≤≥≈±+\-*/∫∑√_{}\^\\\[\]]|[\u0370-\u03FF]|[\u00A0\u2000-\u200B]"""))
-
-    if (isBrokenRisk) {
-        // 如果底层 JS 允许空 text 高亮元素，清空 text；
-        // 如果底层 JS 强制要求 text，可以尝试保留纯净片段，或者直接通过 cssSelector 标记
-        return locator.copy(
-            text = Locator.Text()
-        )
-    }
-
-    return locator
-}
-
-/**
-     * 🌟 将 TTS Locator 清洗为 Readium 原生能够渲染的高亮定位：
-     * 如果遇到包含数学公式或 MathML 的句子，剥离会导致 Range 计算失败的 text，
-     * 并将选择器指向包含该公式的元素/段落，让底层直接渲染整块高亮。
+     * 🌟【关键修复】：扩大公式与学术符号识别网络！
+     * 在中文学术语境下，只要包含任意英文变量（如 x, y, m, h）或数学符号，一律视为公式段落，彻底消除漏网！
      */
-    private fun sanitizeTtsHighlightLocator(locator: Locator?): Locator? {
-        if (locator == null) return null
+    private fun shouldFallbackToElement(locator: Locator?): Boolean {
+        if (locator == null) return false
 
-        val text = locator.text.highlight.orEmpty()
+        val highlightText = locator.text.highlight.orEmpty()
         val other = locator.locations.otherLocations
-        val rawSelector = other["cssSelector"] as? String
+        val cssSelector = other["cssSelector"] as? String ?: ""
 
-        // 判断是否是数学公式相关
-        val isFormula = other["isMath"] == "true" || other["isMath"] == true ||
-                rawSelector?.contains(Regex("(?i)math|katex|mathml")) == true ||
-                text.contains(Regex("""[=≠≤≥≈±+\-*/∫∑√_{}\^\\\[\]∈∉⊆⊂lim]"""))
-
-        return if (isFormula) {
-            // 构造一个安全的选择器：优先使用已有的选择器，若没有则指向包含公式的通用标签
-            val safeSelector = when {
-                !rawSelector.isNullOrBlank() -> rawSelector
-                else -> "math, .katex, .MathJax"
-            }
-
-            val newOtherLocations = other.toMutableMap().apply {
-                put("cssSelector", safeSelector)
-            }
-
-            // 🌟 核心：置空 text，保留位置和选择器
-            // 这样 Readium 的 decorations.js 会把 safeSelector 对应的元素作为一个原子节点进行高亮，
-            // 避开了对 MathML 内部文本 Range 的扣取失败！
-            locator.copy(
-                text = Locator.Text(),
-                locations = locator.locations.copy(
-                    otherLocations = newOtherLocations
-                )
-            )
-        } else {
-            locator
+        // 1. 显式选择器标记
+        if (other["isMath"] == "true" || other["isMath"] == true ||
+            cssSelector.contains(Regex("(?i)math|katex|mathml|latex"))
+        ) {
+            return true
         }
+
+        // 2. 包含任意数学算子、符号、希腊字母
+        if (highlightText.contains(Regex("""[=≠≤≥≈±+\-*/∫∑√_{}\^\\\[\]∈∉⊆⊂lim<>≍→↑↓|]""")) ||
+            highlightText.contains(Regex("""[\u0370-\u03FF]|[\u2200-\u22FF]"""))
+        ) {
+            return true
+        }
+
+        // 3. 包含任意拉丁字母（如单字母变量 $m$, $h$, $z$），全部无缝转入兜底高亮！
+        if (highlightText.contains(Regex("""[a-zA-Z]"""))) {
+            return true
+        }
+
+        return false
     }
 
-private fun sanitizePositionLocator(locator: Locator?): Locator? {
+    private fun sanitizePositionLocator(locator: Locator?): Locator? {
         if (locator == null) return null
 
-        val text = locator.text.highlight.orEmpty()
-        val other = locator.locations.otherLocations
-        val rawSelector = other["cssSelector"] as? String
-
-        val isFormula = other["isMath"] == "true" || other["isMath"] == true ||
-                rawSelector?.contains(Regex("(?i)math|katex|mathml")) == true ||
-                text.contains(Regex("""[=≠≤≥≈±+\-*/∫∑√_{}\^\\\[\]∈∉⊆⊂lim]"""))
-
-        // 🌟 只要是公式，position 绝对返回 null！
-        // 这样 VisualNavigator 就不会去触发 go() 翻页，画面就会保持在当前页！
-        if (isFormula) {
+        if (shouldFallbackToElement(locator)) {
             return null
         }
 
-        // 常规句子的防倒退逻辑保持不变
         val targetPath = locator.href.toString().substringBefore('#').trimStart('/')
         val currentVisualPath = visualNavigator?.currentLocator?.value?.href
             ?.toString()?.substringBefore('#')?.trimStart('/')
@@ -447,19 +352,13 @@ private fun sanitizePositionLocator(locator: Locator?): Locator? {
         return locator
     }
 
-/**
-     * Starts the TTS using the first visible locator in the given [navigator].
-     */
     fun start(navigator: Navigator) {
-        // 🌟 关键修复：在这里立即绑定当前正在阅读的 visualNavigator
         (navigator as? VisualNavigator)?.let {
             this.visualNavigator = it
             Timber.i("VisualNavigator bound in start(): $it")
         }
 
-        if (launchJob != null) {
-            return
-        }
+        if (launchJob != null) return
 
         launchJob = viewModelScope.launch {
             openSession(navigator)
@@ -494,60 +393,35 @@ private fun sanitizePositionLocator(locator: Locator?): Locator? {
     }
 
     /**
-     * 🌟 在 WebView 中执行强制高亮：
-     * 无论 Readium 原生高亮是否成功、无论公式是否导致 Range 碎裂，
-     * 直接在 DOM 层找到最外层段落元素打上高亮，保证 100% 不漏高亮！
+     * 🌟【关键修复】：彻底解决挂起函数反射失效的致命 BUG！
+     * 在协程内通过强类型直接调用 EpubNavigatorFragment.evaluateJavascript()，
+     * 保证 100% 成功注入执行，绝不再抛出 NoSuchMethodException！
      */
-    // private fun applyFallbackHighlightInWebView(locator: Locator?) {
-    //     val navigator = visualNavigator ?: return
-    //     if (locator == null) {
-    //         navigator.evaluateJavascript(
-    //             "document.querySelectorAll('.voxread-force-highlight').forEach(el => el.classList.remove('voxread-force-highlight'));"
-    //         )
-    //         return
-    //     }
-
-    //     val textSnippet = locator.text.highlight
-    //         ?.replace("\\", "\\\\")
-    //         ?.replace("'", "\\'")
-    //         ?.replace("\"", "\\\"")
-    //         ?.replace("\n", " ")
-    //         .orEmpty()
-
-    //     val selector = (locator.locations.otherLocations["cssSelector"] as? String)
-    //         ?.replace("\\", "\\\\")
-    //         ?.replace("'", "\\'")
-    //         .orEmpty()
-
-    //     // 合并注入样式与调用：第一次调用时会自动初始化样式和函数
-    //     val jsCode = """
-    //         $VOXREAD_FALLBACK_JS
-    //         window.voxReadForceHighlight && window.voxReadForceHighlight('$textSnippet', '$selector');
-    //     """.trimIndent()
-
-    //     navigator.evaluateJavascript(jsCode)
-    // }
-
     private fun VisualNavigator?.runJs(javascript: String) {
         val nav = this ?: return
-        try {
-            val method = nav.javaClass.getMethod("evaluateJavascript", String::class.java)
-            method.invoke(nav, javascript)
-        } catch (e: Exception) {
-            Timber.w(e, "Unable to evaluate javascript on visualNavigator")
+        viewModelScope.launch {
+            try {
+                if (nav is EpubNavigatorFragment) {
+                    nav.evaluateJavascript(javascript)
+                } else {
+                    val directMethod = nav.javaClass.methods.firstOrNull {
+                        it.name == "evaluateJavascript" && it.parameterTypes.size == 1
+                    }
+                    directMethod?.invoke(nav, javascript)
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Unable to evaluate javascript on visualNavigator")
+            }
         }
     }
 
-private fun applyFallbackHighlightInWebView(locator: Locator?) {
+    private fun applyFallbackHighlightInWebView(locator: Locator?) {
         val navigator = visualNavigator ?: return
         if (locator == null) {
-            navigator.runJs(
-                "document.querySelectorAll('.voxread-force-highlight').forEach(el => el.classList.remove('voxread-force-highlight'));"
-            )
+            clearFallbackHighlightInWebView()
             return
         }
 
-        // 🌟 动态获取当前配置的高亮颜色并转为 CSS 格式
         val currentColor = highlightColor.value
         val cssColor = getCssHighlightColor(currentColor)
 
@@ -563,7 +437,6 @@ private fun applyFallbackHighlightInWebView(locator: Locator?) {
             ?.replace("'", "\\'")
             .orEmpty()
 
-        // 🌟 注入带用户自定义颜色的脚本
         val jsCode = """
             ${getFallbackJsScript(cssColor)}
             window.voxReadForceHighlight && window.voxReadForceHighlight('$textSnippet', '$selector');
@@ -572,59 +445,33 @@ private fun applyFallbackHighlightInWebView(locator: Locator?) {
         navigator.runJs(jsCode)
     }
 
-fun stop() {
+    fun stop() {
         launchJob = null
         lastValidProgression = 0.0
-        visualNavigator?.runJs(
-            "document.querySelectorAll('.voxread-force-highlight').forEach(el => el.classList.remove('voxread-force-highlight'));"
-        )
+        clearFallbackHighlightInWebView()
         mediaServiceFacade.closeSession()
     }
 
-    fun play() {
-        navigatorNow?.play()
-    }
+    fun play() { navigatorNow?.play() }
+    fun pause() { navigatorNow?.pause() }
+    fun previous() { navigatorNow?.skipToPreviousUtterance() }
+    fun next() { navigatorNow?.skipToNextUtterance() }
 
-    fun pause() {
-        navigatorNow?.pause()
-    }
-
-    fun previous() {
-        navigatorNow?.skipToPreviousUtterance()
-    }
-
-    fun next() {
-        navigatorNow?.skipToNextUtterance()
-    }
-
-    override fun onStopRequested() {
-        stop()
-    }
+    override fun onStopRequested() { stop() }
 
     private fun onPlaybackError(error: TtsNavigator.Error) {
         val event = when (error) {
-            is TtsNavigator.Error.ContentError -> {
-                Event.OnError(TtsError.ContentError(error))
-            }
+            is TtsNavigator.Error.ContentError -> Event.OnError(TtsError.ContentError(error))
             is TtsNavigator.Error.EngineError<*> -> {
                 val engineError = (error.cause as AndroidTtsEngine.Error)
                 when (engineError) {
-                    is AndroidTtsEngine.Error.LanguageMissingData ->
-                        Event.OnMissingVoiceData(engineError.language)
-                    is AndroidTtsEngine.Error.Network -> {
-                        val ttsError = TtsError.EngineError.Network(engineError)
-                        Event.OnError(ttsError)
-                    }
-                    else -> {
-                        val ttsError = TtsError.EngineError.Other(engineError)
-                        Event.OnError(ttsError)
-                    }
+                    is AndroidTtsEngine.Error.LanguageMissingData -> Event.OnMissingVoiceData(engineError.language)
+                    is AndroidTtsEngine.Error.Network -> Event.OnError(TtsError.EngineError.Network(engineError))
+                    else -> Event.OnError(TtsError.EngineError.Other(engineError))
                 }.also { Timber.e("Error type: $error") }
             }
         }
 
-        viewModelScope.launch {
-            _events.send(event)
-        }
+        viewModelScope.launch { _events.send(event) }
     }
 }

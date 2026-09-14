@@ -156,8 +156,12 @@ public class TtsNavigator<
         sessionAdapter.release()
     }
 
+    // =========================================================================
+    // 【核心修复 1】：将 currentLocator 强制锁定为整句定位器（utteranceLocator）
+    // 杜绝任何单个数学字符/单词引发阅读器页面重算和跳转
+    // =========================================================================
     override val currentLocator: StateFlow<Locator> =
-        location.mapStateIn(coroutineScope) { it.tokenLocator ?: it.utteranceLocator }
+        location.mapStateIn(coroutineScope) { it.utteranceLocator }
 
     override fun go(locator: Locator, animated: Boolean): Boolean {
         player.go(publication.normalizeLocator(locator))
@@ -209,8 +213,10 @@ public class TtsNavigator<
                 text = position.text
             )
 
-        val tokenLocator = range
-            ?.let { utteranceLocator.copy(text = utteranceLocator.text.substring(it)) }
+        // =========================================================================
+        // 【核心修复 2】：彻底禁用 tokenLocator，防止公式中的单个标点/字符被当作独立定位目标
+        // =========================================================================
+        val tokenLocator: Locator? = null
 
         return Location(
             href = url,

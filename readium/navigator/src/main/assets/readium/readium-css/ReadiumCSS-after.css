@@ -38,3 +38,273 @@ p:has(math[data-readium-decoration]),
 div:has(math[data-readium-decoration]) {
     background-color: rgba(255, 220, 40, 0.25) !important;
 }
+
+/* ==========================================================================
+   Readium Math Formula & Anti-Break Patch (公式防截断与分页补丁)
+   ========================================================================== */
+
+/* 1. 核心：禁止公式在左右分页时被横切成两半 */
+.math-block,
+.math-inline,
+.katex,
+.katex-display,
+mjx-container,
+math,
+svg.math,
+div[class*="math"],
+span[class*="math"] {
+  /* 标准防断属性 */
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+}
+
+/* 2. 块级/独立公式的排版保护 */
+.math-block,
+.katex-display,
+mjx-container[display="true"],
+math[display="block"] {
+  display: block !important;
+  max-width: 100% !important;
+  margin: 1.2em auto !important;
+  text-align: center !important;
+  /* 允许公式内部平滑微调，不破坏页面翻页手势 */
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  box-sizing: border-box !important;
+}
+
+/* 3. 颜色动态继承：自动适配 Readium 的深色模式、夜间模式与护眼羊皮纸模式 */
+.katex,
+mjx-container,
+math {
+  color: currentColor !important;
+}
+
+/* ==========================================================================
+   专业论文级 MathML 排版引擎样式补丁
+   ========================================================================== */
+
+/* 1. 声明并加载专业学术数学字体（必须是包含 OpenType MATH 表的字体） */
+@font-face {
+  font-family: "AcademicMath";
+  /* 放入 assets/readium/fonts/ 目录下的 STIX Two Math 或 Latin Modern Math */
+  src: url("fonts/STIXTwoMath-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+/* 2. 全局 MathML 字体与渲染规则 */
+*|math, math {
+  /* 强制采用学术字体，并开启平滑抗锯齿 */
+  font-family: "AcademicMath", "STIX Two Math", "Latin Modern Math", serif !important;
+  font-style: normal;
+  color: currentColor !important; /* 随 Readium 夜间/羊皮纸主题自动反色 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 3. 行内公式 (*|math[display="inline"])：复刻 LaTeX ctex 的“中数呼吸间距” */
+*|math[display="inline"], 
+math[display="inline"],
+p > *|math:not([display="block"]) {
+  /* 汉字与公式之间注入 0.22em 的微距，告别公式贴着汉字的粗糙感 */
+  margin: 0 0.22em !important;
+  padding: 0 !important;
+  /* 严格锁定基线微调，防止上下标把整行文字的行高忽大忽小顶开 */
+  vertical-align: -0.1ex !important;
+  line-height: normal !important;
+  break-inside: avoid !important;
+}
+
+/* 4. 独立行间公式 (*|math[display="block"])：专业学术居中与防撕裂 */
+*|math[display="block"], 
+math[display="block"],
+p > *|math[display="block"] {
+  display: block !important;
+  margin: 1.3em auto !important; /* 块级公式上下留白 */
+  text-align: center !important;
+  max-width: 100% !important;
+  /* 允许极端长公式平滑微调滚动，杜绝撑破页面 */
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  /* 救命属性：禁止 Readium 在翻页时把行间公式从中间横切截断 */
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+}
+
+/* 5. 优化下标、上标、大括号的学术美感 */
+*|msub > *|mo, *|msup > *|mo, *|msubsup > *|mo {
+  font-size: 0.8em !important; /* 让上下标比例符合期刊规范 */
+}
+
+/* 隐藏用于源码保留的 annotation（防干扰） */
+*|annotation {
+  display: none !important;
+}
+
+/* ❌ 严禁使用 display: none，它会让坐标塌陷成 (0,0) 导致 TTS 乱跳回第1页 */
+/* *|annotation { display: none !important; } */
+
+/* ✅ 正确做法：物理隐藏，但保留其在当前页的相对位置，坐标绝不归零 */
+*|annotation {
+  position: absolute !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  speak: never !important; /* 提示朗读器忽略 */
+}
+
+/* =========================================================================
+   针对 TTS 翻页抖动的终极 CSS 焊死补丁
+   ========================================================================= */
+
+/* 1. 强制让整个 math 成为一个不可分割的排版平面 */
+*|math, math {
+  /* 焊死它的几何布局，禁止子元素在多列间产生不同的水平偏移 */
+  contain: layout style paint !important;
+  display: inline-block !important;
+  /* 屏蔽子元素所有滚动和事件，让定位器只能抓取最外层 math 的坐标 */
+  pointer-events: none !important;
+}
+
+/* 2. 块级公式焊死 */
+*|math[display="block"], math[display="block"] {
+  display: block !important;
+  contain: layout style paint !important;
+}
+
+/* 3. 彻底抹杀 annotation 的几何存在感，坐标锁定在父级，绝不脱离 */
+*|annotation {
+  display: none !important;
+  position: static !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* 确保 TTS 的高亮图层覆盖在 MathML 之上，不被背景遮挡 */
+::highlight(readium-tts), 
+.readium-decoration,
+mark {
+  background-color: rgba(255, 235, 59, 0.45) !important;
+  mix-blend-mode: multiply !important;
+}
+
+/* ==========================================================================
+   公式祖先外层高亮专用样式（适配所有深色、浅色模式）
+   ========================================================================== */
+.math-ancestor-highlight,
+p.math-ancestor-highlight {
+  background-color: rgba(255, 235, 59, 0.35) !important;
+  border-left: 6px solid #FF9800 !important;
+  padding-left: 8px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 0 2px rgba(255, 235, 59, 0.2) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+/* 深色模式下的反差强化 */
+@media (prefers-color-scheme: dark) {
+  .math-ancestor-highlight,
+  p.math-ancestor-highlight {
+    background-color: rgba(255, 235, 59, 0.22) !important;
+    border-left: 6px solid #FFD54F !important;
+  }
+}
+
+/* ==========================================================================
+   公式高亮祖先穿透补丁：只要公式内部有哪怕一个字符被命中，立刻点亮整段！
+   ========================================================================== */
+
+/* 1. 穿透捕获：针对 Readium 所有的内置高亮标记（mark、class、data-readium 属性） */
+p:has(*|math mark),
+p:has(*|math [class*="highlight"]),
+p:has(*|math [data-readium-decoration]),
+p:has(*|math [class*="readium"]),
+div:has(*|math mark),
+div:has(*|math [class*="highlight"]) {
+  background-color: rgba(255, 235, 59, 0.35) !important; /* 柔和的高亮底色 */
+  border-left: 5px solid #FF9800 !important;              /* 左侧醒目的学术橙指示线 */
+  border-radius: 4px !important;
+  box-shadow: 0 0 0 2px rgba(255, 235, 59, 0.2) !important;
+  transition: background-color 0.2s ease !important;
+}
+
+/* 2. 同时将那个被单独选中的零碎字符的丑陋小底色抹平，防止它在段落里显得突兀 */
+*|math mark,
+*|math [class*="highlight"],
+*|math [data-readium-decoration] {
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* 3. 适配夜间 / 深色模式 */
+@media (prefers-color-scheme: dark) {
+  p:has(*|math mark),
+  p:has(*|math [class*="highlight"]),
+  p:has(*|math [data-readium-decoration]) {
+    background-color: rgba(255, 235, 59, 0.25) !important;
+    border-left: 5px solid #FFD54F !important;
+  }
+}
+
+/* 让行内公式与周围汉字的高亮图层平整贴合 */
+*|math[display="inline"], 
+math[display="inline"] {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  line-height: 1 !important;
+}
+
+/* 块级公式整块居中填充 */
+*|math[display="block"], 
+math[display="block"] {
+  display: block !important;
+  margin: 1em auto !important;
+}
+
+/* ==========================================================================
+   防止中文字体覆盖 TeX 数学字体的终极防御补丁
+   ========================================================================== */
+
+/* 1. 声明 TeX 学术数学字体 */
+@font-face {
+  font-family: "AcademicMath";
+  src: url("fonts/STIXTwoMath-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+/* 2. 🌟 深度穿透 + 超高权重：锁死 math 及其内部所有子标签 (mi, mo, mn, mrow 等) */
+:root *|math,
+:root *|math *,
+html *|math,
+html *|math *,
+body *|math,
+body *|math * {
+  /* 
+   * 关键规则：必须将 AcademicMath 焊死在第一位！
+   * 字母与公式符号优先由 STIX Two Math 绘制，绝对防止被中文字体自带的英文字形截胡！
+   */
+  font-family: "AcademicMath", "STIX Two Math", "Latin Modern Math", serif !important;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 3. 规范变量与操作符字形 */
+:root *|mi {
+  font-style: italic !important; /* 保证数学变量（如 x, y, B）呈现纯正的 TeX 倾斜手写体质感 */
+}
+:root *|mo, :root *|mn {
+  font-style: normal !important; /* 数字和运算符号保持正体 */
+}
+
+/* 4. 优雅回退：如果公式内部确实出现了真正的中文文字（如 \text{此时} 即 <mtext> 标签），允许它优雅使用当前的中文字体 */
+:root *|math *|mtext {
+  font-family: inherit !important;
+  font-style: normal !important;
+}
