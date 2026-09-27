@@ -151,10 +151,35 @@ export function scrollToLocator(locator) {
 }
 
 function scrollToRange(range) {
+  if (!range) {
+    return false;
+  }
   return scrollToRect(range.getBoundingClientRect());
 }
 
+function rectIsUsable(rect) {
+  if (!rect) {
+    return false;
+  }
+  if (!Number.isFinite(rect.top) || !Number.isFinite(rect.left)) {
+    return false;
+  }
+  return rect.width >= 1 || rect.height >= 1;
+}
+
+function rectIntersectsViewport(rect) {
+  const width = window.innerWidth || document.documentElement.clientWidth;
+  const height = window.innerHeight || document.documentElement.clientHeight;
+  return rect.bottom > 0 && rect.right > 0 && rect.top < height && rect.left < width;
+}
+
 function scrollToRect(rect) {
+  if (!rectIsUsable(rect)) {
+    return false;
+  }
+  if (rectIntersectsViewport(rect)) {
+    return true;
+  }
   if (isScrollModeEnabled()) {
     document.scrollingElement.scrollTop = rect.top + window.scrollY;
   } else {
@@ -296,24 +321,72 @@ export function snapCurrentOffset() {
   document.scrollingElement.scrollLeft = snapOffset(currentOffset + delta);
 }
 
+function elementRange(element) {
+  let range = document.createRange();
+  range.setStartBefore(element);
+  range.setEndAfter(element);
+  return range;
+}
+
+function querySelectorSafe(selector) {
+  if (!selector) {
+    return null;
+  }
+  try {
+    const found = document.querySelector(selector);
+    if (found) {
+      return found;
+    }
+  } catch (error) {
+    logError(error);
+  }
+  if (selector.indexOf("math") === -1) {
+    return null;
+  }
+  const starred = selector.replace(/(^|[\s>+~])math\b/g, "$1*|math");
+  try {
+    return document.querySelector(starred);
+  } catch (error) {
+    logError(error);
+    return null;
+  }
+}
+
 export function rangeFromLocator(locator) {
   try {
-    let locations = locator.locations;
+    let locations = locator.locations || {};
     let text = locator.text;
-    if (text && text.highlight) {
-      var root;
-      if (locations && locations.cssSelector) {
-        root = document.querySelector(locations.cssSelector);
-      }
-      if (!root) {
-        root = document.body;
-      }
 
-      let anchor = new TextQuoteAnchor(root, text.highlight, {
-        prefix: text.before,
-        suffix: text.after,
-      });
-      return anchor.toRange();
+    if (locations.isMath || locations.mathSelector) {
+      const math = querySelectorSafe(locations.mathSelector || locations.cssSelector);
+      if (!math) {
+        logError(
+          "voxread: math locator did not match " +
+            (locations.mathSelector || locations.cssSelector || "")
+        );
+        return null;
+      }
+      return elementRange(math);
+    }
+
+    if (text && text.highlight) {
+      try {
+        var root;
+        if (locations.cssSelector) {
+          root = document.querySelector(locations.cssSelector);
+        }
+        if (!root) {
+          root = document.body;
+        }
+
+        let anchor = new TextQuoteAnchor(root, text.highlight, {
+          prefix: text.before,
+          suffix: text.after,
+        });
+        return anchor.toRange();
+      } catch (error) {
+        logError(error);
+      }
     }
 
     if (locations) {

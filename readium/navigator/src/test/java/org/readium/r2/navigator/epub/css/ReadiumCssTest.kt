@@ -47,6 +47,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr"></body>
                 </html>
@@ -92,6 +93,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr" xmlns:xlink="http://www.w3.org/1999/xlink"></body>
                 </html>
@@ -132,6 +134,7 @@ class ReadiumCssTest {
                                 </style>
                 <title>Publication</title><link rel="stylesheet" href="style.css" type="text/css"/>
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head><body dir="ltr" xmlns:xlink="http://www.w3.org/1999/xlink"></body></html>
             """.trimIndent(),
             sut.injectHtml(
@@ -163,6 +166,7 @@ class ReadiumCssTest {
                                 </style>
                 <title>Publication</title><link rel="stylesheet" href="style.css" type="text/css"/>
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </HEAD><BODY dir="ltr" xmlns:xlink="http://www.w3.org/1999/xlink"></BODY></HTML>
             """.trimIndent(),
             sut.injectHtml(
@@ -199,6 +203,7 @@ class ReadiumCssTest {
                         <title>Publication</title>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr"></body>
                 </html>
@@ -301,6 +306,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/rtl/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="rtl"></body>
                 </html>
@@ -346,6 +352,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/cjk-horizontal/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr"></body>
                 </html>
@@ -392,6 +399,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/cjk-vertical/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body></body>
                 </html>
@@ -437,6 +445,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body xml:lang="fr-CA" dir="ltr"></body>
                 </html>
@@ -482,6 +491,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr" xml:lang="en-US"></body>
                 </html>
@@ -527,6 +537,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr" lang="en-US"></body>
                 </html>
@@ -572,6 +583,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <body dir="ltr" xml:lang=""></body>
                 </html>
@@ -629,6 +641,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                                     <style type="text/css">
                                     @import url('https://fonts.googleapis.com/css?family=OpenDyslexic%7Csans-serif%7Cserif');
                 @font-face { font-family: "Libre Franklin"; src: url("/assets/fonts/LibreFranklin.otf"); }
@@ -679,6 +692,7 @@ class ReadiumCssTest {
                         <link rel="stylesheet" href="style.css" type="text/css"/>
                     
                 <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/ReadiumCSS-after.css"/>
+                <link rel="stylesheet" type="text/css" href="/assets/readium/readium-css/VoxRead-overrides.css"/>
                 </head>
                     <BODY dir="ltr">
                         <p dir="rtl"></p>

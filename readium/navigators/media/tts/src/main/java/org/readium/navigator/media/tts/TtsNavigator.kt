@@ -156,10 +156,10 @@ public class TtsNavigator<
         sessionAdapter.release()
     }
 
-    // =========================================================================
-    // 【核心修复 1】：将 currentLocator 强制锁定为整句定位器（utteranceLocator）
-    // 杜绝任何单个数学字符/单词引发阅读器页面重算和跳转
-    // =========================================================================
+    /**
+     * Page turns follow the sentence or formula. Token ranges update [location]
+     * for word highlighting and do not change this locator.
+     */
     override val currentLocator: StateFlow<Locator> =
         location.mapStateIn(coroutineScope) { it.utteranceLocator }
 
@@ -213,10 +213,7 @@ public class TtsNavigator<
                 text = position.text
             )
 
-        // =========================================================================
-        // 【核心修复 2】：彻底禁用 tokenLocator，防止公式中的单个标点/字符被当作独立定位目标
-        // =========================================================================
-        val tokenLocator: Locator? = null
+        val tokenLocator = tokenLocator(utteranceLocator, range)
 
         return Location(
             href = url,
@@ -228,4 +225,23 @@ public class TtsNavigator<
             tokenLocator = tokenLocator
         )
     }
+
+    /**
+     * Word highlight for ordinary prose. Formula utterances are highlighted by
+     * element id instead, so a token inside spoken math does not become a locator.
+     */
+    private fun tokenLocator(utteranceLocator: Locator, range: IntRange?): Locator? {
+        if (range == null) return null
+        if (utteranceLocator.locations.isFlag("isMath") || utteranceLocator.locations.isFlag("hasInlineMath")) {
+            return null
+        }
+        val highlight = utteranceLocator.text.highlight ?: return null
+        if (highlight.isEmpty()) return null
+        return utteranceLocator.copy(text = utteranceLocator.text.substring(range))
+    }
+}
+
+private fun Locator.Locations.isFlag(key: String): Boolean {
+    val value = otherLocations[key]
+    return value == true || value == "true"
 }

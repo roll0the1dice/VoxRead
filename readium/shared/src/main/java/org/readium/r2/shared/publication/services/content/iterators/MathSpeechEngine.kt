@@ -18,14 +18,14 @@ public class MathSpeechEngine private constructor(private val context: Context) 
     }
 public suspend fun toSpeech(
         mathml: String,
-        locale: String = "zh",
+        locale: String = "en",
         outputSsml: Boolean = false
     ): String = withContext(Dispatchers.Default) {
         if (mathml.isBlank()) return@withContext ""
 
         if (!isLibraryLoaded) {
             Log.w(TAG, "🟡 [MathSpeech] .so 库未加载成功，直接走本地 LaTeX 降级")
-            return@withContext fallbackSpeech(mathml)
+            return@withContext fallbackSpeech(mathml, locale)
         }
 
         try {
@@ -39,22 +39,14 @@ public suspend fun toSpeech(
             //Log.d(TAG, "🔍 [MathSpeech] 传入 MathML: $normalizedXml")
             //Log.d(TAG, "🔍 [MathSpeech] rulesDir 路径: $rulesDir")
 
-            // 调用 Native JNI
-            val speech = mathCatToSpeech(normalizedXml, rulesDir)
+            val mathCatLocale = toMathCatLanguage(locale)
+            val speech = mathCatToSpeech(normalizedXml, rulesDir, mathCatLocale)
 
-            if (speech.isNotBlank()) {
-                val simplified = speech
-                    .replace("等於", "等于")
-                    .replace("大於", "大于")
-                    .replace("小於", "小于")
-                    .replace("趨近於", "趋近于")
-                    .replace("極限", "极限")
-                    .replace("根號", "根号")
-                    .replace("下標", "下标")
-                    .replace("上標", "上标")
-                
-                //Log.d("EdgeTtsDebug", "🟢 [MathSpeech - MathCAT成功] '$simplified'")
-                return@withContext simplified
+            if (speech.isNotBlank() && acceptableSpeech(speech, locale)) {
+                val spoken = if (prefersSimplifiedChinese(locale)) simplifyChinese(speech) else speech
+                return@withContext spoken
+            } else if (speech.isNotBlank()) {
+                Log.w(TAG, "MathCAT speech ignored because it does not match locale $locale")
             } else {
                 Log.w(TAG, "🟡 [MathSpeech] MathCAT 返回空白文本，当前目录内容为: ${File(rulesDir).list()?.contentToString()}")
             }
@@ -62,19 +54,21 @@ public suspend fun toSpeech(
             Log.e(TAG, "❌ [MathSpeech] JNI 调用异常: ${e.message}", e)
         }
 
-        // 兜底降级
-        val fallback = fallbackSpeech(mathml)
-        //Log.d("EdgeTtsDebug", "🟡 [MathSpeech - 本地降级成功] '$fallback'")
+        val fallback = fallbackSpeech(mathml, locale)
         return@withContext fallback
     }
 
-    private fun fallbackSpeech(mathml: String): String {
+    private fun fallbackSpeech(mathml: String, locale: String): String {
         return try {
             val doc = Jsoup.parseBodyFragment(mathml)
             val mathNode = doc.selectFirst("math") ?: return ""
             val annotation = mathNode.getElementsByTag("annotation").firstOrNull()
             val latex = annotation?.text()?.takeIf { it.isNotBlank() } ?: mathNode.toMathmlLatex()
-            latexToChineseSpeech(latex)
+            if (locale.startsWith("zh", ignoreCase = true)) {
+                latexToChineseSpeech(latex)
+            } else {
+                latexToPlainSpeech(latex)
+            }
         } catch (e: Throwable) {
             Log.e(TAG, "❌ fallbackSpeech 解析失败", e)
             ""
@@ -109,7 +103,11 @@ public suspend fun toSpeech(
 
         // 外部 JNI 方法声明
         @JvmStatic
-        private external fun mathCatToSpeech(mathml: String, rulesDirPath: String): String
+        private external fun mathCatToSpeech(
+            mathml: String,
+            rulesDirPath: String,
+            locale: String,
+        ): String
 
         @Volatile
         private var INSTANCE: MathSpeechEngine? = null
@@ -185,6 +183,79 @@ private fun setupRulesDir(context: Context): String {
             }
         }
     }
+}
+
+internal fun toMathCatLanguage(locale: String): String {
+    val tag = locale.lowercase(java.util.Locale.ROOT).replace('_', '-')
+    val language = tag.substringBefore('-')
+    return when (language) {
+        "zh" -> "zh-tw"
+        "" -> "en"
+        else -> language
+    }
+}
+
+internal fun prefersSimplifiedChinese(locale: String): Boolean {
+    val tag = locale.lowercase(java.util.Locale.ROOT).replace('_', '-')
+    if (!tag.startsWith("zh")) return false
+    return !tag.contains("hant") &&
+        !tag.contains("tw") &&
+        !tag.contains("hk") &&
+        !tag.contains("mo")
+}
+
+private fun simplifyChinese(speech: String): String =
+    speech
+        .replace("等於", "等于")
+        .replace("大於", "大于")
+        .replace("小於", "小于")
+        .replace("趨近於", "趋近于")
+        .replace("極限", "极限")
+        .replace("根號", "根号")
+        .replace("下標", "下标")
+        .replace("上標", "上标")
+
+private fun acceptableSpeech(speech: String, locale: String): Boolean {
+    if (locale.startsWith("zh", ignoreCase = true)) return true
+    val letters = speech.count { it.isLetter() }
+    if (letters == 0) return true
+    val han = speech.count { Character.UnicodeScript.of(it.code) == Character.UnicodeScript.HAN }
+    return han * 2 < letters
+}
+
+internal fun latexToPlainSpeech(latex: String): String {
+    var speech = latex
+    while (speech.contains("\\frac") || speech.contains("frac")) {
+        val replaced = speech
+            .replace(Regex("""\\?frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}"""), " $1 over $2 ")
+            .replace(Regex("""\\?frac\s*([^{}\s]+)\s*([^{}\s]+)"""), " $1 over $2 ")
+        if (replaced == speech) break
+        speech = replaced
+    }
+    return speech
+        .replace(Regex("""(\w+)\^2"""), "$1 squared")
+        .replace(Regex("""(\w+)\^3"""), "$1 cubed")
+        .replace(Regex("""\^2"""), " squared")
+        .replace(Regex("""\^3"""), " cubed")
+        .replace(Regex("""\\sqrt\{([^}]+)\}"""), " square root of $1 ")
+        .replace("\\sqrt", " square root of ")
+        .replace(Regex("""_\{([^}]+)\}"""), " sub $1 ")
+        .replace(Regex("""_(\w)"""), " sub $1 ")
+        .replace("\\times", " times ")
+        .replace("\\cdot", " times ")
+        .replace("\\leq", " less than or equal to ")
+        .replace("\\le", " less than or equal to ")
+        .replace("\\geq", " greater than or equal to ")
+        .replace("\\ge", " greater than or equal to ")
+        .replace("\\neq", " not equal to ")
+        .replace("\\infty", " infinity ")
+        .replace("\\lim", " limit ")
+        .replace("\\to", " to ")
+        .replace("{", " ")
+        .replace("}", " ")
+        .replace("\\", "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 }
 
 // 顶层降级函数

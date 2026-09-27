@@ -31,6 +31,7 @@ import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.InternalReadiumApi
 import org.readium.r2.shared.extensions.tryOrNull
 import org.readium.r2.shared.publication.Locator
+import org.readium.r2.shared.publication.services.content.iterators.MathSpeechLanguage
 import org.readium.r2.shared.util.Error
 import org.readium.r2.shared.util.ErrorException
 import org.readium.r2.shared.util.ThrowableError
@@ -64,6 +65,7 @@ internal class TtsPlayer<
             contentIterator: TtsUtteranceIterator,
             initialPreferences: P,
         ): TtsPlayer<S, P, E, V>? {
+            MathSpeechLanguage.code = initialPreferences.language?.code
             val initialContext = tryOrNull { contentIterator.startContext() }
                 ?: return null
 
@@ -649,15 +651,35 @@ internal class TtsPlayer<
             return
         }
 
+        val languageChanged = preferences.language?.code != MathSpeechLanguage.code
         submitPreferencesForSure(preferences)
-        restartUtterance()
+        if (languageChanged) {
+            reparseCurrentUtterance()
+        } else {
+            restartUtterance()
+        }
     }
 
     private fun submitPreferencesForSure(preferences: P) {
         lastPreferences = preferences
         engineFacade.submitPreferences(preferences)
+        MathSpeechLanguage.code = preferences.language?.code
         contentIterator.language = engineFacade.settings.value.language
         contentIterator.overrideContentLanguage = engineFacade.settings.value.overrideContentLanguage
+    }
+
+    private fun reparseCurrentUtterance() {
+        coroutineScope.launch {
+            mutex.withLock {
+                playbackJob?.cancelAndJoin()
+                val locator = contentIterator.locatorForReparse(utteranceWindow.currentUtterance)
+                if (locator != null) {
+                    contentIterator.seek(locator)
+                    resetContext()
+                }
+                playIfReadyAndNotPaused()
+            }
+        }
     }
 
     private fun TtsUtteranceIterator.Utterance.ttsPlayerUtterance(): Utterance =

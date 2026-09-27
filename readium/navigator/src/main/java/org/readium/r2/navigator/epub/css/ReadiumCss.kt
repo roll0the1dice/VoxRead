@@ -84,6 +84,9 @@ internal data class ReadiumCss(
             endHeadIndex,
             "\n" + buildList {
                 add(stylesheetLink(afterCss))
+                // Layout-independent VoxRead patches. Must not live only in the
+                // default after.css: CJK/RTL layouts load a different folder.
+                add(stylesheetLink(voxReadOverridesCss))
 
                 if (fontsInjectableCss.isNotEmpty()) {
                     add(
@@ -114,6 +117,10 @@ internal data class ReadiumCss(
 
     private val defaultCss by lazy {
         stylesheetsFolder.resolve(Url("ReadiumCSS-default.css")!!)
+    }
+
+    private val voxReadOverridesCss by lazy {
+        assetsBaseHref.resolve(Url("readium/readium-css/VoxRead-overrides.css")!!)
     }
 
     /**

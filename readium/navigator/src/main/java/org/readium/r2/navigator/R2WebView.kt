@@ -712,6 +712,11 @@ internal class R2WebView(context: Context, attrs: AttributeSet) : R2BasicWebView
                 mActivePointerId = ev.getPointerId(0)
             }
             MotionEvent.ACTION_MOVE -> {
+                if (equationDragHoldsPage) {
+                    mIsBeingDragged = false
+                    return super.onTouchEvent(ev)
+                }
+
                 if ((mLastMotionX > (width - mGutterSize)) || (mLastMotionX < mGutterSize)) {
                     requestDisallowInterceptTouchEvent(true)
                     return false
@@ -736,6 +741,11 @@ internal class R2WebView(context: Context, attrs: AttributeSet) : R2BasicWebView
                 }
             }
             MotionEvent.ACTION_UP -> when {
+                equationDragHoldsPage -> {
+                    mIsBeingDragged = false
+                    mHasAbortedScroller = false
+                    equationDragHoldsPage = false
+                }
                 mIsBeingDragged -> {
                     mIsBeingDragged = false
                     mHasAbortedScroller = false
@@ -791,9 +801,12 @@ internal class R2WebView(context: Context, attrs: AttributeSet) : R2BasicWebView
                 }
             }
 
-            MotionEvent.ACTION_CANCEL -> if (mIsBeingDragged) {
-                mIsBeingDragged = false
-                scrollToItem(mCurItem, true, 0, false)
+            MotionEvent.ACTION_CANCEL -> {
+                equationDragHoldsPage = false
+                if (mIsBeingDragged) {
+                    mIsBeingDragged = false
+                    scrollToItem(mCurItem, true, 0, false)
+                }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 val index = ev.actionIndex

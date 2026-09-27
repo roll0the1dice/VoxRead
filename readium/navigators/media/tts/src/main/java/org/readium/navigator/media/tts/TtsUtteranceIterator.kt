@@ -85,6 +85,19 @@ internal class TtsUtteranceIterator(
     }
 
     /**
+     * Locator used to parse the resource again from the same element after the
+     * speech language changes. Spoken text is omitted because it is about to
+     * be regenerated.
+     */
+    fun locatorForReparse(utterance: Utterance): Locator? {
+        val link = publication.readingOrder.getOrNull(utterance.resourceIndex) ?: return null
+        return publication.locatorFromLink(link)?.copy(
+            locations = utterance.locations,
+            text = Locator.Text()
+        )
+    }
+
+    /**
      * Moves the iterator to the beginning of the publication.
      */
     fun seekToBeginning() {

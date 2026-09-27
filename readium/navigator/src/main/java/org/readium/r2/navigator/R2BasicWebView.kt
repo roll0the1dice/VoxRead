@@ -119,6 +119,14 @@ internal open class R2BasicWebView(context: Context, attrs: AttributeSet) : WebV
     val scrollMode: Boolean get() = scrollModeFlow.value
     var disablePageTurnsWhileScrolling: Boolean = false
 
+    /**
+     * Set from the page when a horizontal drag is scrolling a wide formula
+     * instead of turning the page. Cleared when the gesture ends or the
+     * formula is already at that edge.
+     */
+    @Volatile
+    internal var equationDragHoldsPage: Boolean = false
+
     var callback: OnOverScrolledCallback? = null
 
     private val uiScope = CoroutineScope(Dispatchers.Main)
@@ -497,6 +505,11 @@ internal open class R2BasicWebView(context: Context, attrs: AttributeSet) : WebV
     @android.webkit.JavascriptInterface
     fun log(message: String) {
         Timber.d("JavaScript: $message")
+    }
+
+    @android.webkit.JavascriptInterface
+    fun setEquationDragHold(hold: Boolean) {
+        equationDragHoldsPage = hold
     }
 
     fun Boolean.toInt() = if (this) 1 else 0

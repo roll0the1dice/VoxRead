@@ -446,8 +446,23 @@ internal class R2EpubPageFragment : Fragment() {
         readingProgression: ReadingProgression,
         locator: Locator,
     ) {
-        if (locator.text.highlight != null) {
+        val followsFormula = locator.locations["isMath"] == true ||
+            locator.locations["isMath"] == "true" ||
+            locator.locations["hasInlineMath"] == true ||
+            locator.locations["hasInlineMath"] == "true"
+        val hasElementTarget = followsFormula ||
+            locator.locations["cssSelector"] != null ||
+            locator.locations["mathSelector"] != null
+
+        if (locator.text.highlight != null || hasElementTarget) {
             if (webView.scrollToLocator(locator)) {
+                return
+            }
+            if (followsFormula) {
+                android.util.Log.w(
+                    "VoxRead",
+                    "Skipping TTS follow; no usable rect for ${locator.href}"
+                )
                 return
             }
         }
@@ -457,7 +472,14 @@ internal class R2EpubPageFragment : Fragment() {
             return
         }
 
-        var progression = locator.locations.progression ?: 0.0
+        var progression = locator.locations.progression
+        if (progression == null) {
+            android.util.Log.w(
+                "VoxRead",
+                "Skipping locator; no usable rect and no progression for ${locator.href}"
+            )
+            return
+        }
 
         // We need to reverse the progression with RTL because the Web View
         // always scrolls from left to right, no matter the reading direction.

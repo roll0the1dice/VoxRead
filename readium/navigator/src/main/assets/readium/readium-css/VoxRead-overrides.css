@@ -1,0 +1,232 @@
+/*
+ * VoxRead stylesheet injected after every Readium CSS layout variant
+ * (default, rtl, cjk-horizontal, cjk-vertical).
+ *
+ * Keep this file in the readium-css root so @font-face urls stay relative
+ * to fonts/, even when the publication uses CJK or RTL after.css.
+ *
+ * MathML selectors use *| so they match whether or not this sheet has a
+ * default namespace. A namespace on another sheet does not apply here.
+ * 0.22em is a visual gap between inline math and the surrounding text.
+ */
+
+@font-face {
+  font-family: "AcademicMath";
+  src: url("fonts/STIXTwoMath-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --vox-tts-highlight: rgba(255, 220, 40, 0.45);
+}
+
+:root *|math,
+:root *|math *|* {
+  font-family: "AcademicMath", "STIX Two Math", serif !important;
+  color: currentColor;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root *|math:not([display="block"]) {
+  margin-inline: 0.22em;
+}
+
+:root *|math *|mtext {
+  font-family: inherit;
+  font-style: normal;
+}
+
+:root *|math {
+  /* Defeat an inherited word-break:break-all. It cannot see fractions or fences. */
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/*
+ * Pagination lives on the outer formula block, not on the MathML.
+ * A formula taller than one page cannot honour break-inside:avoid, so that
+ * case is detected in voxread-math.js and opened in its own viewer.
+ * Overflow stays scrollable. Hidden would clip a matrix, and transform:scale
+ * would change the paint size without the layout size.
+ */
+.vox-formula-block {
+  box-sizing: border-box;
+  position: relative;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  height: auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 1em;
+}
+
+.vox-formula-block.vox-break-before,
+.equation.vox-break-before,
+.display-math.vox-break-before,
+figure.math.vox-break-before,
+div.math-block.vox-break-before {
+  break-before: column;
+  page-break-before: always;
+  -webkit-column-break-before: always;
+}
+
+.vox-formula-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  overflow: auto;
+  padding-block: 0.25em;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vox-formula-scroll > *|math {
+  width: max-content;
+  max-width: none;
+  height: auto;
+  margin-inline: auto;
+  position: static;
+  transform: none;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.vox-formula-open {
+  display: none;
+  margin-top: 0.25em;
+  padding: 0.15em 0.6em;
+  border: 0;
+  border-radius: 0.3em;
+  background: rgba(128, 128, 128, 0.2);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8em;
+}
+
+.vox-formula-block.is-wide .vox-formula-open,
+.vox-formula-block.is-tall .vox-formula-open {
+  display: inline-block;
+}
+
+.vox-formula-overlay {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.vox-formula-overlay-scroll {
+  box-sizing: border-box;
+  width: min(92vw, 60rem);
+  max-height: 86vh;
+  overflow: auto;
+  padding: 1.25em 1em 1em;
+  background: Canvas;
+  color: CanvasText;
+}
+
+.vox-formula-overlay-scroll > .vox-formula-scroll {
+  max-height: none;
+  overflow: visible;
+}
+
+.vox-formula-overlay-scroll *|math {
+  width: max-content;
+  max-width: none;
+  height: auto;
+  position: static;
+  transform: none;
+}
+
+.vox-formula-placeholder {
+  width: 100%;
+}
+
+/*
+ * Display formulas keep their own MathML layout. The outer container centers
+ * the row, holds the equation number, and lets that number wrap on a narrow
+ * page instead of squeezing the formula.
+ */
+.equation,
+.display-math,
+figure.math,
+div.math-block {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 1.25em;
+  row-gap: 0.35em;
+  margin-block: 1.2em;
+  max-width: 100%;
+}
+
+.equation > .eqno,
+.equation > .equation-number,
+.display-math > .eqn-number,
+figure.math > figcaption {
+  margin-inline-start: auto;
+}
+
+@media (max-width: 36rem) {
+  .equation,
+  .display-math,
+  figure.math,
+  div.math-block {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .equation > .eqno,
+  .equation > .equation-number,
+  .display-math > .eqn-number,
+  figure.math > figcaption {
+    margin-inline-start: 0;
+  }
+}
+
+::highlight(readium-tts-highlight),
+[data-readium-decoration],
+mark.readium-highlight {
+  background-color: var(--vox-tts-highlight);
+}
+
+.voxread-force-highlight {
+  background-color: var(--vox-tts-highlight) !important;
+  box-shadow: inset 3px 0 #ff9800;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --vox-tts-highlight: rgba(255, 235, 59, 0.28);
+  }
+}
+
+/* ==========================================================================
+   CJK: keep CSS / user fonts, add real Chinese faces as glyph fallback
+   ==========================================================================
+   ReadiumCSS-before.css sets --RS__baseFontFamily via :lang(zh) to a system
+   CJK stack. That is the right fallback for missing 汉字, but it must not
+   replace an explicit --USER__fontFamily. Loaded last so it wins over the
+   layout-specific after.css.
+*/
+
+:root[style*=readium-font-on][style*="--USER__fontFamily"] {
+  font-family: var(--USER__fontFamily),
+    "Noto Sans CJK SC", "Source Han Sans SC",
+    "PingFang SC", "Heiti SC", "Microsoft YaHei",
+    "Noto Sans CJK TC", "PingFang TC", sans-serif !important;
+}
+
+:root[style*=readium-font-on][style*=readium-a11y-on] {
+  font-family: var(--USER__fontFamily),
+    "Noto Sans CJK SC", "Source Han Sans SC",
+    "PingFang SC", "Heiti SC", "Microsoft YaHei", sans-serif !important;
+}

@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import org.readium.navigator.media.tts.AndroidTtsNavigator
 import org.readium.navigator.media.tts.AndroidTtsNavigatorFactory
 import org.readium.navigator.media.tts.TtsNavigator
@@ -97,84 +98,20 @@ class TtsViewModel private constructor(
         Timber.i("VisualNavigator unbound from TtsViewModel")
     }
 
-    private var lastValidProgression: Double = 0.0
-    private var lastChapterPath: String? = null
-
-// 替换 getFallbackJsScript 方法：彻底移除有毒的 mix-blend-mode，确保 100% 可见
-    private fun getFallbackJsScript(cssColor: String): String = """
-(function() {
-    let style = document.getElementById('voxread-style');
-    if (!style) {
-        style = document.createElement('style');
-        style.id = 'voxread-style';
-        document.head.appendChild(style);
+    private fun highlightColorScript(cssColor: String): String {
+        val quoted = JSONObject.quote(cssColor)
+        return "document.documentElement.style.setProperty('--vox-tts-highlight', $quoted);"
     }
-    // 🌟 采用半透明背景 + 强对比左边框，绝不在夜间模式中隐形！
-    style.innerHTML = `
-        .voxread-force-highlight {
-            background-color: $cssColor !important;
-            border-left: 5px solid #FF9800 !important;
-            padding-left: 6px !important;
-            border-radius: 4px !important;
-            transition: background-color 0.2s ease !important;
-        }
-    `;
 
-    window.voxReadForceHighlight = function(highlightText, cssSelector) {
-        // 清理旧高亮
-        document.querySelectorAll('.voxread-force-highlight').forEach(el => {
-            el.classList.remove('voxread-force-highlight');
-        });
-
-        let target = null;
-
-        // 1. 优先根据定位器选择器查
-        if (cssSelector) {
-            try {
-                target = document.querySelector(cssSelector);
-            } catch(e) {}
-        }
-
-        // 2. 如果没查到，扫描所有带有公式标记的段落或 math 标签
-        if (!target) {
-            const mathList = document.querySelectorAll('math, .has-math');
-            const cleanText = (highlightText || '').replace(/\s+/g, '');
-            
-            // 匹配段落内部文字重合最多的那个元素
-            let maxScore = -1;
-            for (let el of mathList) {
-                const parentP = el.closest('p') || el;
-                const pText = (parentP.textContent || '').replace(/\s+/g, '');
-                
-                // 计算重叠字符数
-                let score = 0;
-                for (let i = 0; i < Math.min(cleanText.length, 15); i++) {
-                    if (pText.includes(cleanText[i])) score++;
-                }
-                
-                if (score > maxScore && score >= 2) {
-                    maxScore = score;
-                    target = parentP;
-                }
-            }
-        }
-
-        // 3. 兜底策略：如果依然找不到，直接取第一个可视的 math 父级
-        if (!target) {
-            const m = document.querySelector('math');
-            if (m) target = m.closest('p') || m.parentElement;
-        }
-
-        // 4. 执行最终外层高亮
-        if (target) {
-            const container = target.closest('p, div, section, li') || target;
-            container.classList.add('voxread-force-highlight');
-            return true;
-        }
-        return false;
-    };
-})();
-""".trimIndent()
+    private fun formulaHighlightScript(locator: Locator): String {
+        val other = locator.locations.otherLocations
+        val payload = JSONObject()
+            .put("inline", locator.isFlag("hasInlineMath"))
+            .put("mathId", other["mathId"] as? String ?: JSONObject.NULL)
+            .put("mathSelector", other["mathSelector"] as? String ?: JSONObject.NULL)
+            .put("cssSelector", other["cssSelector"] as? String ?: JSONObject.NULL)
+        return "window.voxReadHighlightMath && window.voxReadHighlightMath($payload);"
+    }
 
     private val _events: Channel<Event> = Channel(Channel.BUFFERED)
     val events: Flow<Event> = _events.receiveAsFlow()
@@ -201,19 +138,18 @@ class TtsViewModel private constructor(
 
     val position: StateFlow<Locator?> =
         mediaServiceFacade.session.flatMapLatest { session ->
-            session?.navigator?.currentLocator?.map { locator ->
-                sanitizePositionLocator(locator)
-            } ?: MutableStateFlow(null)
+            session?.navigator?.currentLocator?.map { followLocator(it) }
+                ?: MutableStateFlow(null)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val highlight: StateFlow<Locator?> =
         mediaServiceFacade.session.flatMapLatest { session ->
             session?.ttsNavigator?.location?.map { location ->
-                val locator = location.utteranceLocator
-                if (shouldFallbackToElement(locator)) {
-                    null // 包含公式一律转给 JS 兜底高亮整段，避免原生查找失败
+                val utterance = location.utteranceLocator
+                if (utterance.isFlag("isMath") || utterance.isFlag("hasInlineMath")) {
+                    null
                 } else {
-                    locator // 纯汉字文本依然走原生高亮
+                    location.tokenLocator ?: utterance
                 }
             } ?: MutableStateFlow(null)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -245,26 +181,19 @@ class TtsViewModel private constructor(
 
         highlightColor
             .onEach { newColor ->
-                val cssColor = getCssHighlightColor(newColor)
-                visualNavigator?.runJs(
-                    "const st = document.getElementById('voxread-style'); if (st) { ${getFallbackJsScript(cssColor)} }"
-                )
+                visualNavigator?.runJs(highlightColorScript(getCssHighlightColor(newColor)))
             }
             .launchIn(viewModelScope)
 
-        // 监听 TTS 进度，遇到公式自动启动外层高亮
         mediaServiceFacade.session
             .flatMapLatest { it?.ttsNavigator?.location ?: MutableStateFlow(null) }
-            .onEach { location ->
-                if (location == null) {
-                    clearFallbackHighlightInWebView()
+            .map { it?.utteranceLocator }
+            .distinctUntilChanged()
+            .onEach { utterance ->
+                if (utterance != null && (utterance.isFlag("isMath") || utterance.isFlag("hasInlineMath"))) {
+                    applyFormulaHighlight(utterance)
                 } else {
-                    val locator = location.utteranceLocator
-                    if (shouldFallbackToElement(locator)) {
-                        applyFallbackHighlightInWebView(locator)
-                    } else {
-                        clearFallbackHighlightInWebView()
-                    }
+                    clearFormulaHighlight()
                 }
             }
             .launchIn(viewModelScope)
@@ -282,74 +211,24 @@ class TtsViewModel private constructor(
         }
     }
 
-    private fun clearFallbackHighlightInWebView() {
-        visualNavigator?.runJs(
-            "document.querySelectorAll('.voxread-force-highlight').forEach(el => el.classList.remove('voxread-force-highlight'));"
-        )
+    private fun clearFormulaHighlight() {
+        visualNavigator?.runJs("window.voxReadClearHighlight && window.voxReadClearHighlight();")
+    }
+
+    private fun Locator.isFlag(key: String): Boolean {
+        val value = locations.otherLocations[key]
+        return value == true || value == "true"
     }
 
     /**
-     * 🌟【关键修复】：扩大公式与学术符号识别网络！
-     * 在中文学术语境下，只要包含任意英文变量（如 x, y, m, h）或数学符号，一律视为公式段落，彻底消除漏网！
+     * Auto-follow uses the sentence or formula element. Spoken formula text is
+     * not in the page, so it is removed before the navigator searches the DOM.
      */
-    private fun shouldFallbackToElement(locator: Locator?): Boolean {
-        if (locator == null) return false
-
-        val highlightText = locator.text.highlight.orEmpty()
-        val other = locator.locations.otherLocations
-        val cssSelector = other["cssSelector"] as? String ?: ""
-
-        // 1. 显式选择器标记
-        if (other["isMath"] == "true" || other["isMath"] == true ||
-            cssSelector.contains(Regex("(?i)math|katex|mathml|latex"))
-        ) {
-            return true
-        }
-
-        // 2. 包含任意数学算子、符号、希腊字母
-        if (highlightText.contains(Regex("""[=≠≤≥≈±+\-*/∫∑√_{}\^\\\[\]∈∉⊆⊂lim<>≍→↑↓|]""")) ||
-            highlightText.contains(Regex("""[\u0370-\u03FF]|[\u2200-\u22FF]"""))
-        ) {
-            return true
-        }
-
-        // 3. 包含任意拉丁字母（如单字母变量 $m$, $h$, $z$），全部无缝转入兜底高亮！
-        if (highlightText.contains(Regex("""[a-zA-Z]"""))) {
-            return true
-        }
-
-        return false
-    }
-
-    private fun sanitizePositionLocator(locator: Locator?): Locator? {
-        if (locator == null) return null
-
-        if (shouldFallbackToElement(locator)) {
-            return null
-        }
-
-        val targetPath = locator.href.toString().substringBefore('#').trimStart('/')
-        val currentVisualPath = visualNavigator?.currentLocator?.value?.href
-            ?.toString()?.substringBefore('#')?.trimStart('/')
-
-        val isSameChapter = (currentVisualPath != null && currentVisualPath == targetPath) ||
-                            (lastChapterPath != null && lastChapterPath == targetPath)
-
-        if (!isSameChapter) {
-            lastChapterPath = targetPath
-            lastValidProgression = 0.0
+    private fun followLocator(locator: Locator): Locator {
+        if (!locator.isFlag("isMath") && !locator.isFlag("hasInlineMath")) {
             return locator
         }
-
-        val currentProgression = locator.locations.progression
-        if (currentProgression == null || currentProgression == 0.0) {
-            if (lastValidProgression > 0.05) return null
-        } else {
-            if (currentProgression < lastValidProgression - 0.01) return null
-            lastValidProgression = currentProgression
-        }
-
-        return locator
+        return locator.copy(text = Locator.Text())
     }
 
     fun start(navigator: Navigator) {
@@ -392,63 +271,28 @@ class TtsViewModel private constructor(
         ttsNavigator.play()
     }
 
-    /**
-     * 🌟【关键修复】：彻底解决挂起函数反射失效的致命 BUG！
-     * 在协程内通过强类型直接调用 EpubNavigatorFragment.evaluateJavascript()，
-     * 保证 100% 成功注入执行，绝不再抛出 NoSuchMethodException！
-     */
     private fun VisualNavigator?.runJs(javascript: String) {
-        val nav = this ?: return
+        val nav = this as? EpubNavigatorFragment ?: return
         viewModelScope.launch {
             try {
-                if (nav is EpubNavigatorFragment) {
-                    nav.evaluateJavascript(javascript)
-                } else {
-                    val directMethod = nav.javaClass.methods.firstOrNull {
-                        it.name == "evaluateJavascript" && it.parameterTypes.size == 1
-                    }
-                    directMethod?.invoke(nav, javascript)
-                }
+                nav.evaluateJavascript(javascript)
             } catch (e: Exception) {
                 Timber.w(e, "Unable to evaluate javascript on visualNavigator")
             }
         }
     }
 
-    private fun applyFallbackHighlightInWebView(locator: Locator?) {
+    private fun applyFormulaHighlight(locator: Locator) {
         val navigator = visualNavigator ?: return
-        if (locator == null) {
-            clearFallbackHighlightInWebView()
-            return
-        }
-
-        val currentColor = highlightColor.value
-        val cssColor = getCssHighlightColor(currentColor)
-
-        val textSnippet = locator.text.highlight
-            ?.replace("\\", "\\\\")
-            ?.replace("'", "\\'")
-            ?.replace("\"", "\\\"")
-            ?.replace("\n", " ")
-            .orEmpty()
-
-        val selector = (locator.locations.otherLocations["cssSelector"] as? String)
-            ?.replace("\\", "\\\\")
-            ?.replace("'", "\\'")
-            .orEmpty()
-
-        val jsCode = """
-            ${getFallbackJsScript(cssColor)}
-            window.voxReadForceHighlight && window.voxReadForceHighlight('$textSnippet', '$selector');
-        """.trimIndent()
-
-        navigator.runJs(jsCode)
+        val cssColor = getCssHighlightColor(highlightColor.value)
+        navigator.runJs(
+            highlightColorScript(cssColor) + "\n" + formulaHighlightScript(locator)
+        )
     }
 
     fun stop() {
         launchJob = null
-        lastValidProgression = 0.0
-        clearFallbackHighlightInWebView()
+        clearFormulaHighlight()
         mediaServiceFacade.closeSession()
     }
 

@@ -70,6 +70,7 @@ public class HtmlResourceContentIterator internal constructor(
     private val locator: Locator,
     private val beforeMaxLength: Int = 50,
     private val mathEngine: MathSpeechEngine? = null,
+    private val publicationLanguage: String? = null,
 ) : Content.Iterator {
 
     public class Factory : ResourceContentIteratorFactory {
@@ -112,7 +113,8 @@ public class HtmlResourceContentIterator internal constructor(
                 resource = resource,
                 totalProgressionRange = totalProgressionRange,
                 locator = locator,
-                mathEngine = engine
+                mathEngine = engine,
+                publicationLanguage = manifest.metadata.language?.code,
             )
         }
     }
@@ -248,7 +250,7 @@ private fun fastCssSelector(
 
             // 1. 公式预处理（共用缓存）
             stepStart = System.currentTimeMillis()
-            preprocessMathElements(document.body(), selectorCache)
+            preprocessMathElements(document.body(), selectorCache, documentLanguage(document))
             //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤2] preprocessMathElements 全部公式耗时: ${System.currentTimeMillis() - stepStart} ms")
 
             // 2. NodeTraversor 遍历（传入共享缓存，彻底消灭 2.2 秒延迟）
@@ -296,10 +298,31 @@ private fun fastCssSelector(
         }
 
 
-    private suspend fun convertMathToSpeech(node: org.jsoup.nodes.Element, index: Int = 0): String {
+    private fun speechLocale(node: org.jsoup.nodes.Element, documentLanguage: String?): String {
+        return MathSpeechLanguage.code?.takeIf { it.isNotBlank() }
+            ?: node.language?.takeIf { it.isNotBlank() }
+            ?: documentLanguage?.takeIf { it.isNotBlank() }
+            ?: publicationLanguage?.takeIf { it.isNotBlank() }
+            ?: "en"
+    }
+
+    private fun documentLanguage(document: org.jsoup.nodes.Document): String? {
+        val html = document.selectFirst("html")
+        return html?.attr("xml:lang")?.takeIf { it.isNotBlank() }
+            ?: html?.attr("lang")?.takeIf { it.isNotBlank() }
+            ?: publicationLanguage
+    }
+
+    private suspend fun convertMathToSpeech(
+        node: org.jsoup.nodes.Element,
+        documentLanguage: String?,
+        index: Int = 0,
+    ): String {
         return try {
             val mathmlElement = if (node.normalName() == "math") node else node.getElementsByTag("math").firstOrNull()
-            val cacheKey = mathmlElement?.outerHtml() ?: node.outerHtml()
+            val mathml = mathmlElement?.outerHtml() ?: node.outerHtml()
+            val locale = speechLocale(mathmlElement ?: node, documentLanguage)
+            val cacheKey = locale + "\u0000" + mathml
 
             val cached: String? = mathSpeechCache[cacheKey]
             if (!cached.isNullOrBlank()) {
@@ -311,7 +334,7 @@ private fun fastCssSelector(
 
             if (mathmlElement != null && mathEngine != null) {
                 try {
-                    spokenText = mathEngine.toSpeech(cacheKey, locale = "zh")
+                    spokenText = mathEngine.toSpeech(mathml, locale = locale)
                     val cost = System.currentTimeMillis() - singleStart
                     if (cost > 100) { // 超过 100ms 的慢转换打印出来
                         //android.util.Log.w("PERF_DEBUG", "⚠️ 公式[$index] MathCAT 耗时偏长: ${cost} ms")
@@ -325,7 +348,11 @@ private fun fastCssSelector(
                 try {
                     val annotation = node.getElementsByTag("annotation").firstOrNull()
                     val latex = annotation?.text() ?: node.toMathmlLatex()
-                    spokenText = latexToChineseSpeech(latex)
+                    spokenText = if (locale.startsWith("zh", ignoreCase = true)) {
+                        latexToChineseSpeech(latex)
+                    } else {
+                        latexToPlainSpeech(latex)
+                    }
                 } catch (t: Throwable) {
                     Timber.w(t, "LaTeX 降级失败")
                 }
@@ -342,11 +369,25 @@ private fun fastCssSelector(
 
 
 
+    /**
+     * Ids are assigned in document order, matching voxread-math.js, so a
+     * display-formula wrapper inserted in the WebView does not change the locator.
+     */
+    private fun assignStableMathIds(root: org.jsoup.nodes.Element) {
+        root.getElementsByTag("math").forEachIndexed { index, math ->
+            if (math.id().isBlank()) {
+                math.attr("id", "vox-math-$index")
+            }
+        }
+    }
+
     private suspend fun preprocessMathElements(
         root: org.jsoup.nodes.Element,
-        selectorCache: MutableMap<org.jsoup.nodes.Element, String>
+        selectorCache: MutableMap<org.jsoup.nodes.Element, String>,
+        documentLanguage: String?,
     ): Unit = withContext(Dispatchers.Default) {
         try {
+            assignStableMathIds(root)
             val mathNodes = root.select("math, .katex, .MathJax")
             if (mathNodes.isEmpty()) return@withContext
 
@@ -365,16 +406,23 @@ private fun fastCssSelector(
 
             val results = tasks.map { item ->
                 async(Dispatchers.Default) {
-                    val spokenText = convertMathToSpeech(item.node, item.index)
+                    val spokenText = convertMathToSpeech(item.node, documentLanguage, item.index)
                     Pair(item, spokenText)
                 }
             }.awaitAll()
 
             for ((item, spokenText) in results) {
                 if (spokenText.isNotBlank()) {
-                    val parent = item.node.parent() ?: continue
+                    if (item.node.parent() == null) continue
+                    val mathmlElement = if (item.node.normalName() == "math") {
+                        item.node
+                    } else {
+                        item.node.getElementsByTag("math").firstOrNull()
+                    }
+                    val mathId = (mathmlElement ?: item.node).id()
                     val replacement = org.jsoup.nodes.Element("span")
                         .attr("data-math-selector", item.cssSelector)
+                        .attr("data-math-id", mathId)
                         .text(" $spokenText ")
                     item.node.replaceWith(replacement)
                 }
@@ -397,10 +445,11 @@ private fun fastCssSelector(
                 val doc = Jsoup.parse(html)
                 val mathNodes = doc.body().select("math, .katex, .MathJax")
                 if (mathNodes.isEmpty()) return@launch
+                val language = documentLanguage(doc)
 
                 mathNodes.map { node ->
                     async(Dispatchers.Default) {
-                        convertMathToSpeech(node)
+                        convertMathToSpeech(node, language)
                     }
                 }.awaitAll()
 
@@ -469,6 +518,10 @@ private fun fastCssSelector(
         private var rawTextAcc: String = ""
         private var currentLanguage: String? = null
         private val breadcrumbs = mutableListOf<ParentElement>()
+        private val segmentMath = mutableListOf<MathMark>()
+        private var segmentHasProse = false
+
+        private data class MathMark(val selector: String, val id: String)
 
         private data class ParentElement(
             val element: Element,
@@ -587,6 +640,7 @@ private fun fastCssSelector(
                     currentLanguage = language
                 }
 
+                noteTextOrigin(node)
                 val text = Parser.unescapeEntities(node.wholeText, false)
                 rawTextAcc += text
                 appendNormalisedText(text)
@@ -644,7 +698,48 @@ private fun fastCssSelector(
             segmentsAcc.clear()
         }
 
+        private fun noteTextOrigin(node: TextNode) {
+            var parent = node.parent()
+            while (parent != null) {
+                if (parent is Element && parent.hasAttr("data-math-selector")) {
+                    val selector = parent.attr("data-math-selector")
+                    if (selector.isNotBlank() && segmentMath.none { it.selector == selector }) {
+                        segmentMath.add(MathMark(selector, parent.attr("data-math-id")))
+                    }
+                    return
+                }
+                parent = parent.parent()
+            }
+            segmentHasProse = true
+        }
+
+        private fun locatorLocations(
+            parent: ParentElement?,
+            mathMarks: List<MathMark>,
+            hasProse: Boolean,
+        ): Map<String, Any> = buildMap {
+            val soleMath = mathMarks.singleOrNull()
+            if (soleMath != null && !hasProse) {
+                put("isMath", true)
+                put("cssSelector", soleMath.selector)
+                put("mathSelector", soleMath.selector)
+                if (soleMath.id.isNotBlank()) {
+                    put("mathId", soleMath.id)
+                }
+            } else {
+                parent?.cssSelector?.let { put("cssSelector", it) }
+                if (mathMarks.isNotEmpty()) {
+                    put("hasInlineMath", true)
+                }
+            }
+        }
+
         private fun flushSegment() {
+            val mathMarks = segmentMath.toList()
+            val hasProse = segmentHasProse
+            segmentMath.clear()
+            segmentHasProse = false
+
             var text = textAcc.toString()
             val trimmedText = text.trim()
 
@@ -665,11 +760,7 @@ private fun fastCssSelector(
                     TextElement.Segment(
                         locator = baseLocator.copy(
                             locations = Locator.Locations(
-                                otherLocations = buildMap {
-                                    parent?.cssSelector?.let {
-                                        put("cssSelector", it as Any)
-                                    }
-                                }
+                                otherLocations = locatorLocations(parent, mathMarks, hasProse)
                             ),
                             text = Locator.Text.trimmingText(
                                 rawTextAcc,

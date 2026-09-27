@@ -689,4 +689,91 @@ class HtmlResourceContentIteratorTest {
             iterator(html).elements()
         )
     }
+
+    @Test
+    fun `formula locators point at each math element and keep inline sentences`() = runTest {
+        MathSpeechLanguage.code = null
+        val html = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+            <body>
+                <p><math id="a" display="block"><mi>x</mi></math></p>
+                <p><math id="b" display="block"><mi>x</mi></math></p>
+                <p>See <math id="c"><mi>y</mi></math> here.</p>
+            </body>
+            </html>
+            """
+
+        val segments = iterator(html).elements()
+            .filterIsInstance<TextElement>()
+            .flatMap { it.segments }
+
+        assertEquals(3, segments.size)
+        assertEquals(true, segments[0].locator.locations["isMath"])
+        assertEquals("#a", segments[0].locator.locations["mathSelector"])
+        assertEquals("a", segments[0].locator.locations["mathId"])
+        assertEquals(true, segments[1].locator.locations["isMath"])
+        assertEquals("#b", segments[1].locator.locations["mathSelector"])
+        assertEquals("b", segments[1].locator.locations["mathId"])
+        assertEquals(true, segments[2].locator.locations["hasInlineMath"])
+        assertNull(segments[2].locator.locations["isMath"])
+        assertNull(segments[2].locator.locations["mathSelector"])
+        assertTrue(segments[2].locator.text.highlight!!.contains("See"))
+        assertTrue(segments[2].locator.text.highlight!!.contains("here"))
+    }
+
+    @Test
+    fun `math without an id gets a stable selector`() = runTest {
+        MathSpeechLanguage.code = null
+        val html = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+            <body>
+                <p><math display="block"><mi>x</mi></math></p>
+                <p><math id="keep" display="block"><mi>y</mi></math></p>
+            </body>
+            </html>
+            """
+
+        val segments = iterator(html).elements()
+            .filterIsInstance<TextElement>()
+            .flatMap { it.segments }
+
+        assertEquals("#vox-math-0", segments[0].locator.locations["mathSelector"])
+        assertEquals("vox-math-0", segments[0].locator.locations["mathId"])
+        assertEquals("#keep", segments[1].locator.locations["mathSelector"])
+        assertEquals("keep", segments[1].locator.locations["mathId"])
+    }
+
+    @Test
+    fun `formula speech cache is keyed by language`() = runTest {
+        val html = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <html xmlns="http://www.w3.org/1999/xhtml">
+            <body>
+                <p><math display="block"><semantics><mi>x</mi><annotation>x^2</annotation></semantics></math></p>
+            </body>
+            </html>
+            """
+        try {
+            MathSpeechLanguage.code = "en"
+            val english = iterator(html).elements()
+                .filterIsInstance<TextElement>()
+                .single()
+                .segments
+                .single()
+                .text
+            MathSpeechLanguage.code = "zh"
+            val chinese = iterator(html).elements()
+                .filterIsInstance<TextElement>()
+                .single()
+                .segments
+                .single()
+                .text
+            assertTrue(english.contains("squared"))
+            assertTrue(chinese.contains("平方"))
+        } finally {
+            MathSpeechLanguage.code = null
+        }
+    }
 }
