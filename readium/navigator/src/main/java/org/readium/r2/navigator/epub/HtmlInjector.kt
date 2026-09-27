@@ -6,6 +6,7 @@
 
 package org.readium.r2.navigator.epub
 
+import org.readium.r2.navigator.VoxScreenTiming
 import org.readium.r2.navigator.epub.css.ReadiumCss
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Layout
@@ -59,6 +60,9 @@ internal fun Resource.injectHtml(
             )
         }
 
+        injectables.add(
+            """<script type="text/javascript">window.__voxSkipFormulaEnhance=${VoxScreenTiming.skipFormulaEnhance};</script>"""
+        )
         injectables.add(
             script(
                 assetsBaseHref.resolve(Url("readium/scripts/voxread-math.js")!!),

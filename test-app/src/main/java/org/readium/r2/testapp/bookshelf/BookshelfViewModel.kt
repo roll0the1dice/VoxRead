@@ -17,6 +17,7 @@ import org.readium.r2.shared.util.DebugError
 import org.readium.r2.shared.util.toUrl
 import org.readium.r2.testapp.data.model.Book
 import org.readium.r2.testapp.reader.OpeningError
+import org.readium.r2.navigator.VoxScreenTiming
 import org.readium.r2.testapp.reader.ReaderActivityContract
 import org.readium.r2.testapp.utils.EventChannel
 
@@ -48,6 +49,7 @@ class BookshelfViewModel(application: Application) : AndroidViewModel(applicatio
     fun openPublication(
         bookId: Long,
     ) {
+        VoxScreenTiming.begin()
         viewModelScope.launch {
             try {
                 app.readerRepository
@@ -56,6 +58,7 @@ class BookshelfViewModel(application: Application) : AndroidViewModel(applicatio
                         channel.send(Event.OpenPublicationError(it))
                     }
                     .onSuccess {
+                        VoxScreenTiming.mark("opened")
                         val arguments = ReaderActivityContract.Arguments(bookId)
                         channel.send(Event.LaunchReader(arguments))
                     }

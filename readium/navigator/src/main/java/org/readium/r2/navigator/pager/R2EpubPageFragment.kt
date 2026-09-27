@@ -14,6 +14,7 @@ package org.readium.r2.navigator.pager
 import android.annotation.SuppressLint
 import android.graphics.PointF
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -46,6 +47,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.R
 import org.readium.r2.navigator.R2BasicWebView
+import org.readium.r2.navigator.VoxScreenTiming
 import org.readium.r2.navigator.R2WebView
 import org.readium.r2.navigator.databinding.ReadiumNavigatorViewpagerFragmentEpubBinding
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
@@ -84,6 +86,9 @@ internal class R2EpubPageFragment : Fragment() {
     private val binding get() = _binding!!
 
     private var isLoading: Boolean = false
+    private var firstScreenReady: Boolean = false
+    private var paintReady: Boolean = false
+    private var enhanceAnchor: String? = null
 
     internal fun setFontSize(fontSize: Double) {
         textZoom = (fontSize * 100).roundToInt()
@@ -224,6 +229,7 @@ internal class R2EpubPageFragment : Fragment() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                if (isCurrentResource) VoxScreenTiming.mark("pageFinished")
 
                 onPageFinished()
 
@@ -231,8 +237,24 @@ internal class R2EpubPageFragment : Fragment() {
                     webView.listener?.onResourceLoaded(webView, it)
                 }
 
-                webView.onContentReady {
-                    onLoadPage()
+                val pageView = webView
+                val locator = pendingLocator
+                val positionFirst = isCurrentResource && !opensAtStart(locator) && locator != null
+                if (!positionFirst || pageView == null || locator == null) {
+                    pageView?.onContentReady { onLoadPage() }
+                    return
+                }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (view == null) return@launch
+                    enhanceAnchor = locator.locations.htmlId
+                    VoxScreenTiming.note("position", "beforeShow=1")
+                    loadLocator(
+                        pageView,
+                        requireNotNull(navigator).overflow.value.readingProgression,
+                        locator
+                    )
+                    pendingLocator = null
+                    pageView.onContentReady { onLoadPage() }
                 }
             }
 
@@ -249,6 +271,7 @@ internal class R2EpubPageFragment : Fragment() {
         resourceUrl?.let {
             isLoading = true
             isLoaded.value = false
+            VoxScreenTiming.mark("webView")
             webView.loadUrl(it.toString())
         }
 
@@ -287,14 +310,22 @@ internal class R2EpubPageFragment : Fragment() {
      * Will run the given [action] when the content of the [WebView] is fully laid out.
      */
     private fun WebView.onContentReady(action: () -> Unit) {
+        awaitVisual(0, action)
+    }
+
+    private fun WebView.awaitVisual(id: Int, action: () -> Unit) {
+        val posted = SystemClock.elapsedRealtime()
+        val current = isCurrentResource
+        if (current) VoxScreenTiming.note("visualPost", "id=$id")
         if (WebViewFeature.isFeatureSupported(WebViewFeature.VISUAL_STATE_CALLBACK)) {
-            WebViewCompat.postVisualStateCallback(this, 0) {
+            WebViewCompat.postVisualStateCallback(this, id.toLong()) {
+                if (current) {
+                    val wait = SystemClock.elapsedRealtime() - posted
+                    VoxScreenTiming.note("visual", "id=$id wait=${wait}ms")
+                }
                 action()
             }
         } else {
-            // On older devices, there's no reliable way to guarantee the page is fully laid out.
-            // As a workaround, we run a dummy JavaScript, then wait for a short delay before
-            // assuming it's ready.
             evaluateJavascript("true") {
                 postDelayed(500, action)
             }
@@ -404,25 +435,90 @@ internal class R2EpubPageFragment : Fragment() {
         if (view == null) return
 
         viewLifecycleOwner.lifecycleScope.launch {
+            var shown = false
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.CREATED) {
                 val webView = requireNotNull(webView)
                 webView.visibility = View.VISIBLE
-
-                pendingLocator
-                    ?.let { locator ->
+                if (shown) return@repeatOnLifecycle
+                shown = true
+                firstScreenReady = true
+                val opening = isCurrentResource
+                val deferredLocator = if (opening) pendingLocator else null
+                if (opening) pendingLocator = null
+                if (opening) {
+                    VoxScreenTiming.mark("visible")
+                    VoxScreenTiming.note("firstScreen", "ready=1")
+                    webView.awaitVisual(1) {
+                        if (!isCurrentResource) return@awaitVisual
+                        paintReady = true
+                        VoxScreenTiming.mark("paint")
+                        webView.evaluateJavascript(VISIBLE_TEXT_LENGTH) { raw ->
+                            val chars = raw?.filter { it.isDigit() }.orEmpty().ifEmpty { "0" }
+                            VoxScreenTiming.mark("text", " chars=$chars")
+                        }
+                        startFormulaEnhance()
+                    }
+                    deferredLocator?.let { locator ->
                         loadLocator(
                             webView,
                             requireNotNull(navigator).overflow.value.readingProgression,
                             locator
                         )
                     }
-                    .also { pendingLocator = null }
+                } else {
+                    // A preloaded chapter can be enhanced once the reader swipes to it.
+                    paintReady = true
+                    pendingLocator
+                        ?.let { locator ->
+                            loadLocator(
+                                webView,
+                                requireNotNull(navigator).overflow.value.readingProgression,
+                                locator
+                            )
+                        }
+                        .also { pendingLocator = null }
+                }
 
                 link?.let {
                     webView.listener?.onPageLoaded(webView, it)
                 }
             }
         }
+    }
+
+    /**
+     * Starts formula enhancement for a chapter the reader has already landed on.
+     * The opening chapter waits until its first frame is committed.
+     */
+    internal fun onChapterSelected() {
+        if (!firstScreenReady || !paintReady) return
+        startFormulaEnhance()
+    }
+
+    private fun startFormulaEnhance() {
+        val webView = webView ?: return
+        val anchor = enhanceAnchor
+            ?.replace("\\", "\\\\")
+            ?.replace("\"", "\\\"")
+        val argument = if (anchor == null) "null" else "\"$anchor\""
+        webView.evaluateJavascript(
+            "window.voxBeginEnhance && window.voxBeginEnhance($argument)",
+            null
+        )
+    }
+
+    private fun opensAtStart(locator: Locator?): Boolean {
+        if (locator == null) return true
+        val locations = locator.locations
+        if (locations.htmlId != null) return false
+        if (locator.text.highlight != null) return false
+        if (locations["cssSelector"] != null || locations["mathSelector"] != null) return false
+        val math = locations["isMath"]
+        if (math == true || math == "true") return false
+        val inline = locations["hasInlineMath"]
+        if (inline == true || inline == "true") return false
+        val progression = locations.progression ?: return true
+        return progression <= 0.001
     }
 
     internal fun loadLocator(locator: Locator) {
@@ -516,6 +612,25 @@ internal class R2EpubPageFragment : Fragment() {
 
     companion object {
         private const val textZoomBundleKey = "org.readium.textZoom"
+        private const val VISIBLE_TEXT_LENGTH = """
+            (function () {
+              var body = document.body;
+              if (!body) return 0;
+              var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+              var count = 0;
+              var node;
+              while ((node = walker.nextNode())) {
+                var parent = node.parentElement;
+                if (!parent) continue;
+                var rect = parent.getBoundingClientRect();
+                if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth) continue;
+                var text = (node.textContent || "").replace(/\s+/g, "");
+                count += text.length;
+                if (count > 2000) break;
+              }
+              return count;
+            })()
+        """
 
         fun newInstance(
             url: AbsoluteUrl,

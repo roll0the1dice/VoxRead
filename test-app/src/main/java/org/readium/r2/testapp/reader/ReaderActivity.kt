@@ -18,6 +18,8 @@ import androidx.fragment.app.FragmentResultListener
 import androidx.fragment.app.commit
 import androidx.fragment.app.commitNow
 import androidx.lifecycle.ViewModelProvider
+import android.view.ViewTreeObserver
+import org.readium.r2.navigator.VoxScreenTiming
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.toUri
 import org.readium.r2.testapp.Application
@@ -48,6 +50,7 @@ open class ReaderActivity : AppCompatActivity() {
     private lateinit var readerFragment: BaseReaderFragment
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        VoxScreenTiming.mark("screen")
         super.onCreate(savedInstanceState)
 
         if (model.readerInitData is DummyReaderInitData) {
@@ -58,6 +61,14 @@ open class ReaderActivity : AppCompatActivity() {
 
         val binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val observer = binding.root.viewTreeObserver
+                if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                VoxScreenTiming.mark("window")
+                return true
+            }
+        })
 
         this.binding = binding
 

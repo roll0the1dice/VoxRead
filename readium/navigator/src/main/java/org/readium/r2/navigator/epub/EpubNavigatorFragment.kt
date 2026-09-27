@@ -8,12 +8,18 @@
 
 package org.readium.r2.navigator.epub
 
+import android.graphics.Bitmap
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.LayoutDirection
 import android.view.ActionMode
 import android.view.LayoutInflater
+import android.view.PixelCopy
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -33,6 +39,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.withStarted
 import androidx.viewpager.widget.ViewPager
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 import kotlin.reflect.KClass
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -306,6 +313,91 @@ public class EpubNavigatorFragment internal constructor(
         return page.runJavaScriptSuspend(script)
     }
 
+    /**
+     * Copies a CSS viewport rectangle from the current reflowable page.
+     *
+     * [x], [y], [width] and [height] come from `getBoundingClientRect`.
+     * [viewportWidth] and [viewportHeight] are the visual viewport size, and
+     * [offsetX] / [offsetY] are `visualViewport.offsetLeft/Top`. The callback
+     * runs on the main thread with null when the region cannot be copied.
+     */
+    public fun captureViewport(
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        viewportWidth: Float,
+        viewportHeight: Float,
+        offsetX: Float,
+        offsetY: Float,
+        callback: (Bitmap?) -> Unit,
+    ) {
+        val webView = currentReflowablePageFragment?.webView
+        val window = activity?.window
+        if (
+            webView == null ||
+            window == null ||
+            !webView.isAttachedToWindow ||
+            webView.width < 2 ||
+            webView.height < 2 ||
+            viewportWidth < 2f ||
+            viewportHeight < 2f ||
+            width < 2f ||
+            height < 2f ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+        ) {
+            callback(null)
+            return
+        }
+        val scaleX = webView.width / viewportWidth
+        val scaleY = webView.height / viewportHeight
+        val location = IntArray(2)
+        webView.getLocationInWindow(location)
+        val left = location[0] + ((x - offsetX) * scaleX).roundToInt()
+        val top = location[1] + ((y - offsetY) * scaleY).roundToInt()
+        val src = Rect(
+            left,
+            top,
+            left + (width * scaleX).roundToInt(),
+            top + (height * scaleY).roundToInt(),
+        )
+        val onScreen = Rect(
+            location[0],
+            location[1],
+            location[0] + webView.width,
+            location[1] + webView.height,
+        )
+        val decor = window.decorView
+        if (!src.intersect(onScreen) || !src.intersect(Rect(0, 0, decor.width, decor.height))) {
+            callback(null)
+            return
+        }
+        if (src.width() < 2 || src.height() < 2) {
+            callback(null)
+            return
+        }
+        val bitmap = Bitmap.createBitmap(src.width(), src.height(), Bitmap.Config.ARGB_8888)
+        try {
+            PixelCopy.request(
+                window,
+                src,
+                bitmap,
+                { result ->
+                    if (result == PixelCopy.SUCCESS) {
+                        callback(bitmap)
+                    } else {
+                        bitmap.recycle()
+                        callback(null)
+                    }
+                },
+                Handler(Looper.getMainLooper()),
+            )
+        } catch (_: IllegalArgumentException) {
+            bitmap.recycle()
+            callback(null)
+        }
+    }
+
     private val viewModel: EpubNavigatorViewModel by viewModels {
         EpubNavigatorViewModel.createFactory(
             requireActivity().application,
@@ -470,6 +562,7 @@ public class EpubNavigatorFragment internal constructor(
             currentPagerPosition = position // Update current position
 
             notifyCurrentLocation()
+            currentReflowablePageFragment?.onChapterSelected()
         }
     }
 

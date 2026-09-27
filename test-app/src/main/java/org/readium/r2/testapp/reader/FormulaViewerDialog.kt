@@ -1,20 +1,30 @@
 package org.readium.r2.testapp.reader
 
 import android.annotation.SuppressLint
+import android.app.Dialog
+import android.content.DialogInterface
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
+import android.view.Gravity
 import java.util.concurrent.atomic.AtomicInteger
-import android.content.DialogInterface
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -26,14 +36,39 @@ import org.readium.r2.testapp.reader.tts.TtsSpeechState
 /**
  * Full-screen formula viewer. The copy lives in its own WebView, so it does not
  * reuse the book DOM id and page swipes never reach the reader.
+ *
+ * The first frame is a native preview and close button. The WebView is created
+ * after that frame, and it stays covered until the formula has a real size,
+ * the first fit has run, and [WebView.postVisualStateCallback] reports a frame.
  */
 class FormulaViewerDialog : DialogFragment() {
 
     private var webView: WebView? = null
+    private var cover: View? = null
+    private var previewImage: ImageView? = null
+    private var previewBitmap: Bitmap? = null
     private var pageReady = false
+    private var paintRequested = false
+    private var paintRequest = 0L
+    private var viewerAttached = false
+    private var destroyed = false
     private var viewerInstance: Int = 0
     private var latest = TtsSpeechState.stopped(0)
     private var savedOrientation: Int = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+    private val openedAt: Long
+        get() = arguments?.getLong(ARG_OPENED) ?: 0L
+
+    private val attachViewer = Runnable {
+        val root = view as? ViewGroup ?: return@Runnable
+        if (destroyed || !isAdded || viewerAttached) return@Runnable
+        viewerAttached = true
+        createViewer(root)
+    }
+
+    private val paintTimeout = Runnable {
+        if (isAdded && !pageReady) logFormulaStage(openedAt, "paintTimeout")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,49 +81,35 @@ class FormulaViewerDialog : DialogFragment() {
         )
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        val dialog = super.onCreateDialog(savedInstanceState)
+        dialog.window?.apply {
+            setDimAmount(0f)
+            setBackgroundDrawable(
+                ColorDrawable(requireArguments().getInt(ARG_BG, android.graphics.Color.WHITE))
+            )
+        }
+        return dialog
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
         val context = requireContext()
-        val web = WebView(context)
-        web.settings.javaScriptEnabled = true
-        web.settings.allowFileAccess = true
-        @Suppress("DEPRECATION")
-        web.settings.allowFileAccessFromFileURLs = true
-        web.settings.builtInZoomControls = false
-        web.settings.displayZoomControls = false
-        web.setBackgroundColor(VIEWER_BACKGROUND)
-        web.addJavascriptInterface(ViewerHost(), "VoxHost")
-        web.webViewClient = WebViewClient()
-        web.loadDataWithBaseURL(
-            "file:///android_asset/readium/readium-css/",
-            viewerHtml(
-                mathml = requireArguments().getString(ARG_MATH).orEmpty(),
-                openedKey = requireArguments().getString(ARG_KEY).orEmpty(),
-                viewerId = viewerInstance,
-            ),
-            "text/html",
-            "utf-8",
-            null,
-        )
-        webView = web
-        return FrameLayout(context).apply {
-            setBackgroundColor(VIEWER_BACKGROUND)
-            addView(
-                web,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            )
-        }
+        val background = requireArguments().getInt(ARG_BG, android.graphics.Color.WHITE)
+        val foreground = requireArguments().getInt(ARG_FG, android.graphics.Color.BLACK)
+        val preview = takeFormulaPreview()
+        val root = FrameLayout(context)
+        root.setBackgroundColor(background)
+        root.addView(buildCover(background, foreground, preview), matchParent())
+        return root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        latest = currentSpeech()
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 val speech = (parentFragment as? EpubReaderFragment)?.model?.tts?.speech
@@ -99,17 +120,215 @@ class FormulaViewerDialog : DialogFragment() {
                 }
             }
         }
+        // Posting from the first pre-draw leaves this frame for the preview.
+        // view.post from onCreateView would run before that draw.
+        view.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val observer = view.viewTreeObserver
+                if (observer.isAlive) observer.removeOnPreDrawListener(this)
+                if (!destroyed && !viewerAttached) {
+                    logFormulaStage(openedAt, "window")
+                    view.post(attachViewer)
+                    view.postDelayed(paintTimeout, 8_000)
+                }
+                return true
+            }
+        })
     }
 
-    private fun push(state: TtsSpeechState) {
-        val web = webView ?: return
-        val payload = JSONObject()
+    private fun buildCover(background: Int, foreground: Int, preview: Bitmap?): View {
+        val density = resources.displayMetrics.density
+        val pad = (24 * density).toInt()
+        val cover = FrameLayout(requireContext())
+        cover.setBackgroundColor(background)
+        cover.isClickable = true
+        cover.translationZ = 8f * density
+        val column = LinearLayout(requireContext())
+        column.orientation = LinearLayout.VERTICAL
+        column.gravity = Gravity.CENTER_HORIZONTAL
+        val holder = FrameLayout(requireContext())
+        if (preview != null) {
+            val image = ImageView(requireContext())
+            image.setImageBitmap(preview)
+            image.adjustViewBounds = true
+            image.scaleType = ImageView.ScaleType.FIT_CENTER
+            image.maxWidth = resources.displayMetrics.widthPixels - pad * 2
+            image.maxHeight = (resources.displayMetrics.heightPixels * 0.7f).toInt()
+            image.contentDescription = "公式预览"
+            holder.addView(
+                image,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER,
+                )
+            )
+            previewImage = image
+            previewBitmap = preview
+        }
+        column.addView(
+            holder,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            )
+        )
+        val status = TextView(requireContext())
+        status.text = "正在准备公式"
+        status.setTextColor(foreground)
+        status.gravity = Gravity.CENTER
+        status.textSize = 16f
+        val close = Button(requireContext())
+        close.text = "关闭"
+        close.setOnClickListener { closeViewer() }
+        val bar = LinearLayout(requireContext())
+        bar.orientation = LinearLayout.VERTICAL
+        bar.gravity = Gravity.CENTER_HORIZONTAL
+        bar.addView(status)
+        bar.addView(
+            close,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = (12 * density).toInt() }
+        )
+        column.addView(
+            bar,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                bottomMargin = (28 * density).toInt()
+                leftMargin = pad
+                rightMargin = pad
+            }
+        )
+        cover.addView(column, matchParent())
+        this.cover = cover
+        return cover
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun createViewer(root: ViewGroup) {
+        val context = requireContext()
+        val background = requireArguments().getInt(ARG_BG, android.graphics.Color.WHITE)
+        val foreground = requireArguments().getInt(ARG_FG, android.graphics.Color.BLACK)
+        val ctorStarted = SystemClock.elapsedRealtime()
+        val web = WebView(context)
+        val ctorDone = SystemClock.elapsedRealtime()
+        web.settings.javaScriptEnabled = true
+        web.settings.allowFileAccess = true
+        @Suppress("DEPRECATION")
+        web.settings.allowFileAccessFromFileURLs = true
+        web.settings.builtInZoomControls = false
+        web.settings.displayZoomControls = false
+        web.setBackgroundColor(background)
+        web.addJavascriptInterface(ViewerHost(), "VoxHost")
+        web.webViewClient = WebViewClient()
+        root.addView(web, 0, matchParent())
+        webView = web
+        if (isResumed) web.onResume()
+        val loadStarted = SystemClock.elapsedRealtime()
+        web.loadDataWithBaseURL(
+            "file:///android_asset/readium/readium-css/",
+            viewerHtml(
+                mathml = requireArguments().getString(ARG_MATH).orEmpty(),
+                openedKey = requireArguments().getString(ARG_KEY).orEmpty(),
+                viewerId = viewerInstance,
+                background = background,
+                foreground = foreground,
+            ),
+            "text/html",
+            "utf-8",
+            null,
+        )
+        val loadDone = SystemClock.elapsedRealtime()
+        logFormulaStage(
+            openedAt,
+            "webView",
+            " ctor=${ctorDone - ctorStarted}ms load=${loadDone - loadStarted}ms",
+        )
+    }
+
+    private fun currentSpeech(): TtsSpeechState =
+        (parentFragment as? EpubReaderFragment)?.model?.tts?.speech?.value ?: latest
+
+    private fun speechPayload(state: TtsSpeechState): JSONObject =
+        JSONObject()
             .put("viewer", viewerInstance)
             .put("session", state.session)
             .put("seq", state.sequence)
             .put("play", state.play.name.lowercase())
             .put("formula", state.formulaId ?: "")
-        web.evaluateJavascript("window.voxApplySpeech && window.voxApplySpeech($payload);", null)
+
+    private fun push(state: TtsSpeechState) {
+        val web = webView ?: return
+        web.evaluateJavascript(
+            "window.voxApplySpeech && window.voxApplySpeech(${speechPayload(state)});",
+            null,
+        )
+    }
+
+    private fun onFormulaFitted() {
+        if (destroyed || paintRequested || !isAdded) return
+        paintRequested = true
+        logFormulaStage(openedAt, "fitted")
+        paintSpeech(currentSpeech(), allowRefresh = true)
+    }
+
+    /**
+     * Applies the speech snapshot that is already known, then waits until that
+     * frame has been drawn. A newer snapshot that arrives while drawing is
+     * applied once, without waiting for a later utterance callback.
+     */
+    private fun paintSpeech(state: TtsSpeechState, allowRefresh: Boolean) {
+        val web = webView ?: return
+        if (destroyed) return
+        latest = state
+        web.evaluateJavascript(
+            "window.voxApplySpeech && window.voxApplySpeech(${speechPayload(state)});",
+        ) {
+            if (destroyed || !isAdded || pageReady) return@evaluateJavascript
+            schedulePaint(state, allowRefresh)
+            webView?.postDelayed({
+                if (!pageReady && !destroyed) schedulePaint(currentSpeech(), allowRefresh = false)
+            }, 500)
+        }
+    }
+
+    private fun schedulePaint(state: TtsSpeechState, allowRefresh: Boolean) {
+        val target = webView ?: return
+        if (destroyed || pageReady) return
+        val request = ++paintRequest
+        target.postVisualStateCallback(request, object : WebView.VisualStateCallback() {
+            override fun onComplete(requestId: Long) {
+                if (requestId != paintRequest || pageReady || destroyed) return
+                val newer = currentSpeech()
+                if (
+                    allowRefresh &&
+                    (newer.session != state.session || newer.sequence != state.sequence)
+                ) {
+                    paintSpeech(newer, allowRefresh = false)
+                    return
+                }
+                revealInteractive()
+            }
+        })
+    }
+
+    private fun revealInteractive() {
+        if (pageReady || destroyed || !isAdded) return
+        pageReady = true
+        val state = currentSpeech()
+        latest = state
+        push(state)
+        previewImage?.setImageDrawable(null)
+        previewBitmap?.recycle()
+        previewBitmap = null
+        cover?.visibility = View.GONE
+        view?.removeCallbacks(paintTimeout)
+        logFormulaStage(openedAt, "paint")
     }
 
     override fun onStart() {
@@ -119,13 +338,35 @@ class FormulaViewerDialog : DialogFragment() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundDrawable(ColorDrawable(VIEWER_BACKGROUND))
+            setDimAmount(0f)
+            setBackgroundDrawable(ColorDrawable(requireArguments().getInt(ARG_BG, android.graphics.Color.WHITE)))
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        webView?.onResume()
+        if (paintRequested && !pageReady && !destroyed) schedulePaint(currentSpeech(), allowRefresh = false)
+    }
+
+    override fun onPause() {
+        webView?.onPause()
+        super.onPause()
+    }
+
     override fun onDestroyView() {
-        webView?.destroy()
+        destroyed = true
+        view?.removeCallbacks(attachViewer)
+        view?.removeCallbacks(paintTimeout)
+        val web = webView
         webView = null
+        (web?.parent as? ViewGroup)?.removeView(web)
+        web?.destroy()
+        previewImage?.setImageDrawable(null)
+        previewImage = null
+        previewBitmap?.recycle()
+        previewBitmap = null
+        cover = null
         super.onDestroyView()
     }
 
@@ -160,13 +401,21 @@ class FormulaViewerDialog : DialogFragment() {
         }
 
         @JavascriptInterface
-        fun ready() {
+        fun inserted(width: Int, height: Int) {
             handler.post {
-                pageReady = true
-                val current = (parentFragment as? EpubReaderFragment)?.model?.tts?.speech?.value
-                    ?: latest
-                latest = current
-                push(current)
+                if (!destroyed) logFormulaStage(openedAt, "inserted", " w=$width h=$height")
+            }
+        }
+
+        @JavascriptInterface
+        fun fitted() {
+            handler.post { onFormulaFitted() }
+        }
+
+        @JavascriptInterface
+        fun fontReady() {
+            handler.post {
+                if (!destroyed) logFormulaStage(openedAt, "font")
             }
         }
 
@@ -187,35 +436,83 @@ class FormulaViewerDialog : DialogFragment() {
 
     companion object {
         const val TAG = "vox-formula-viewer"
-        const val VIEWER_BACKGROUND = 0xFF1C1C1C.toInt()
         private const val ARG_KEY = "vox-formula-key"
         private const val ARG_MATH = "vox-formula-math"
         private const val ARG_ORIENTATION = "vox-formula-orientation"
+        private const val ARG_BG = "vox-formula-bg"
+        private const val ARG_FG = "vox-formula-fg"
+        private const val ARG_OPENED = "vox-formula-opened"
         private val nextViewer = AtomicInteger(0)
 
-        fun newInstance(key: String, mathml: String, orientation: Int) =
+        fun newInstance(
+            key: String,
+            mathml: String,
+            orientation: Int,
+            background: Int,
+            foreground: Int,
+            openedAt: Long,
+        ) =
             FormulaViewerDialog().apply {
                 arguments = Bundle().apply {
                     putString(ARG_KEY, key)
                     putString(ARG_MATH, mathml)
                     putInt(ARG_ORIENTATION, orientation)
+                    putInt(ARG_BG, background)
+                    putInt(ARG_FG, foreground)
+                    putLong(ARG_OPENED, openedAt)
                 }
             }
     }
 }
 
+private fun matchParent() = FrameLayout.LayoutParams(
+    ViewGroup.LayoutParams.MATCH_PARENT,
+    ViewGroup.LayoutParams.MATCH_PARENT,
+)
+
+private var stagedPreview: Bitmap? = null
+
+internal fun stageFormulaPreview(bitmap: Bitmap?) {
+    val previous = stagedPreview
+    stagedPreview = bitmap
+    if (previous != null && previous !== bitmap) previous.recycle()
+}
+
+internal fun takeFormulaPreview(): Bitmap? = stagedPreview.also { stagedPreview = null }
+
+internal fun logFormulaStage(openedAt: Long, stage: String, extra: String = "") {
+    val elapsed = SystemClock.elapsedRealtime() - openedAt
+    Log.i("VoxFormulaTiming", "stage=$stage t=${elapsed}ms$extra")
+}
+
 class VoxFormulaBridge(
     private val opener: (String) -> Unit,
+    private val layoutReady: () -> Unit = {},
 ) {
     private val handler = Handler(Looper.getMainLooper())
 
     @JavascriptInterface
     fun open(payload: String) {
-        handler.post { opener(payload) }
+        val openedAt = SystemClock.elapsedRealtime()
+        handler.post {
+            logFormulaStage(openedAt, "click")
+            opener(payload)
+        }
+    }
+
+    @JavascriptInterface
+    fun layoutReady() {
+        handler.post { layoutReady() }
     }
 }
 
-private fun viewerHtml(mathml: String, openedKey: String, viewerId: Int): String {
+private fun viewerHtml(
+    mathml: String,
+    openedKey: String,
+    viewerId: Int,
+    background: Int,
+    foreground: Int,
+): String {
     return """
         <?xml version="1.0" encoding="UTF-8"?>
         <html xmlns="http://www.w3.org/1999/xhtml">
@@ -228,7 +525,7 @@ private fun viewerHtml(mathml: String, openedKey: String, viewerId: Int): String
             src: url("fonts/STIXTwoMath-Regular.woff2") format("woff2");
             font-display: swap;
           }
-          html, body { margin: 0; height: 100%; background: #1c1c1c; color: #f5f5f5; overflow: hidden; }
+          html, body { margin: 0; height: 100%; background: __VOX_BG__; color: __VOX_FG__; overflow: hidden; }
           #stage {
             position: absolute; left: 0; right: 0; top: 36px; bottom: 72px;
             display: flex; align-items: center; justify-content: center;
@@ -237,23 +534,23 @@ private fun viewerHtml(mathml: String, openedKey: String, viewerId: Int): String
           #formula { display: inline-block; transform-origin: center center; padding: 16px; }
           #formula math, #formula * {
             font-family: "AcademicMath", "STIX Two Math", serif;
-            color: #f5f5f5;
+            color: __VOX_FG__;
           }
-          #formula.speaking { background: rgba(255, 220, 40, 0.35); }
-          #formula.paused-here { box-shadow: inset 0 0 0 2px #ff9800; }
+          #formula.speaking { box-shadow: inset 0 0 0 1px __VOX_MARK__; }
+          #formula.paused-here { box-shadow: inset 0 0 0 1px __VOX_MARK__; }
           #bar, #banner {
             position: absolute; left: 0; right: 0;
             display: flex; flex-wrap: wrap; gap: 8px;
             justify-content: center; align-items: center;
             padding: 8px; box-sizing: border-box;
-            background: rgba(0,0,0,0.82);
+            background: transparent;
           }
           #bar { bottom: 0; }
           #banner { top: 36px; display: none; }
           #banner.is-open { display: flex; }
           button {
             border: 0; border-radius: 8px; padding: 8px 12px;
-            background: #3a3a3a; color: #f5f5f5; font-size: 15px;
+            background: __VOX_BUTTON__; color: __VOX_FG__; font-size: 15px;
           }
         </style>
         </head>
@@ -391,15 +688,73 @@ private fun viewerHtml(mathml: String, openedKey: String, viewerId: Int): String
             };
             window.addEventListener("resize", function () { if (mode === "fit") fit(); });
             banner.className = "";
-            function reveal() { fit(); }
-            if (document.fonts && document.fonts.ready) document.fonts.ready.then(reveal);
-            requestAnimationFrame(reveal);
-            if (window.VoxHost && VoxHost.ready) VoxHost.ready();
+            var reportedSize = false;
+            var reportedFit = false;
+            var fitAttempts = 0;
+            function formulaSize() {
+              return {
+                w: Math.max(formula.scrollWidth, formula.offsetWidth, 0),
+                h: Math.max(formula.scrollHeight, formula.offsetHeight, 0)
+              };
+            }
+            function stageReady() {
+              return stage.clientWidth > 32 && stage.clientHeight > 32;
+            }
+            function prepareFormula() {
+              if (reportedFit) return;
+              var size = formulaSize();
+              if (size.w >= 2 && size.h >= 2 && !reportedSize) {
+                reportedSize = true;
+                if (window.VoxHost && VoxHost.inserted) {
+                  VoxHost.inserted(Math.round(size.w), Math.round(size.h));
+                }
+              }
+              if (size.w < 2 || size.h < 2 || !stageReady()) {
+                if (fitAttempts++ < 180) requestAnimationFrame(prepareFormula);
+                return;
+              }
+              fit();
+              requestAnimationFrame(function () {
+                if (reportedFit) return;
+                var fittedSize = formulaSize();
+                if (fittedSize.w < 2 || fittedSize.h < 2 || !stageReady()) {
+                  if (fitAttempts++ < 180) requestAnimationFrame(prepareFormula);
+                  return;
+                }
+                reportedFit = true;
+                if (window.VoxHost && VoxHost.fitted) VoxHost.fitted();
+              });
+            }
+            if (document.fonts && document.fonts.ready) {
+              document.fonts.ready.then(function () {
+                if (window.VoxHost && VoxHost.fontReady) VoxHost.fontReady();
+                if (mode === "fit") fit();
+              });
+            }
+            requestAnimationFrame(prepareFormula);
           </script>
         </body>
         </html>
     """.trimIndent()
+        .replace("__VOX_BG__", background.cssRgb())
+        .replace("__VOX_FG__", foreground.cssRgb())
+        .replace("__VOX_MARK__", foreground.cssAlpha(0.45f))
+        .replace("__VOX_BUTTON__", foreground.cssAlpha(0.08f))
         .replace("__VOX_MATH__", mathml)
         .replace("__VOX_OPENED__", JSONObject.quote(openedKey))
         .replace("__VOX_VIEWER__", viewerId.toString())
+}
+
+private fun Int.cssRgb(): String {
+    val red = (this shr 16) and 0xFF
+    val green = (this shr 8) and 0xFF
+    val blue = this and 0xFF
+    return "rgb($red, $green, $blue)"
+}
+
+private fun Int.cssAlpha(alpha: Float): String {
+    val red = (this shr 16) and 0xFF
+    val green = (this shr 8) and 0xFF
+    val blue = this and 0xFF
+    return "rgba($red, $green, $blue, $alpha)"
 }

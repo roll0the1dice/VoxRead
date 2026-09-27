@@ -654,6 +654,7 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
     }
 
     internal fun onFormulaViewerClosed() {
+        if (consumeFormulaViewerHandoff()) return
         val playing = model.tts?.isPlaying?.value == true
         val restore = if (playing) model.tts?.position?.value else locatorBeforeFormula
         formulaFollowSuspended = false
@@ -666,6 +667,12 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
         }
         restoreReaderChrome()
     }
+
+    /**
+     * @return true when another formula viewer is taking over and page follow
+     * must stay suspended.
+     */
+    internal open fun consumeFormulaViewerHandoff(): Boolean = false
 
     fun updateSystemUiVisibility() {
         if (navigatorFragment.isHidden) {

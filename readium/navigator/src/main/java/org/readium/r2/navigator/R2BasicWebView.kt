@@ -508,6 +508,11 @@ internal open class R2BasicWebView(context: Context, attrs: AttributeSet) : WebV
     }
 
     @android.webkit.JavascriptInterface
+    fun voxStage(stage: String, extra: String) {
+        VoxScreenTiming.note(stage, extra)
+    }
+
+    @android.webkit.JavascriptInterface
     fun setEquationDragHold(hold: Boolean) {
         equationDragHoldsPage = hold
     }

@@ -34,6 +34,7 @@
 
   var appliedSeq = -1;
   var lastRequest = null;
+  var formulasMeasured = false;
 
   function pageHref() {
     return document.documentElement.getAttribute("data-vox-href") || "";
@@ -730,14 +731,103 @@
     return clone.outerHTML || "";
   }
 
+  function notifyFormulaLayout() {
+    if (!window.VoxFormula || !VoxFormula.layoutReady) return;
+    try {
+      VoxFormula.layoutReady();
+    } catch (error) {
+      warn("voxread: formula layout notify failed", error);
+    }
+  }
+
+  function usableColor(color) {
+    return color && color !== "transparent" && color !== "rgba(0, 0, 0, 0)";
+  }
+
+  function pageColors() {
+    var root = window.getComputedStyle(document.documentElement);
+    var body = document.body ? window.getComputedStyle(document.body) : root;
+    var background = root.getPropertyValue("--USER__backgroundColor") || root.getPropertyValue("--RS__backgroundColor");
+    var color = root.getPropertyValue("--USER__textColor") || root.getPropertyValue("--RS__textColor");
+    return {
+      background: usableColor(background) ? background.trim() : (usableColor(root.backgroundColor) ? root.backgroundColor : (usableColor(body.backgroundColor) ? body.backgroundColor : "")),
+      color: usableColor(color) ? color.trim() : (usableColor(body.color) ? body.color : (usableColor(root.color) ? root.color : ""))
+    };
+  }
+
+  window.voxReadPageColors = function () {
+    return JSON.stringify(pageColors());
+  };
+
+  // Visible part of the formula, in CSS pixels, so the reader can copy it
+  // before the fullscreen window covers the page.
+  function previewRect(node) {
+    if (!node || !node.getBoundingClientRect) return null;
+    var rect = node.getBoundingClientRect();
+    var viewport = window.visualViewport;
+    var vw = viewport && viewport.width ? viewport.width : window.innerWidth;
+    var vh = viewport && viewport.height ? viewport.height : window.innerHeight;
+    var ox = viewport ? viewport.offsetLeft : 0;
+    var oy = viewport ? viewport.offsetTop : 0;
+    var left = Math.max(rect.left, ox);
+    var top = Math.max(rect.top, oy);
+    var right = Math.min(rect.right, ox + vw);
+    var bottom = Math.min(rect.bottom, oy + vh);
+    if (right - left < 2 || bottom - top < 2 || vw < 2 || vh < 2) return null;
+    return {
+      x: left,
+      y: top,
+      w: right - left,
+      h: bottom - top,
+      vw: vw,
+      vh: vh,
+      ox: ox,
+      oy: oy
+    };
+  }
+
+  // A formula is long when it is taller than the page, or wider than the
+  // visible column, so a sideways swipe is needed to see the rest.
+  window.voxReadLongFormula = function (localId) {
+    if (!formulasMeasured) return JSON.stringify({ status: "unmeasured" });
+    var nodes = formulaNodes({ mathId: localId });
+    if (!nodes.length) return JSON.stringify({ status: "missing" });
+    var longMath = null;
+    var previewNode = null;
+    for (var i = 0; i < nodes.length; i++) {
+      var block = nodes[i].closest && nodes[i].closest(".vox-formula-block");
+      if (!block) continue;
+      var scroll = block.querySelector(".vox-formula-scroll");
+      if (scroll && scroll.clientWidth < 2) return JSON.stringify({ status: "unmeasured" });
+      if (isLongFormula(block)) {
+        longMath = nodes[i];
+        previewNode = scroll || nodes[i];
+      }
+    }
+    if (!longMath) return JSON.stringify({ status: "short" });
+    var colors = pageColors();
+    return JSON.stringify({
+      status: "long",
+      id: longMath.id || localMathId(localId),
+      mathml: exportMath(longMath),
+      background: colors.background,
+      color: colors.color,
+      preview: previewRect(previewNode)
+    });
+  };
+
   function openFormula(block) {
     var scroll = block.querySelector(".vox-formula-scroll");
     var math = formulaMath(scroll);
     if (!math || !window.VoxFormula || !VoxFormula.open) return;
     try {
+      var colors = pageColors();
       VoxFormula.open(JSON.stringify({
         id: math.id || "",
-        mathml: exportMath(math)
+        mathml: exportMath(math),
+        background: colors.background,
+        color: colors.color,
+        preview: previewRect(scroll || math)
       }));
     } catch (error) {
       warn("voxread: unable to open formula viewer", error);
@@ -861,6 +951,39 @@
     }, 80);
   }
 
+  function contentWidth(node) {
+    if (!node) return 0;
+    var rect = node.getBoundingClientRect();
+    return Math.max(node.scrollWidth || 0, node.offsetWidth || 0, rect.width || 0);
+  }
+
+  function visibleColumnWidth() {
+    var root = document.documentElement;
+    var style = window.getComputedStyle(root);
+    var pad = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+    var view = Math.max((window.innerWidth || root.clientWidth) - pad, 1);
+    var columns = parseInt(style.columnCount, 10);
+    if (!(columns > 1)) columns = 1;
+    return view / columns;
+  }
+
+  function widerThanColumn(math, scroller) {
+    var pageWidth = visibleColumnWidth();
+    var box = scroller.clientWidth;
+    if (pageWidth > 2 && box > pageWidth) box = pageWidth;
+    var width = Math.max(contentWidth(math), scroller.scrollWidth || 0);
+    return width > box + 4 || scroller.scrollWidth > scroller.clientWidth + 4;
+  }
+
+  function isLongFormula(block) {
+    if (!block) return false;
+    if (block.classList.contains("is-preview")) return true;
+    var scroller = block.querySelector(".vox-formula-scroll");
+    var math = formulaMath(scroller);
+    if (!scroller || !math || scroller.clientWidth < 2) return false;
+    return widerThanColumn(math, scroller);
+  }
+
   function fitPreview(block, page) {
     var scroller = block.querySelector(".vox-formula-scroll");
     var math = formulaMath(scroller);
@@ -868,17 +991,19 @@
     math.style.fontSize = "";
     scroller.style.maxHeight = "";
     block.classList.remove("is-preview", "is-shrunk");
+    var pageWidth = visibleColumnWidth();
     var box = scroller.clientWidth;
     if (box < 2) return;
+    if (pageWidth > 2 && pageWidth < box) box = pageWidth;
     var limit = page.height - 48;
-    var tooWide = math.offsetWidth > box + 4;
+    var tooWide = widerThanColumn(math, scroller);
     var tooTall = math.offsetHeight > limit;
     if (tooWide) {
-      var ratio = box / Math.max(math.offsetWidth, 1);
+      var ratio = box / Math.max(contentWidth(math), 1);
       var scale = ratio >= 0.85 ? ratio : 0.85;
       math.style.fontSize = (Math.round(scale * 1000) / 1000) + "em";
       if (scale < 0.999) block.classList.add("is-shrunk");
-      tooWide = math.offsetWidth > box + 4;
+      tooWide = widerThanColumn(math, scroller);
       tooTall = math.offsetHeight > limit;
     }
     if (tooWide || tooTall) {
@@ -888,74 +1013,364 @@
   }
 
   function classifyFormulas() {
-    var page = pageMetrics();
-    var blocks = Array.prototype.slice.call(document.querySelectorAll(".vox-formula-block"));
-    var i;
-    for (i = 0; i < blocks.length; i++) {
-      clearBreak(blocks[i]);
-      var scroll = blocks[i].querySelector(".vox-formula-scroll");
-      var math = formulaMath(scroll);
-      if (scroll) scroll.style.maxHeight = "";
-      if (math) math.style.fontSize = "";
-      blocks[i].classList.remove("is-preview", "is-shrunk");
-    }
-    if (blocks.length) blocks[0].offsetHeight;
+    scheduleRemeasure();
+  }
 
-    for (i = 0; i < blocks.length; i++) {
-      fitPreview(blocks[i], page);
-      if (page.scrollMode || page.vertical) continue;
-      var target = breakTarget(blocks[i]);
-      var rect = target.getBoundingClientRect();
-      var fitsOnePage = target.offsetHeight <= page.height;
-      var startsMidPage = rect.top > page.top + 8;
-      if (fitsOnePage && startsMidPage && rect.bottom > page.bottom - 2) {
-        target.classList.add("vox-break-before");
-      }
+  var BUDGET_MS = 6;
+  var enhanceStarted = false;
+  var pumping = false;
+  var userScrolled = false;
+  var refitTimer = 0;
+  var remeasureCount = 0;
+  var phase = "idle";
+  var nearMath = [];
+  var farMath = [];
+  var planMath = null;
+  var planIndex = 0;
+  var planStartedAt = 0;
+  var nearCursor = 0;
+  var farCursor = 0;
+  var wrapCount = 0;
+  var fitCount = 0;
+  var wrapStartedAt = 0;
+  var fitStartedAt = 0;
+  var enhanceStartedAt = 0;
+  var anchorPoint = null;
+
+  function clock() {
+    return (window.performance && performance.now) ? performance.now() : Date.now();
+  }
+
+  function inPriorityRange(rect) {
+    if (!rect || (rect.width < 1 && rect.height < 1)) return false;
+    var height = window.innerHeight || 800;
+    var width = window.innerWidth || 400;
+    return rect.bottom > -height * 0.25 &&
+      rect.top < height * 1.2 &&
+      rect.right > -width &&
+      rect.left < width * 2;
+  }
+
+  function report(stage, extra) {
+    if (!window.Android || !Android.voxStage) return;
+    try {
+      Android.voxStage(stage, extra || "");
+    } catch (error) {
+      warn("voxread: timing report failed", error);
     }
+  }
+
+  function captureAnchorPoint() {
+    var id = pendingAnchor || captureAnchor();
+    if (!id) return null;
+    var element = document.getElementById(id);
+    if (!element || !element.getBoundingClientRect) return null;
+    var rect = element.getBoundingClientRect();
+    return { id: id, top: rect.top, left: rect.left };
+  }
+
+  function holdAnchor(point) {
+    if (!point || userScrolled) return;
+    var element = document.getElementById(point.id);
+    if (!element || !element.getBoundingClientRect) return;
+    var rect = element.getBoundingClientRect();
+    var dx = rect.left - point.left;
+    var dy = rect.top - point.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    var scrolling = document.scrollingElement;
+    if (!scrolling) return;
+    restoringAnchor = true;
+    scrolling.scrollTop += dy;
+    scrolling.scrollLeft += dx;
+    restoringAnchor = false;
+    pendingAnchor = point.id;
+  }
+
+  function wrapSingle(math) {
+    if (!shouldWrap(math)) return;
+    var built = buildEquation(math);
+    var paragraph = closestParagraph(math);
+    if (paragraph) {
+      extractFromParagraph(paragraph, math, built);
+    } else {
+      var carried = carriedNode(math);
+      carried.parentNode.insertBefore(built.equation, carried);
+      built.scroll.appendChild(carried);
+    }
+    wrapCount++;
+  }
+
+  function wrapMath(math) {
+    if (!math || !math.parentNode) return;
+    var parent = math.parentNode;
+    var marker = math.nextSibling;
+    var willSplit = (math.getAttribute("data-vox-break") || "") === "rows";
+    splitBreakableRows(math);
+    if (math.parentNode) {
+      wrapSingle(math);
+      return;
+    }
+    if (!willSplit) return;
+    var node = parent.firstChild;
+    while (node && node !== marker) {
+      var next = node.nextSibling;
+      if (node.nodeType === 1 && localName(node) === "math" && node.getAttribute("data-vox-break") === "row") {
+        wrapSingle(node);
+      }
+      node = next;
+    }
+  }
+
+  function clearBlockStyle(block) {
+    clearBreak(block);
+    var scroll = block.querySelector(".vox-formula-scroll");
+    var math = scroll && formulaMath(scroll);
+    if (scroll) scroll.style.maxHeight = "";
+    if (math) math.style.fontSize = "";
+    block.classList.remove("is-preview", "is-shrunk");
+    return { block: block, scroll: scroll, math: math, skip: !scroll || !math };
+  }
+
+  function readFit(item, page) {
+    if (item.skip || item.scroll.clientWidth < 2) {
+      item.skip = true;
+      return;
+    }
+    var pageWidth = visibleColumnWidth();
+    var box = item.scroll.clientWidth;
+    if (pageWidth > 2 && pageWidth < box) box = pageWidth;
+    var width = Math.max(contentWidth(item.math), item.scroll.scrollWidth || 0);
+    var limit = page.height - 48;
+    item.tooWide = width > box + 4 || item.scroll.scrollWidth > item.scroll.clientWidth + 4;
+    item.tooTall = item.math.offsetHeight > limit;
+    item.limit = limit;
+    item.page = page;
+    item.scale = 1;
+    if (item.tooWide) {
+      var ratio = box / Math.max(width, 1);
+      item.scale = ratio >= 0.85 ? ratio : 0.85;
+    }
+  }
+
+  function writeScale(item) {
+    if (item.skip || !(item.scale < 0.999)) return;
+    item.math.style.fontSize = (Math.round(item.scale * 1000) / 1000) + "em";
+    item.block.classList.add("is-shrunk");
+    item.scaled = true;
+  }
+
+  function readConfirm(item) {
+    if (item.skip) return;
+    if (!item.scaled) {
+      item.stillWide = item.tooWide;
+      item.stillTall = item.tooTall;
+      return;
+    }
+    item.stillWide = widerThanColumn(item.math, item.scroll);
+    item.stillTall = item.math.offsetHeight > item.limit;
+  }
+
+  function writePreview(item) {
+    if (item.skip) return;
+    if (item.stillWide || item.stillTall) {
+      item.block.classList.add("is-preview");
+      item.scroll.style.maxHeight = Math.max(120, Math.min(item.page.height * 0.42, item.limit)) + "px";
+    }
+  }
+
+  function writeBreak(item) {
+    if (item.skip || !item.page || item.page.scrollMode || item.page.vertical) return;
+    var target = breakTarget(item.block);
+    var rect = target.getBoundingClientRect();
+    var fitsOnePage = target.offsetHeight <= item.page.height;
+    var startsMidPage = rect.top > item.page.top + 8;
+    if (fitsOnePage && startsMidPage && rect.bottom > item.page.bottom - 2) {
+      target.classList.add("vox-break-before");
+    }
+  }
+
+  function unfittedBlocks() {
+    return Array.prototype.slice.call(
+      document.querySelectorAll(".vox-formula-block:not([data-vox-fit])")
+    );
+  }
+
+  function takeFitBatch() {
+    var blocks = unfittedBlocks();
+    if (!blocks.length) return [];
+    if (phase !== "refit") return blocks.slice(0, 4);
+    var near = [];
+    var scanned = Math.min(blocks.length, 12);
+    var i;
+    for (i = 0; i < scanned; i++) {
+      if (inPriorityRange(blocks[i].getBoundingClientRect())) near.push(blocks[i]);
+    }
+    if (near.length) return near.slice(0, 4);
+    var step = Math.max(1, Math.floor(blocks.length / 8));
+    for (i = scanned; i < blocks.length; i += step) {
+      if (inPriorityRange(blocks[i].getBoundingClientRect())) return [blocks[i]];
+    }
+    return [blocks[0]];
+  }
+
+  function fitBatch(blocks) {
+    var page = pageMetrics();
+    var items = [];
+    var i;
+    for (i = 0; i < blocks.length; i++) items.push(clearBlockStyle(blocks[i]));
+    for (i = 0; i < items.length; i++) readFit(items[i], page);
+    for (i = 0; i < items.length; i++) writeScale(items[i]);
+    for (i = 0; i < items.length; i++) readConfirm(items[i]);
+    for (i = 0; i < items.length; i++) writePreview(items[i]);
+    for (i = 0; i < items.length; i++) {
+      writeBreak(items[i]);
+      items[i].block.setAttribute("data-vox-fit", "1");
+    }
+  }
+
+  function advance() {
+    if (phase === "plan") {
+      if (!planMath) {
+        var started = clock();
+        assignStableMathIds();
+        planMath = allMath();
+        planIndex = 0;
+        nearMath = [];
+        farMath = [];
+        planStartedAt = clock();
+        report("scan", "count=" + planMath.length + " ms=" + Math.round(planStartedAt - started));
+      }
+      var slice = clock();
+      while (planIndex < planMath.length && clock() - slice < BUDGET_MS) {
+        if (inPriorityRange(planMath[planIndex].getBoundingClientRect())) nearMath.push(planMath[planIndex]);
+        else farMath.push(planMath[planIndex]);
+        planIndex++;
+      }
+      if (planIndex < planMath.length) return true;
+      nearCursor = 0;
+      farCursor = 0;
+      report("plan", "near=" + nearMath.length + " far=" + farMath.length + " ms=" + Math.round(clock() - planStartedAt));
+      wrapStartedAt = clock();
+      fitStartedAt = 0;
+      phase = "wrapNear";
+      return true;
+    }
+    if (phase === "wrapNear") {
+      if (nearCursor < nearMath.length) {
+        wrapMath(nearMath[nearCursor++]);
+        return true;
+      }
+      report("wrap", "count=" + wrapCount + " ms=" + Math.round(clock() - wrapStartedAt) + " part=near");
+      fitStartedAt = clock();
+      phase = "fitNear";
+      return true;
+    }
+    if (phase === "fitNear" || phase === "fitFar" || phase === "refit") {
+      var batch = takeFitBatch();
+      if (!batch.length) {
+        if (phase === "fitNear") {
+          formulasMeasured = true;
+          notifyFormulaLayout();
+          report("fit", "count=" + fitCount + " ms=" + Math.round(clock() - fitStartedAt) + " part=near");
+          phase = "wrapFar";
+        } else {
+          phase = "done";
+        }
+        return phase !== "done";
+      }
+      fitBatch(batch);
+      fitCount += batch.length;
+      holdAnchor(anchorPoint);
+      return true;
+    }
+    if (phase === "wrapFar") {
+      if (farCursor < farMath.length) {
+        wrapMath(farMath[farCursor++]);
+        return true;
+      }
+      report("wrap", "count=" + wrapCount + " ms=" + Math.round(clock() - wrapStartedAt) + " part=all");
+      fitStartedAt = clock();
+      phase = "fitFar";
+      return true;
+    }
+    return false;
+  }
+
+  function finishEnhance() {
+    formulasMeasured = true;
+    notifyFormulaLayout();
+    repaintHighlight();
+    report("enhanceDone", "wrap=" + wrapCount + " fit=" + fitCount + " ms=" + Math.round(clock() - enhanceStartedAt));
+  }
+
+  function runSlice() {
+    var start = clock();
+    var steps = 0;
+    while (phase !== "done" && clock() - start < BUDGET_MS && steps < 24) {
+      if (!advance()) break;
+      steps++;
+    }
+    pumping = false;
+    if (phase !== "done") {
+      pump();
+      return;
+    }
+    finishEnhance();
+  }
+
+  function pump() {
+    if (pumping || phase === "done" || phase === "idle") return;
+    pumping = true;
+    setTimeout(runSlice, 0);
+  }
+
+  function invalidateFits() {
+    var blocks = document.querySelectorAll(".vox-formula-block[data-vox-fit]");
+    for (var i = 0; i < blocks.length; i++) blocks[i].removeAttribute("data-vox-fit");
+    if (phase === "done") phase = "refit";
   }
 
   function scheduleRemeasure() {
-    if (restoringAnchor) return;
-    clearTimeout(remeasureTimer);
-    remeasureTimer = setTimeout(function () {
-      var id = pendingAnchor || captureAnchor();
-      classifyFormulas();
-      repaintHighlight();
-      if (!id) return;
-      restoringAnchor = true;
-      requestAnimationFrame(function () {
-        var element = document.getElementById(id);
-        var rect = element && element.getBoundingClientRect();
-        var visible = rect &&
-          rect.top >= 0 &&
-          rect.top < window.innerHeight * 0.5 &&
-          rect.left >= 0 &&
-          rect.left < window.innerWidth;
-        if (restoreReady && !window.__voxFormulaOpen && !visible && window.readium && readium.scrollToId) {
-          readium.scrollToId(id);
-        }
-        restoringAnchor = false;
-        pendingAnchor = id;
-      });
+    if (window.__voxSkipFormulaEnhance || restoringAnchor) return;
+    if (refitTimer) return;
+    refitTimer = setTimeout(function () {
+      refitTimer = 0;
+      remeasureCount++;
+      if (!enhanceStarted) {
+        report("remeasure", "count=" + remeasureCount + " deferred=1");
+        return;
+      }
+      anchorPoint = captureAnchorPoint() || anchorPoint;
+      invalidateFits();
+      report("remeasure", "count=" + remeasureCount);
+      if (phase === "done") phase = "refit";
+      fitStartedAt = clock();
+      pump();
     }, 60);
   }
 
-  function layoutEquations() {
+  function beginEnhance(anchorId) {
+    if (window.__voxSkipFormulaEnhance) {
+      report("enhance", "skipped=1 math=" + allMath().length);
+      return;
+    }
+    if (enhanceStarted) return;
     if (!document.body) return;
-    assignStableMathIds();
-    wrapDisplayMath();
-    requestAnimationFrame(function () {
-      classifyFormulas();
-      rememberAnchor();
-    });
+    enhanceStarted = true;
+    enhanceStartedAt = clock();
+    if (anchorId) pendingAnchor = anchorId;
+    anchorPoint = captureAnchorPoint();
+    phase = "plan";
+    report("enhance", "start=1");
+    pump();
   }
 
   function startLayout() {
     wrapScroll();
-    // Let the chapter paint before measuring formulas. Otherwise the WebView
-    // stays blank until every display formula has been wrapped.
-    setTimeout(layoutEquations, 0);
+    report("bridge", "skip=" + (window.__voxSkipFormulaEnhance ? "1" : "0"));
   }
+
+  window.voxBeginEnhance = beginEnhance;
 
   window.voxReadClearHighlight = clearHighlight;
   window.voxReadHighlightMath = highlight;
@@ -977,6 +1392,11 @@
     scheduleRemeasure();
     repaintHighlight();
   });
+  function noteUserScroll() {
+    userScrolled = true;
+  }
+  window.addEventListener("touchstart", noteUserScroll, true);
+  window.addEventListener("pointerdown", noteUserScroll, true);
   window.addEventListener("scroll", function () {
     restoreReady = true;
     rememberAnchor();
