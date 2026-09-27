@@ -1,3 +1,5 @@
+@file:OptIn(org.readium.r2.shared.ExperimentalReadiumApi::class)
+
 package org.readium.r2.shared.publication.services.content.iterators
 
 import android.content.Context
@@ -6,16 +8,156 @@ import android.os.Process
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import org.readium.r2.shared.publication.services.content.MathSpeechBundle
+import org.readium.r2.shared.publication.services.content.MathSpeechMarkup
 import java.io.File
 import java.io.FileOutputStream
 
 public class MathSpeechEngine private constructor(private val context: Context) {
 
-    private val rulesDir: String by lazy {
-        setupRulesDir(context)
+    private val rulesVersion: String by lazy {
+        readRulesVersion(context)
     }
+
+    private val rulesDir: String by lazy {
+        setupRulesDir(context, rulesVersion)
+    }
+
+    private val bundles = LinkedHashMap<String, MathSpeechBundle>()
+    private val byScope = HashMap<String, MathSpeechBundle>()
+
+    /**
+     * The formula and the speech from one MathCAT call. Later calls with the same
+     * formula, language, and scope reuse that result, including its node ids.
+     */
+    public suspend fun toBundle(
+        mathml: String,
+        locale: String = "en",
+        scopeId: String = "",
+    ): MathSpeechBundle? = withContext(Dispatchers.Default) {
+        if (mathml.isBlank() || !isLibraryLoaded) return@withContext null
+        val normalizedXml = normalizeMathml(mathml)
+        val key = locale + "\u0000" + rulesVersion + "\u0000" + normalizedXml.length + ":" + normalizedXml.hashCode()
+        synchronized(bundles) { bundles[key] }?.let { return@withContext it }
+
+        val built = try {
+            speakFormula(normalizedXml, locale, depth = 0, idPrefix = "voxfb")
+        } catch (e: Throwable) {
+            Log.e(TAG, "MathCAT bundle failed: ${e.message}", e)
+            structuredFormula(normalizedXml, locale, "voxfb")
+        }
+
+        synchronized(bundles) {
+            val existing = bundles[key]
+            if (existing != null) return@withContext existing
+            bundles[key] = built
+            if (scopeId.isNotBlank()) byScope[scopeId] = built
+            while (bundles.size > 256) {
+                val eldest = bundles.entries.firstOrNull()?.key ?: break
+                bundles.remove(eldest)
+            }
+        }
+        built
+    }
+
+    private fun speakFormula(mathml: String, locale: String, depth: Int, idPrefix: String): MathSpeechBundle {
+        fromMathCat(mathml, locale)?.let { return it }
+        val pieces = if (depth < 4) formulaPieces(mathml) else emptyList()
+        if (pieces.size < 2) return structuredFormula(mathml, locale, idPrefix)
+        val spoken = pieces.mapIndexed { index, piece ->
+            speakFormula(piece, locale, depth + 1, "$idPrefix-$index")
+        }
+        return stitchFormula(mathml, spoken, locale)
+    }
+
+    private fun fromMathCat(mathml: String, locale: String): MathSpeechBundle? {
+        val raw = mathCatBundle(mathml, rulesDir, toMathCatLanguage(locale))
+        if (raw.isBlank()) return null
+        val json = JSONObject(raw)
+        val canonical = json.optString("canonical")
+        val markup = json.optString("markup")
+        if (json.optBoolean("ok", true).not() || canonical.isBlank() || markup.isBlank()) {
+            Log.e(
+                TAG,
+                "MathCAT ${json.optString("stage", "speech")} ${json.optString("version")}: ${json.optString("error")}",
+            )
+            return null
+        }
+        var bundle = MathSpeechMarkup.align(markup, canonical)
+            .copy(version = json.optString("version") + "|" + rulesVersion)
+        if (prefersSimplifiedChinese(locale)) bundle = MathSpeechMarkup.simplify(bundle)
+        return bundle.takeIf { it.spokenText.isNotBlank() && acceptableSpeech(it.spokenText, locale) }
+    }
+
+    private fun structuredFormula(mathml: String, locale: String, idPrefix: String): MathSpeechBundle {
+        var bundle = MathSpeechMarkup.structure(mathml, idPrefix)
+            .copy(version = "structured|$rulesVersion|$locale")
+        if (prefersSimplifiedChinese(locale)) bundle = MathSpeechMarkup.simplify(bundle)
+        return bundle
+    }
+
+    private fun formulaPieces(mathml: String): List<String> {
+        val document = Jsoup.parse(mathml, "", org.jsoup.parser.Parser.xmlParser())
+        val math = document.selectFirst("math") ?: return emptyList()
+        val semantics = math.children().firstOrNull { it.normalName() == "semantics" }
+        val inner = semantics?.children()?.firstOrNull { it.normalName() !in silentMathTags }
+            ?: math.children().firstOrNull { it.normalName() !in silentMathTags }
+            ?: return emptyList()
+        val host = if (inner.normalName() == "mrow") inner else return emptyList()
+        return host.children()
+            .filter { it.normalName() !in silentMathTags }
+            .map { child ->
+                "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">${child.outerHtml()}</math>"
+            }
+    }
+
+    private fun stitchFormula(
+        mathml: String,
+        parts: List<MathSpeechBundle>,
+        locale: String,
+    ): MathSpeechBundle {
+        val document = Jsoup.parse(mathml, "", org.jsoup.parser.Parser.xmlParser())
+        document.outputSettings()
+            .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
+            .prettyPrint(false)
+        val math = document.selectFirst("math")
+        val semantics = math?.children()?.firstOrNull { it.normalName() == "semantics" }
+        val inner = semantics?.children()?.firstOrNull { it.normalName() !in silentMathTags }
+        val host = if (inner?.normalName() == "mrow") inner else math
+        val children = host?.children()?.filter { it.normalName() !in silentMathTags }.orEmpty()
+        children.zip(parts).forEach { (child, part) ->
+            val piece = Jsoup.parse(part.canonicalMathMl, "", org.jsoup.parser.Parser.xmlParser())
+            val replacement = piece.selectFirst("math")?.children()?.firstOrNull() ?: return@forEach
+            child.replaceWith(replacement.clone())
+        }
+        val text = StringBuilder()
+        val anchors = mutableListOf<org.readium.r2.shared.publication.services.content.MathSpeechAnchor>()
+        for (part in parts) {
+            if (part.spokenText.isEmpty()) continue
+            if (text.isNotEmpty()) text.append(' ')
+            val base = text.length
+            text.append(part.spokenText)
+            anchors += part.anchors.map { anchor ->
+                anchor.copy(start = base + anchor.start, end = base + anchor.end)
+            }
+        }
+        val version = parts.map { it.version }.distinct().singleOrNull() ?: "mixed|$rulesVersion|$locale"
+        return org.readium.r2.shared.publication.services.content.MathSpeechBundle(
+            canonicalMathMl = math?.outerHtml().orEmpty(),
+            spokenText = text.toString(),
+            anchors = anchors,
+            version = version,
+        )
+    }
+
+    public fun cached(scopeId: String): MathSpeechBundle? {
+        if (scopeId.isBlank()) return null
+        return synchronized(byScope) { byScope[scopeId] }
+    }
+
 public suspend fun toSpeech(
         mathml: String,
         locale: String = "en",
@@ -30,11 +172,7 @@ public suspend fun toSpeech(
 
         try {
             // 🌟 修复点 1：确保拥有合法的 MathML 命名空间（MathCAT 严格要求）
-            val normalizedXml = if (!mathml.contains("xmlns=")) {
-                mathml.replaceFirst("<math", "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"")
-            } else {
-                mathml
-            }
+            val normalizedXml = normalizeMathml(mathml)
 
             //Log.d(TAG, "🔍 [MathSpeech] 传入 MathML: $normalizedXml")
             //Log.d(TAG, "🔍 [MathSpeech] rulesDir 路径: $rulesDir")
@@ -109,6 +247,13 @@ public suspend fun toSpeech(
             locale: String,
         ): String
 
+        @JvmStatic
+        private external fun mathCatBundle(
+            mathml: String,
+            rulesDirPath: String,
+            locale: String,
+        ): String
+
         @Volatile
         private var INSTANCE: MathSpeechEngine? = null
 
@@ -118,19 +263,34 @@ public suspend fun toSpeech(
             }
 
         // 🌟 检查并保证完整解压规则目录
-private fun setupRulesDir(context: Context): String {
-            val targetDir = File(context.filesDir, "mathcat_rules")
+private fun readRulesVersion(context: Context): String =
+            try {
+                context.assets.open("mathcat_rules/vox-rules-version.txt")
+                    .bufferedReader()
+                    .use { it.readText() }
+                    .trim()
+                    .ifBlank { "unversioned" }
+            } catch (_: Exception) {
+                "unversioned"
+            }
+
+        private fun setupRulesDir(context: Context, version: String): String {
+            val root = File(context.filesDir, "mathcat_rules")
+            val targetDir = File(root, version)
             val languagesDir = File(targetDir, "Languages")
-            
-            // 🌟 必须保证 Languages 目录存在且包含内容才算成功，否则强制重新解压
-            if (File(targetDir, "prefs.yaml").exists() && languagesDir.exists() && (languagesDir.list()?.isNotEmpty() == true)) {
-                //Log.d(TAG, "MathCAT Rules 规则已就绪: ${targetDir.absolutePath}")
+            val installed = File(targetDir, "vox-rules-version.txt")
+            if (
+                File(targetDir, "prefs.yaml").exists() &&
+                languagesDir.exists() &&
+                languagesDir.list()?.isNotEmpty() == true &&
+                installed.exists() &&
+                installed.readText().trim() == version
+            ) {
                 return targetDir.absolutePath
             }
 
             try {
-                //Log.i(TAG, "⚠️ 规则不完整，强制清空并重新解压到: ${targetDir.absolutePath}")
-                targetDir.deleteRecursively()
+                root.deleteRecursively()
                 targetDir.mkdirs()
 
                 val rootAssets = context.assets.list("")?.toList() ?: emptyList()
@@ -204,16 +364,22 @@ internal fun prefersSimplifiedChinese(locale: String): Boolean {
         !tag.contains("mo")
 }
 
-private fun simplifyChinese(speech: String): String =
-    speech
-        .replace("等於", "等于")
-        .replace("大於", "大于")
-        .replace("小於", "小于")
-        .replace("趨近於", "趋近于")
-        .replace("極限", "极限")
-        .replace("根號", "根号")
-        .replace("下標", "下标")
-        .replace("上標", "上标")
+private fun simplifyChinese(speech: String): String = MathSpeechMarkup.simplifyText(speech)
+
+private fun normalizeMathml(mathml: String): String =
+    if (mathml.contains("xmlns=")) {
+        mathml
+    } else {
+        mathml.replaceFirst("<math", "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"")
+    }
+
+private val silentMathTags = setOf(
+    "annotation",
+    "annotation-xml",
+    "mspace",
+    "malignmark",
+    "maligngroup",
+)
 
 private fun acceptableSpeech(speech: String, locale: String): Boolean {
     if (locale.startsWith("zh", ignoreCase = true)) return true

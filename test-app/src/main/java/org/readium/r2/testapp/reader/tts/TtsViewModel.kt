@@ -6,6 +6,7 @@
 
 package org.readium.r2.testapp.reader.tts
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -218,12 +219,31 @@ class TtsViewModel private constructor(
             } else {
                 val sessionId = speechSession.incrementAndGet()
                 combine(session.navigator.playback, navigator.location) { playback, location ->
+                    val spoken = spokenFormula(location)
+                    if (spoken.formulaId != null) {
+                        val utterance = location.utterance
+                        val range = location.range
+                        val slice = if (range != null && utterance.isNotEmpty()) {
+                            val from = range.first.coerceIn(0, utterance.length)
+                            val to = (range.last + 1).coerceIn(from, utterance.length)
+                            utterance.substring(from, to)
+                        } else {
+                            ""
+                        }
+                        Log.i(
+                            "VoxMathSpeech",
+                            "range=$range text=${JSONObject.quote(slice)} nodes=${spoken.nodeIds.joinToString(",")}"
+                        )
+                    }
                     TtsSpeechState(
                         session = sessionId,
                         sequence = speechSequence.incrementAndGet(),
                         play = playOf(playback),
                         chapterHref = location.utteranceLocator.href.toString(),
-                        formulaId = formulaIdOf(location),
+                        formulaId = spoken.formulaId,
+                        activeNodeIds = spoken.nodeIds,
+                        utteranceId = utteranceIdOf(location),
+                        canonicalMathMl = spoken.mathml,
                     )
                 }
             }
@@ -270,17 +290,7 @@ class TtsViewModel private constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun getCssHighlightColor(color: TtsHighlightColor): String {
-        val hexOrName = color.name.lowercase()
-        return when {
-            hexOrName.contains("yellow") -> "rgba(255, 220, 40, 0.45)"
-            hexOrName.contains("red") -> "rgba(244, 67, 54, 0.40)"
-            hexOrName.contains("green") -> "rgba(76, 175, 80, 0.40)"
-            hexOrName.contains("blue") -> "rgba(33, 150, 243, 0.40)"
-            hexOrName.contains("purple") -> "rgba(156, 39, 176, 0.40)"
-            else -> "rgba(255, 220, 40, 0.45)"
-        }
-    }
+    private fun getCssHighlightColor(color: TtsHighlightColor): String = color.playingFill()
 
     private fun clearFormulaHighlight() {
         if (pendingJs == null && pendingHref == null) return
@@ -341,6 +351,24 @@ class TtsViewModel private constructor(
                 Timber.w("TTS highlight was not applied on $href (seq=$seq, result=$result)")
             }
         }
+    }
+
+    /**
+     * Paints the current utterance again, including when the reader is already
+     * on that chapter. A stopped session clears the page highlight.
+     */
+    fun replayVisibleHighlight() {
+        if (speech.value.play == TtsPlay.Stopped) {
+            clearFormulaHighlight()
+            return
+        }
+        val location = navigatorNow?.location?.value
+        if (location == null) {
+            clearFormulaHighlight()
+            return
+        }
+        lastHighlightKey = null
+        syncSpeechHighlight(location)
     }
 
     private fun replayHighlight(visibleHref: String) {
@@ -416,18 +444,35 @@ class TtsViewModel private constructor(
      * A word range may name the formula it lands on. A sentence-level range may
      * name a formula only when that utterance is exactly one formula.
      */
-    private fun formulaIdOf(location: TtsNavigator.Location?): String? {
-        if (location == null) return null
+    private data class SpokenFormula(
+        val formulaId: String?,
+        val nodeIds: List<String>,
+        val mathml: String,
+    )
+
+    private fun spokenFormula(location: TtsNavigator.Location?): SpokenFormula {
+        if (location == null) return SpokenFormula(null, emptyList(), "")
         val utterance = location.utteranceLocator
         val href = utterance.href.toString()
         val map = SpeechMap.from(utterance)
         if (map != null) {
-            val mathId = map.spokenMathId(location.range) ?: return null
-            return TtsSpeechState.key(bookId, href, mathId)
+            val mathId = map.spokenMathId(location.range)
+            val highlight = map.resolve(location.range)
+            val mathml = map.spans.firstOrNull { span ->
+                span.kind == SpeechMap.Kind.Math && span.mathId == mathId && span.mathml.isNotBlank()
+            }?.mathml.orEmpty()
+            val formulaId = mathId?.let { TtsSpeechState.key(bookId, href, it) }
+            return SpokenFormula(formulaId, highlight.nodeIds, mathml)
         }
-        if (!utterance.isFlag("isMath")) return null
-        val id = utterance.locations.otherLocations["mathId"] as? String ?: return null
-        return TtsSpeechState.key(bookId, href, id)
+        if (!utterance.isFlag("isMath")) return SpokenFormula(null, emptyList(), "")
+        val id = utterance.locations.otherLocations["mathId"] as? String
+            ?: return SpokenFormula(null, emptyList(), "")
+        return SpokenFormula(TtsSpeechState.key(bookId, href, id), emptyList(), "")
+    }
+
+    private fun utteranceIdOf(location: TtsNavigator.Location?): String {
+        val utterance = location?.utterance ?: return ""
+        return utterance.length.toString() + ":" + utterance.hashCode().toUInt().toString(16)
     }
 
     private fun Locator.isFlag(key: String): Boolean {

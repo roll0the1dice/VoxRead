@@ -19,6 +19,8 @@ import org.jsoup.select.NodeTraversor
 import org.jsoup.select.NodeVisitor
 import org.readium.r2.shared.DelicateReadiumApi
 import org.readium.r2.shared.ExperimentalReadiumApi
+import org.readium.r2.shared.publication.services.content.MathSpeechBundle
+import org.readium.r2.shared.publication.services.content.MathSpeechMarkup
 import org.readium.r2.shared.InternalReadiumApi
 import org.readium.r2.shared.extensions.tryOrLog
 import org.readium.r2.shared.extensions.tryOrNull
@@ -242,6 +244,7 @@ private fun fastCssSelector(
 
     /** Formulas given a chapter-scoped id so far. The rest of the chapter waits until reading reaches them. */
     internal var identifiedFormulaCount: Int = 0
+    private val formulaBundles = HashMap<String, MathSpeechBundle>()
 
     private suspend fun ensureChapter() {
         if (chapterReady) return
@@ -273,6 +276,7 @@ private fun fastCssSelector(
                 },
                 beforeMaxLength = beforeMaxLength,
                 selectorCache = selectorCache,
+                formulaBundles = formulaBundles,
             )
             val produced = parseUnitRange(from, to, forwardParser!!)
             builtElements += produced
@@ -325,6 +329,7 @@ private fun fastCssSelector(
             startElement = null,
             beforeMaxLength = beforeMaxLength,
             selectorCache = selectorCache,
+            formulaBundles = formulaBundles,
         )
         val produced = parseUnitRange(from, to, parser)
         if (produced.isEmpty()) {
@@ -392,12 +397,15 @@ private fun fastCssSelector(
                     target.attr("id", "vox-math-$index")
                 }
                 val cssSelector = fastCssSelector(target, selectorCache)
+                val scope = SpeechAnchors.scope(locator.href.toString(), target.id())
                 async(Dispatchers.Default) {
-                    Triple(node, convertMathToSpeech(node, documentLanguage), cssSelector)
+                    Triple(node, convertMathToSpeech(node, documentLanguage, scope), cssSelector)
                 }
             }.awaitAll()
         }
-        for ((node, spokenText, cssSelector) in converted) {
+        for ((node, spoken, cssSelector) in converted) {
+            val spokenText = spoken.text
+            if (spoken.bundle != null) formulaBundles[spoken.scope] = spoken.bundle
             if (spokenText.isBlank() || node.parent() == null) continue
             val mathmlElement = if (node.normalName() == "math") {
                 node
@@ -518,11 +526,17 @@ private fun fastCssSelector(
             ?: publicationLanguage
     }
 
+    private data class SpokenFormula(
+        val scope: String,
+        val text: String,
+        val bundle: MathSpeechBundle?,
+    )
+
     private suspend fun convertMathToSpeech(
         node: org.jsoup.nodes.Element,
         documentLanguage: String?,
-        index: Int = 0,
-    ): String {
+        scope: String,
+    ): SpokenFormula {
         return try {
             val mathmlElement = if (node.normalName() == "math") node else node.getElementsByTag("math").firstOrNull()
             val mathml = mathmlElement?.outerHtml() ?: node.outerHtml()
@@ -531,25 +545,28 @@ private fun fastCssSelector(
 
             val cached: String? = mathSpeechCache[cacheKey]
             if (!cached.isNullOrBlank()) {
-                return cached
+                val bundle = if (mathmlElement != null) {
+                    mathEngine?.toBundle(mathml, locale, scope)
+                } else {
+                    null
+                }
+                return SpokenFormula(scope, bundle?.spokenText?.ifBlank { null } ?: cached, bundle)
             }
 
             var spokenText = ""
-            val singleStart = System.currentTimeMillis()
+            var bundle: MathSpeechBundle? = null
 
             if (mathmlElement != null && mathEngine != null) {
                 try {
-                    spokenText = mathEngine.toSpeech(mathml, locale = locale)
-                    val cost = System.currentTimeMillis() - singleStart
-                    if (cost > 100) { // 超过 100ms 的慢转换打印出来
-                        //android.util.Log.w("PERF_DEBUG", "⚠️ 公式[$index] MathCAT 耗时偏长: ${cost} ms")
-                    }
+                    bundle = mathEngine.toBundle(mathml, locale = locale, scopeId = scope)
+                    spokenText = bundle?.spokenText.orEmpty()
                 } catch (t: Throwable) {
                     Timber.w(t, "MathCAT toSpeech 失败")
                 }
             }
 
             if (spokenText.isBlank()) {
+                bundle = null
                 try {
                     val annotation = node.getElementsByTag("annotation").firstOrNull()
                     val latex = annotation?.text() ?: node.toMathmlLatex()
@@ -566,9 +583,9 @@ private fun fastCssSelector(
             if (spokenText.isNotBlank()) {
                 mathSpeechCache[cacheKey] = spokenText
             }
-            spokenText
+            SpokenFormula(scope, spokenText, bundle)
         } catch (t: Throwable) {
-            ""
+            SpokenFormula(scope, "", null)
         }
     }
 
@@ -592,7 +609,8 @@ private fun fastCssSelector(
 
                 mathNodes.map { node ->
                     async(Dispatchers.Default) {
-                        convertMathToSpeech(node, language)
+                        val localId = node.id().ifBlank { "preload" }
+                        convertMathToSpeech(node, language, SpeechAnchors.scope(locator.href.toString(), localId))
                     }
                 }.awaitAll()
 
@@ -639,7 +657,8 @@ private fun fastCssSelector(
         private val baseLocator: Locator,
         private val startElement: Element?,
         private val beforeMaxLength: Int,
-        private val selectorCache: MutableMap<Element, String> = HashMap()
+        private val selectorCache: MutableMap<Element, String> = HashMap(),
+        private val formulaBundles: Map<String, MathSpeechBundle> = emptyMap(),
     ) : NodeVisitor {
 
         fun result() = ParsedElements(
@@ -829,12 +848,20 @@ private fun fastCssSelector(
             if (normalized.text.isEmpty()) return
             val end = textAcc.length
             if (mathId != null) {
+                val bundle = formulaBundles[mathId]
+                val nodes = if (bundle == null) {
+                    emptyList()
+                } else {
+                    MathSpeechMarkup.place(normalized.text, start, bundle.spokenText, bundle.anchors)
+                }
                 speechSpans += SpeechMap.Span(
                     start = start,
                     end = end,
                     kind = SpeechMap.Kind.Math,
                     selector = mathSelector.orEmpty(),
                     mathId = mathId,
+                    nodes = nodes,
+                    mathml = bundle?.canonicalMathMl.orEmpty(),
                 )
                 return
             }

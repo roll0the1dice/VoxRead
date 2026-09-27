@@ -664,6 +664,7 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
             visual?.evaluateJavascript("window.__voxFormulaOpen = false;")
             delay(200)
             restore?.let { navigator.go(it, animated = false) }
+            model.tts?.replayVisibleHighlight()
         }
         restoreReaderChrome()
     }

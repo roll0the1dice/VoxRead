@@ -29,8 +29,11 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.readium.r2.testapp.reader.tts.TtsHighlightColor
+import org.readium.r2.testapp.reader.tts.TtsPlay
 import org.readium.r2.testapp.reader.tts.TtsSpeechState
 
 /**
@@ -53,7 +56,9 @@ class FormulaViewerDialog : DialogFragment() {
     private var viewerAttached = false
     private var destroyed = false
     private var viewerInstance: Int = 0
-    private var latest = TtsSpeechState.stopped(0)
+    private var trackedSpeech = TtsSpeechState.stopped(0)
+    private var trackedColor = TtsHighlightColor.DEFAULT
+    private var trackedRevision = 0L
     private var savedOrientation: Int = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
     private val openedAt: Long
@@ -109,14 +114,25 @@ class FormulaViewerDialog : DialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        latest = currentSpeech()
+        currentPaint()
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                val speech = (parentFragment as? EpubReaderFragment)?.model?.tts?.speech
+                val tts = (parentFragment as? EpubReaderFragment)?.model?.tts
                     ?: return@repeatOnLifecycle
-                speech.collect { state ->
-                    latest = state
-                    if (pageReady) push(state)
+                val opened = requireArguments().getString(ARG_KEY).orEmpty()
+                combine(tts.speech, tts.highlightColor) { state, color ->
+                    state to color
+                }.collect { (state, color) ->
+                    val speakingThis = opened.isNotBlank() &&
+                        state.formulaId == opened &&
+                        state.play != TtsPlay.Stopped
+                    if (speakingThis) followedSpeech = true
+                    if (followedSpeech && !speakingThis) {
+                        closeAfterReading()
+                        return@collect
+                    }
+                    val paint = rememberPaint(state, color)
+                    if (pageReady) push(paint)
                 }
             }
         }
@@ -251,84 +267,126 @@ class FormulaViewerDialog : DialogFragment() {
         )
     }
 
-    private fun currentSpeech(): TtsSpeechState =
-        (parentFragment as? EpubReaderFragment)?.model?.tts?.speech?.value ?: latest
+    private data class SpeechPaint(
+        val speech: TtsSpeechState,
+        val color: TtsHighlightColor,
+        val revision: Long,
+    )
 
-    private fun speechPayload(state: TtsSpeechState): JSONObject =
+    private fun tts() = (parentFragment as? EpubReaderFragment)?.model?.tts
+
+    private fun rememberPaint(state: TtsSpeechState, color: TtsHighlightColor): SpeechPaint {
+        if (state != trackedSpeech || color != trackedColor) {
+            trackedSpeech = state
+            trackedColor = color
+            trackedRevision += 1
+        }
+        return SpeechPaint(state, color, trackedRevision)
+    }
+
+    /** Latest speech and color. Only a real change gets a new [SpeechPaint.revision]. */
+    private fun currentPaint(): SpeechPaint {
+        val engine = tts()
+        return rememberPaint(
+            engine?.speech?.value ?: trackedSpeech,
+            engine?.highlightColor?.value ?: trackedColor,
+        )
+    }
+
+    private fun speechPayload(paint: SpeechPaint): JSONObject =
         JSONObject()
             .put("viewer", viewerInstance)
-            .put("session", state.session)
-            .put("seq", state.sequence)
-            .put("play", state.play.name.lowercase())
-            .put("formula", state.formulaId ?: "")
+            .put("session", paint.speech.session)
+            .put("seq", paint.speech.sequence)
+            .put("revision", paint.revision)
+            .put("play", paint.speech.play.name.lowercase())
+            .put("formula", paint.speech.formulaId ?: "")
+            .put("utterance", paint.speech.utteranceId)
+            .put("nodes", org.json.JSONArray(paint.speech.activeNodeIds))
+            .put("fill", paint.color.playingFill())
+            .put("fillDim", paint.color.pausedFill())
+            .put("edge", paint.color.speakEdge())
 
-    private fun push(state: TtsSpeechState) {
+    private fun push(paint: SpeechPaint) {
         val web = webView ?: return
+        val generation = viewerInstance
         web.evaluateJavascript(
-            "window.voxApplySpeech && window.voxApplySpeech(${speechPayload(state)});",
-            null,
-        )
+            "window.voxApplySpeech && window.voxApplySpeech(${speechPayload(paint)});",
+        ) {
+            if (destroyed || generation != viewerInstance) return@evaluateJavascript
+        }
     }
 
     private fun onFormulaFitted() {
         if (destroyed || paintRequested || !isAdded) return
         paintRequested = true
         logFormulaStage(openedAt, "fitted")
-        paintSpeech(currentSpeech(), allowRefresh = true)
+        paintSpeech(currentPaint(), allowRefresh = true)
     }
 
     /**
-     * Applies the speech snapshot that is already known, then waits until that
-     * frame has been drawn. A newer snapshot that arrives while drawing is
-     * applied once, without waiting for a later utterance callback.
+     * Applies the newest speech snapshot, waits until that apply is accepted,
+     * then waits for a drawn frame before the preview comes off.
+     * A newer snapshot that arrives while drawing is applied once.
      */
-    private fun paintSpeech(state: TtsSpeechState, allowRefresh: Boolean) {
+    private fun paintSpeech(paint: SpeechPaint, allowRefresh: Boolean) {
         val web = webView ?: return
         if (destroyed) return
-        latest = state
+        val generation = viewerInstance
         web.evaluateJavascript(
-            "window.voxApplySpeech && window.voxApplySpeech(${speechPayload(state)});",
-        ) {
-            if (destroyed || !isAdded || pageReady) return@evaluateJavascript
-            schedulePaint(state, allowRefresh)
+            "window.voxApplySpeech && window.voxApplySpeech(${speechPayload(paint)});",
+        ) { raw ->
+            if (destroyed || !isAdded || pageReady || generation != viewerInstance) return@evaluateJavascript
+            val status = raw.jsToken()
+            val accepted = status == "applied" || status == "duplicate"
+            val newer = currentPaint()
+            if (!accepted || (allowRefresh && newer.revision != paint.revision)) {
+                if (newer.revision != paint.revision) {
+                    paintSpeech(newer, allowRefresh = false)
+                }
+                return@evaluateJavascript
+            }
+            schedulePaint(paint, allowRefresh && status != "duplicate")
             webView?.postDelayed({
-                if (!pageReady && !destroyed) schedulePaint(currentSpeech(), allowRefresh = false)
+                if (!pageReady && !destroyed && generation == viewerInstance) {
+                    schedulePaint(currentPaint(), allowRefresh = false)
+                }
             }, 500)
         }
     }
 
-    private fun schedulePaint(state: TtsSpeechState, allowRefresh: Boolean) {
+    private fun schedulePaint(paint: SpeechPaint, allowRefresh: Boolean) {
         val target = webView ?: return
         if (destroyed || pageReady) return
+        val generation = viewerInstance
         val request = ++paintRequest
         target.postVisualStateCallback(request, object : WebView.VisualStateCallback() {
             override fun onComplete(requestId: Long) {
-                if (requestId != paintRequest || pageReady || destroyed) return
-                val newer = currentSpeech()
-                if (
-                    allowRefresh &&
-                    (newer.session != state.session || newer.sequence != state.sequence)
-                ) {
+                if (requestId != paintRequest || pageReady || destroyed || generation != viewerInstance) return
+                val newer = currentPaint()
+                if (allowRefresh && newer.revision != paint.revision) {
                     paintSpeech(newer, allowRefresh = false)
                     return
                 }
-                revealInteractive()
+                revealInteractive(paint)
             }
         })
     }
 
-    private fun revealInteractive() {
+    private fun revealInteractive(painted: SpeechPaint) {
         if (pageReady || destroyed || !isAdded) return
+        val newer = currentPaint()
+        if (newer.revision != painted.revision) {
+            paintSpeech(newer, allowRefresh = false)
+            return
+        }
         pageReady = true
-        val state = currentSpeech()
-        latest = state
-        push(state)
         previewImage?.setImageDrawable(null)
         previewBitmap?.recycle()
         previewBitmap = null
         cover?.visibility = View.GONE
         view?.removeCallbacks(paintTimeout)
-        logFormulaStage(openedAt, "paint")
+        logFormulaStage(openedAt, "paint", " revision=${painted.revision}")
     }
 
     override fun onStart() {
@@ -346,7 +404,7 @@ class FormulaViewerDialog : DialogFragment() {
     override fun onResume() {
         super.onResume()
         webView?.onResume()
-        if (paintRequested && !pageReady && !destroyed) schedulePaint(currentSpeech(), allowRefresh = false)
+        if (paintRequested && !pageReady && !destroyed) schedulePaint(currentPaint(), allowRefresh = false)
     }
 
     override fun onPause() {
@@ -371,9 +429,23 @@ class FormulaViewerDialog : DialogFragment() {
     }
 
     private var finished = false
+    private var followedSpeech = false
+    private var closedBySpeech = false
 
     private fun closeViewer() {
         dismissAllowingStateLoss()
+    }
+
+    /**
+     * The window was showing the formula being read. Reading has moved on or
+     * stopped, so the automatic view should leave. A formula opened by hand
+     * and never spoken stays until the reader closes it.
+     */
+    private fun closeAfterReading() {
+        if (finished || closedBySpeech) return
+        closedBySpeech = true
+        (parentFragment as? EpubReaderFragment)?.noteAutoFormulaSpeechEnded()
+        closeViewer()
     }
 
     override fun onDismiss(dialog: DialogInterface) {
@@ -531,13 +603,24 @@ private fun viewerHtml(
             display: flex; align-items: center; justify-content: center;
             overflow: hidden; touch-action: none;
           }
-          #formula { display: inline-block; transform-origin: center center; padding: 16px; }
-          #formula math, #formula * {
+          #formula {
+            position: relative;
+            display: inline-block; transform-origin: center center; padding: 16px;
+            background: transparent; box-shadow: none;
+          }
+          #formula math, #formula math * {
             font-family: "AcademicMath", "STIX Two Math", serif;
             color: __VOX_FG__;
+            background: transparent;
           }
-          #formula.speaking { box-shadow: inset 0 0 0 1px __VOX_MARK__; }
-          #formula.paused-here { box-shadow: inset 0 0 0 1px __VOX_MARK__; }
+          #marks {
+            position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+            pointer-events: none; overflow: visible;
+          }
+          #marks .mark {
+            position: absolute; border-radius: 6px;
+            border: 0; box-shadow: none;
+          }
           #bar, #banner {
             position: absolute; left: 0; right: 0;
             display: flex; flex-wrap: wrap; gap: 8px;
@@ -555,7 +638,7 @@ private fun viewerHtml(
         </style>
         </head>
         <body>
-          <div id="stage"><div id="formula">__VOX_MATH__</div></div>
+          <div id="stage"><div id="formula"><div id="sheet">__VOX_MATH__</div><div id="marks"></div></div></div>
           <div id="banner">
             <span id="status"></span>
             <button id="pause" type="button"></button>
@@ -574,7 +657,8 @@ private fun viewerHtml(
             var mode = "fit";
             var opened = __VOX_OPENED__;
             var viewerId = __VOX_VIEWER__;
-            var appliedSession = -1, appliedSeq = -1, sawSession = false;
+            var appliedSession = -1, appliedRevision = -1;
+            var savedSpeech = null, matchedOnce = false;
             var startX = 0, startY = 0, lastX = 0, lastY = 0, lastDist = 0, moved = false, lastTap = 0;
 
             function apply() {
@@ -592,12 +676,14 @@ private fun viewerHtml(
               fontScale = Math.max(0.35, Math.min(sx, sy, 1.6));
               mode = "fit";
               apply();
+              if (window.voxRedrawSpeech) voxRedrawSpeech();
             }
             function readable() {
               pinch = 1; panX = 0; panY = 0;
               fontScale = 1;
               mode = "read";
               apply();
+              if (window.voxRedrawSpeech) voxRedrawSpeech();
             }
             function dist(touches) {
               var dx = touches[0].clientX - touches[1].clientX;
@@ -670,23 +756,107 @@ private fun viewerHtml(
               pauseButton.textContent = button;
               pauseButton.setAttribute("data-action", action);
             }
-            window.voxApplySpeech = function (payload) {
-              if (!payload || payload.viewer !== viewerId) return;
-              if (payload.session === appliedSession && payload.seq <= appliedSeq) return;
-              if (payload.session !== appliedSession) appliedSeq = -1;
-              if (payload.seq <= appliedSeq) return;
-              appliedSession = payload.session;
-              appliedSeq = payload.seq;
-              if (payload.session > 0) sawSession = true;
+            function placeMarks(ids, fill) {
+              var layer = document.getElementById("marks");
+              var requested = ids ? ids.length : 0;
+              var report = { requested: requested, found: 0, visible: 0, drawn: 0 };
+              if (!layer) return report;
+              layer.innerHTML = "";
+              if (!requested) return report;
+              var origin = layer.getBoundingClientRect();
+              var sx = layer.clientWidth > 0 ? origin.width / layer.clientWidth : 0;
+              var sy = layer.clientHeight > 0 ? origin.height / layer.clientHeight : 0;
+              if (!(sx > 0) || !(sy > 0)) return report;
+              for (var i = 0; i < ids.length; i++) {
+                var node = document.getElementById(ids[i]);
+                if (!node) continue;
+                report.found++;
+                var rect = node.getBoundingClientRect();
+                if (rect.width < 0.5 || rect.height < 0.5) continue;
+                report.visible++;
+                var em = parseFloat(window.getComputedStyle(node).fontSize) || 16;
+                var padX = em * 0.32;
+                var padY = em * 0.22;
+                var left = (rect.left - origin.left) / sx - padX;
+                var top = (rect.top - origin.top) / sy - padY;
+                var width = rect.width / sx + padX * 2;
+                var height = rect.height / sy + padY * 2;
+                var box = document.createElement("div");
+                box.className = "mark";
+                box.style.left = left + "px";
+                box.style.top = top + "px";
+                box.style.width = width + "px";
+                box.style.height = height + "px";
+                box.style.background = fill || "transparent";
+                layer.appendChild(box);
+                var placed = box.getBoundingClientRect();
+                var expectLeft = origin.left + left * sx;
+                var expectTop = origin.top + top * sy;
+                var aligned = Math.abs(placed.left - expectLeft) <= 1 &&
+                  Math.abs(placed.top - expectTop) <= 1 &&
+                  Math.abs(placed.width - width * sx) <= 1 &&
+                  Math.abs(placed.height - height * sy) <= 1;
+                if (!aligned) {
+                  box.remove();
+                  continue;
+                }
+                report.drawn++;
+              }
+              return report;
+            }
+            function paintSpeech() {
+              var payload = savedSpeech;
+              if (!payload) return false;
               var match = !!payload.formula && payload.formula === opened;
-              formula.classList.toggle("speaking", match && payload.play === "playing");
-              formula.classList.toggle("paused-here", match && payload.play === "paused");
+              var playing = match && payload.play === "playing";
+              var paused = match && payload.play === "paused";
+              if (payload.fill) formula.style.setProperty("--vox-speak-fill", payload.fill);
+              if (payload.fillDim) formula.style.setProperty("--vox-speak-fill-dim", payload.fillDim);
+              if (payload.edge) formula.style.setProperty("--vox-speak-edge", payload.edge);
+              formula.classList.toggle("speaking", playing);
+              formula.classList.toggle("paused-here", paused);
+              var marks = placeMarks(match && (playing || paused) ? payload.nodes : [], paused ? payload.fillDim : payload.fill);
+              window.voxMarkReport = marks;
               banner.className = "";
-              if (match && payload.play === "playing") showStatus("正在朗读", "暂停", "pause");
-              else if (match && payload.play === "paused") showStatus("已暂停", "继续", "resume");
-              else if (payload.play === "stopped" && sawSession) showStatus("朗读已停止", "", "");
+              if (playing) {
+                matchedOnce = true;
+                showStatus("正在朗读", "暂停", "pause");
+              } else if (paused) {
+                matchedOnce = true;
+                showStatus("已暂停", "继续", "resume");
+              } else if (matchedOnce && payload.play === "stopped") {
+                showStatus("朗读已停止", "", "");
+              }
+              var classesOk = playing === formula.classList.contains("speaking") &&
+                paused === formula.classList.contains("paused-here");
+              var marksOk = marks.requested === 0 ||
+                (marks.found === marks.requested && marks.drawn === marks.visible);
+              return classesOk && marksOk;
+            }
+            function acceptSpeech(payload, force) {
+              if (!payload || payload.viewer !== viewerId) return "rejected";
+              var session = typeof payload.session === "number" ? payload.session : 0;
+              var revision = typeof payload.revision === "number" ? payload.revision : 0;
+              if (!force && revision < appliedRevision) return "rejected";
+              if (!force && revision === appliedRevision) {
+                return session === appliedSession ? "duplicate" : "rejected";
+              }
+              appliedSession = session;
+              appliedRevision = revision;
+              savedSpeech = payload;
+              return paintSpeech() ? "applied" : "rejected";
+            }
+            window.voxApplySpeech = function (payload) {
+              return acceptSpeech(payload, false);
             };
-            window.addEventListener("resize", function () { if (mode === "fit") fit(); });
+            window.voxRedrawSpeech = function () {
+              if (!savedSpeech) return false;
+              return paintSpeech();
+            };
+            window.addEventListener("resize", function () {
+              if (mode === "fit") fit();
+              else if (window.voxRedrawSpeech) voxRedrawSpeech();
+            });
             banner.className = "";
             var reportedSize = false;
             var reportedFit = false;
@@ -729,6 +899,7 @@ private fun viewerHtml(
               document.fonts.ready.then(function () {
                 if (window.VoxHost && VoxHost.fontReady) VoxHost.fontReady();
                 if (mode === "fit") fit();
+                else if (window.voxRedrawSpeech) voxRedrawSpeech();
               });
             }
             requestAnimationFrame(prepareFormula);
@@ -738,7 +909,6 @@ private fun viewerHtml(
     """.trimIndent()
         .replace("__VOX_BG__", background.cssRgb())
         .replace("__VOX_FG__", foreground.cssRgb())
-        .replace("__VOX_MARK__", foreground.cssAlpha(0.45f))
         .replace("__VOX_BUTTON__", foreground.cssAlpha(0.08f))
         .replace("__VOX_MATH__", mathml)
         .replace("__VOX_OPENED__", JSONObject.quote(openedKey))
@@ -751,6 +921,9 @@ private fun Int.cssRgb(): String {
     val blue = this and 0xFF
     return "rgb($red, $green, $blue)"
 }
+
+private fun String?.jsToken(): String =
+    this?.trim()?.trim('"').orEmpty()
 
 private fun Int.cssAlpha(alpha: Float): String {
     val red = (this shr 16) and 0xFF

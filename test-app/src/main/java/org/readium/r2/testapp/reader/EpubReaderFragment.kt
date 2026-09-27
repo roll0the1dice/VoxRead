@@ -289,6 +289,16 @@ class EpubReaderFragment : VisualReaderFragment() {
         }
     }
 
+    /**
+     * The fullscreen tree has to be the MathML from the same conversion that
+     * produced the spoken ranges. The page formula is only the fallback.
+     */
+    private fun speechMathMl(key: String, pageMathMl: String): String {
+        val state = model.tts?.speech?.value ?: return pageMathMl
+        if (state.formulaId != key || state.canonicalMathMl.isBlank()) return pageMathMl
+        return state.canonicalMathMl
+    }
+
     private fun presentFormula(
         key: String,
         mathml: String,
@@ -342,7 +352,7 @@ class EpubReaderFragment : VisualReaderFragment() {
             }
             copyThenShowFormula(
                 key = key,
-                mathml = mathml,
+                mathml = speechMathMl(key, mathml),
                 automatic = automatic,
                 background = parseCssColor(pageBackground) ?: Color.WHITE,
                 foreground = parseCssColor(pageForeground) ?: Color.BLACK,
@@ -438,6 +448,17 @@ class EpubReaderFragment : VisualReaderFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             navigator.evaluateJavascript("window.__voxFormulaOpen = false;")
         }
+    }
+
+    /**
+     * Reading left the formula that was on screen. Do not treat that as the
+     * reader dismissing it, or the next formula will not open.
+     */
+    fun noteAutoFormulaSpeechEnded() {
+        autoFormulaKey = null
+        pendingFormulaKey = null
+        awaitingFormulaLayout = false
+        recheckLongFormula = true
     }
 
     private fun dismissAutoFormula(next: QueuedFormula?) {

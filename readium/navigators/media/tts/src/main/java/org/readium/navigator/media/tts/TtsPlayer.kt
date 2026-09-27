@@ -169,6 +169,19 @@ internal class TtsPlayer<
     private var utteranceWindow: UtteranceWindow =
         initialWindow
 
+    /**
+     * Advances whenever the spoken window moves. publishedGeneration stays
+     * behind until playback of that utterance actually starts, so a finished
+     * formula remains the highlighted one until the next utterance is heard.
+     * The playback-start callback must still publish after the window has
+     * already stepped ahead, or the highlight never leaves the formula.
+     */
+    @Volatile
+    private var speechGeneration: Int = 0
+
+    @Volatile
+    private var publishedGeneration: Int = 0
+
     private var playbackJob: Job? =
         null
 
@@ -489,6 +502,7 @@ internal class TtsPlayer<
                 return
             }
 
+        speechGeneration += 1
         utteranceWindow = UtteranceWindow(
             previousUtterance = previousUtterance,
             currentUtterance = checkNotNull(contextNow.previousUtterance),
@@ -516,6 +530,7 @@ internal class TtsPlayer<
             return
         }
 
+        speechGeneration += 1
         utteranceWindow = UtteranceWindow(
             previousUtterance = contextNow.currentUtterance,
             currentUtterance = contextNow.nextUtterance,
@@ -530,6 +545,7 @@ internal class TtsPlayer<
     }
 
     private fun publishCurrentUtterance() {
+        publishedGeneration = speechGeneration
         utteranceMutable.value = utteranceWindow.currentUtterance.ttsPlayerUtterance()
     }
 
@@ -563,6 +579,7 @@ internal class TtsPlayer<
             onContentException(e)
             return
         }
+        speechGeneration += 1
         utteranceWindow = checkNotNull(startContext)
         publishCurrentUtterance()
         if (utteranceWindow.nextUtterance == null && utteranceWindow.ended) {
@@ -594,23 +611,30 @@ internal class TtsPlayer<
         playContinuous()
     }
 
-    private suspend fun speakUtterance(utterance: TtsUtteranceIterator.Utterance): E? =
-        engineFacade.speak(
+    private suspend fun speakUtterance(utterance: TtsUtteranceIterator.Utterance): E? {
+        val generation = speechGeneration
+        return engineFacade.speak(
             text = utterance.utterance,
             language = utterance.language,
             onStart = {
                 coroutineScope.launch {
-                    if (utterance.matches(utteranceWindow.currentUtterance)) {
+                    // The window may already point at a later utterance: onDone
+                    // advances it when synthesis is queued, before this playback
+                    // start is delivered. Publish by generation so the highlight
+                    // still leaves the formula that just finished.
+                    if (generation > publishedGeneration) {
+                        publishedGeneration = generation
                         utteranceMutable.value = utterance.ttsPlayerUtterance()
                     }
                 }
             },
             onRange = { range ->
-                if (utterance.matches(utteranceWindow.currentUtterance)) {
+                if (generation == publishedGeneration) {
                     onRangeChanged(range)
                 }
             }
         )
+    }
 
     private fun onEngineError(error: E) {
         playbackMutable.value = playbackMutable.value.copy(

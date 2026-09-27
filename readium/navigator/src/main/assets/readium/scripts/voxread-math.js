@@ -711,12 +711,14 @@
 
   function exportMath(math) {
     var clone = math.cloneNode(true);
-    function strip(node) {
-      if (node.removeAttribute) node.removeAttribute("id");
+    function keep(node) {
+      if (node.getAttribute && node.getAttribute("id")) {
+        node.setAttribute("data-vox-node", node.getAttribute("id"));
+      }
       var children = node.children || [];
-      for (var i = 0; i < children.length; i++) strip(children[i]);
+      for (var i = 0; i < children.length; i++) keep(children[i]);
     }
-    strip(clone);
+    keep(clone);
     if (!clone.getAttribute("xmlns")) {
       clone.setAttribute("xmlns", "http://www.w3.org/1998/Math/MathML");
     }

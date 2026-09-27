@@ -15,10 +15,11 @@ import org.readium.r2.shared.publication.Locator
  * Maps a span of text that will be spoken onto the original document.
  *
  * Offsets are UTF-16 indexes into the utterance actually sent to the engine.
- * A math span covers the whole spoken form of one formula and always points at
- * that formula. A text span points at one DOM text node and the characters
- * inside it. Chapter scope lives in [SpeechAnchors]; the page script uses the
- * same `vox:{href}#{localId}` form.
+ * A math span covers the spoken form of one formula. [Span.nodes] names the
+ * symbols inside it, using the same UTF-16 offsets as the utterance. A text
+ * span points at one DOM text node and the characters inside it. Chapter scope
+ * lives in [SpeechAnchors]; the page script uses the same `vox:{href}#{localId}`
+ * form.
  */
 @ExperimentalReadiumApi
 public class SpeechMap(
@@ -42,16 +43,21 @@ public class SpeechMap(
         val mathId: String = "",
         val prefix: String = "",
         val suffix: String = "",
+        val nodes: List<MathSpeechAnchor> = emptyList(),
+        val mathml: String = "",
     )
 
     /**
      * @param sentenceLevel True when the engine has not reported a word range.
-     * Every span of the utterance is highlighted together. A word range never
-     * invents a position inside a formula: the whole formula stays lit.
+     * Every span of the utterance is highlighted together.
+     * @param nodeIds MathML nodes covered by a word range inside a formula.
+     * A range that crosses several nodes lists all of them. An empty list means
+     * the engine has not yet reported a position inside the formula.
      */
     public data class Highlight(
         val sentenceLevel: Boolean,
         val spans: List<Span>,
+        val nodeIds: List<String> = emptyList(),
     )
 
     public fun slice(start: Int, endExclusive: Int): SpeechMap {
@@ -100,7 +106,12 @@ public class SpeechMap(
         val span = spans.firstOrNull { anchor >= it.start && anchor < it.end }
             ?: return Highlight(sentenceLevel = true, spans = spans)
         if (span.kind == Kind.Math) {
-            return Highlight(sentenceLevel = false, spans = listOf(span))
+            val wordEnd = (range.last + 1).coerceIn(anchor, span.end)
+            val nodeIds = span.nodes
+                .filter { it.end > anchor && it.start < wordEnd }
+                .flatMap { it.nodeIds }
+                .distinct()
+            return Highlight(sentenceLevel = false, spans = listOf(span), nodeIds = nodeIds)
         }
         val wordEnd = (range.last + 1).coerceIn(anchor, span.end)
         return Highlight(
@@ -121,6 +132,14 @@ public class SpeechMap(
                 "to" to span.to,
                 "raw" to span.raw,
                 "mathId" to span.mathId,
+                "mathml" to span.mathml,
+                "nodes" to span.nodes.map { node ->
+                    mapOf(
+                        "start" to node.start,
+                        "end" to node.end,
+                        "ids" to node.nodeIds,
+                    )
+                },
             )
         }
 
@@ -144,9 +163,23 @@ public class SpeechMap(
                     to = map["to"].asInt() ?: 0,
                     raw = map["raw"] as? String ?: "",
                     mathId = map["mathId"] as? String ?: "",
+                    mathml = map["mathml"] as? String ?: "",
+                    nodes = storedNodes(map["nodes"]),
                 )
             }
             return SpeechMap(spans)
+        }
+
+        private fun storedNodes(stored: Any?): List<MathSpeechAnchor> {
+            val items = stored as? List<*> ?: return emptyList()
+            return items.mapNotNull { item ->
+                val map = item as? Map<*, *> ?: return@mapNotNull null
+                val start = map["start"].asInt() ?: return@mapNotNull null
+                val end = map["end"].asInt() ?: return@mapNotNull null
+                val ids = (map["ids"] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+                if (end <= start || ids.isEmpty()) return@mapNotNull null
+                MathSpeechAnchor(start, end, ids)
+            }
         }
 
         /**
@@ -234,14 +267,15 @@ private fun SpeechMap.Span.slice(cutStart: Int, cutEnd: Int): SpeechMap.Span? {
     val newStart = (start - cutStart).coerceAtLeast(0)
     val newEnd = (end.coerceAtMost(cutEnd) - cutStart)
     if (newEnd <= newStart) return null
+    val keptNodes = shiftNodes(cutStart, newEnd)
     if (kind == SpeechMap.Kind.Math || raw.isEmpty()) {
-        return copy(start = newStart, end = newEnd)
+        return copy(start = newStart, end = newEnd, nodes = keptNodes)
     }
     val localStart = (cutStart - start).coerceAtLeast(0)
     val localEnd = (cutEnd - start).coerceAtMost(end - start)
     val normalized = SpeechMap.normalize(raw, stripLeading = false)
     if (normalized.text.length != end - start) {
-        return copy(start = newStart, end = newEnd)
+        return copy(start = newStart, end = newEnd, nodes = keptNodes)
     }
     val covered = normalized.pieces.filter { it.outEnd > localStart && it.outStart < localEnd }
     if (covered.isEmpty()) return null
@@ -255,7 +289,24 @@ private fun SpeechMap.Span.slice(cutStart: Int, cutEnd: Int): SpeechMap.Span? {
         raw = raw.substring(rawStart, rawEnd),
         prefix = raw.substring(0, rawStart),
         suffix = raw.substring(rawEnd),
+        nodes = keptNodes,
     )
+}
+
+private fun SpeechMap.Span.shiftNodes(cutStart: Int, newEnd: Int): List<MathSpeechAnchor> {
+    if (nodes.isEmpty()) return emptyList()
+    return nodes.mapNotNull { node ->
+        val start = node.start - cutStart
+        val end = node.end - cutStart
+        if (end <= 0 || start >= newEnd) {
+            null
+        } else {
+            node.copy(
+                start = start.coerceAtLeast(0),
+                end = end.coerceAtMost(newEnd),
+            )
+        }
+    }.filter { it.end > it.start }
 }
 
 private fun Any?.asInt(): Int? = when (this) {

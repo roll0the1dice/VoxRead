@@ -19,8 +19,11 @@ enum class TtsPlay {
 
 /**
  * The one TTS snapshot both the page and the fullscreen viewer read.
- * [formulaId] is book, chapter, and the original formula id. It is absent when
- * the engine is only at sentence level and the sentence is not one formula.
+ * [formulaId] decides when the fullscreen formula opens and closes.
+ * [activeNodeIds] are the symbols or subexpressions covered by the latest
+ * spoken range. [utteranceId] distinguishes one spoken fragment from the next,
+ * and [sequence] rejects a callback that arrives after a newer one.
+ * [canonicalMathMl] is the formula from the same conversion as [activeNodeIds].
  */
 data class TtsSpeechState(
     val session: Long,
@@ -28,6 +31,9 @@ data class TtsSpeechState(
     val play: TtsPlay,
     val chapterHref: String,
     val formulaId: String?,
+    val activeNodeIds: List<String> = emptyList(),
+    val utteranceId: String = "",
+    val canonicalMathMl: String = "",
 ) {
     companion object {
         fun key(bookId: Long, href: String, formulaId: String): String {

@@ -229,16 +229,24 @@
   - x: "*[1]"
   - test:
       if: "$Verbosity='Verbose'"
-      then: [T: "下標"]      # phrase(a 'subscript' may be used to indicate an index)
-      else: [T: "下標"]      # phrase(the result is 'sub' optimal)
+      then:
+      - bookmark: "@id"
+      - T: "下標"      # phrase(a 'subscript' may be used to indicate an index)
+      else:
+      - bookmark: "@id"
+      - T: "下標"      # phrase(the result is 'sub' optimal)
   - x: "*[2]"
   - test:
       if: "not(IsNode(*[2],'leaf') and $Impairment = 'Blindness')"
       then:
       - test:
           if: "$Verbosity='Verbose'"
-          then: [T: "結束下標"]      # phrase(this is the 'end subscript' position)
-          else: [T: "結束下標"]      # phrase(this is the 'end sub' position)
+          then:
+          - bookmark: "@id"
+          - T: "結束下標"      # phrase(this is the 'end subscript' position)
+          else:
+          - bookmark: "@id"
+          - T: "結束下標"      # phrase(this is the 'end sub' position)
       - pause: short
       else_test:
           if: "*[2][self::m:mi]"   # need a pause in "x sub k prime" so the prime is not associated with the 'k'

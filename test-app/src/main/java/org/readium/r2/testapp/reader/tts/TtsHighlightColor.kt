@@ -27,6 +27,25 @@ enum class TtsHighlightColor(
     RED("red", Color.rgb(247, 124, 124), R.string.tts_highlight_color_red),
     ;
 
+    /** Same fill the reading page paints behind the spoken formula. */
+    fun playingFill(): String = rgba(if (this == YELLOW) 0.45f else 0.40f)
+
+    /** Dimmer fill kept on screen while speech is paused. */
+    fun pausedFill(): String = rgba(if (this == YELLOW) 0.22f else 0.18f)
+
+    /** Opaque edge so the formula stays visible on top of the fill. */
+    fun speakEdge(): String = rgba(0.95f)
+
+    private fun rgba(alpha: Float): String {
+        val (red, green, blue) = when (this) {
+            YELLOW -> Triple(255, 220, 40)
+            RED -> Triple(244, 67, 54)
+            GREEN -> Triple(76, 175, 80)
+            BLUE -> Triple(33, 150, 243)
+        }
+        return "rgba($red, $green, $blue, $alpha)"
+    }
+
     companion object {
         val DEFAULT: TtsHighlightColor = YELLOW
 

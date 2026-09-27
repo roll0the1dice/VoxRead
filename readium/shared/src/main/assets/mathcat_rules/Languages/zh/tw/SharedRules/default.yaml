@@ -90,6 +90,7 @@
   - "not(ancestor::*[name() != 'mrow'][1]/self::m:fraction)" # FIX: can't test for mrow -- what should be used???
   replace:
   - x: "*[2]"
+  - bookmark: "@id"
   - T: "分之"               # phrase("the fraction x 'over' y")
   - x: "*[1]"
   - pause: short
@@ -98,12 +99,14 @@
   tag: mfrac
   match: "."
   replace:
+  - bookmark: "@id"
   - T: "分數"              # phrase("'start'  fraction x over y end of fraction")
   - pause: short
   - x: "*[2]"
   - test:
       if: "not(IsNode(*[1],'leaf'))"
       then: [pause: short]
+  - bookmark: "@id"
   - T: "分之"               # phrase("the fraction x 'over' y")
   - test:
       if: "not(IsNode(*[2],'leaf'))"
@@ -112,7 +115,9 @@
   - pause: short
   - test:
       if: "$Impairment = 'Blindness'"
-      then: [T: "結束分數"]          # phrase("start of fraction x over y 'end over'")
+      then:
+      - bookmark: "@id"
+      - T: "結束分數"          # phrase("start of fraction x over y 'end over'")
   - pause: medium
 
 
@@ -124,6 +129,7 @@
   - test:
       if: "$Verbosity!='Terse'"
       then: [T: ""]    # phrase("'the' root of x")
+  - bookmark: "@id"
   - T: "根號"
   - test:
       if: "$Verbosity!='Terse'"
@@ -132,7 +138,10 @@
   - pause: short
   - test:
       if: "not(IsNode(*[1],'leaf')) or $Impairment = 'Blindness'"
-      then: [T: "結束根號", pause: medium] # phrase("root of x 'end root symbol'")
+      then:
+      - bookmark: "@id"
+      - T: "結束根號"
+      - pause: medium # phrase("root of x 'end root symbol'")
 
 # not sure what really should be said for these since we should not assume they are square roots
 - name: literal-default
@@ -142,15 +151,19 @@
   - test:
       if: "$Verbosity!='Terse'"
       then: [T: ""]   # phrase("'the' root of x")
+  - bookmark: "@id"
   - T: "根指數"      # phrase("the root of x 'with index' 5")
   - x: "*[2]"
+  - bookmark: "@id"
   - T: "根號"
   - pause: short
   - x: "*[1]"
   - pause: short
   - test:
       if: "not(IsNode(*[1],'leaf'))"
-      then: [T: "結束根號"] # phrase("root of x 'end root symbol'")
+      then:
+      - bookmark: "@id"
+      - T: "結束根號" # phrase("root of x 'end root symbol'")
 
 
 - name: simple-sub
@@ -167,6 +180,7 @@
   match: "count(*)=2 and *[2][self::m:mrow and *[2][.='⁣']]"
   replace:
   - x: "*[1]"
+  - bookmark: "@id"
   - T: "下標"      # phrase(x 'sub' 2)
   - x: "*[2]"
   - pause: short
@@ -176,6 +190,7 @@
   match: "."
   replace:
   - x: "*[1]"
+  - bookmark: "@id"
   - T: "下標"               # phrase(x 'sub' 2)
   - x: "*[2]"
   - pause: short
@@ -189,7 +204,9 @@
   - x: "*[1]"
   - test:
       if: "not($Verbosity='Terse' and *[2][self::m:mn and not(translate(., '.,', '')!=.)])"  # just say "x 1" for terse vs "x sub 1"
-      then: [T: "下標"]      # phrase(x 'sub' 2)
+      then:
+      - bookmark: "@id"
+      - T: "下標"      # phrase(x 'sub' 2)
   - x: "*[2]"
 
 
@@ -201,6 +218,7 @@
   - test:
       if: "name(.)='msubsup'"
       then:
+      - bookmark: "@id"
       - T: "下標"          # phrase(x 'sub' 2)
       - x: "*[2]"
   - test:
@@ -209,21 +227,32 @@
       else_test:
           if: "ancestor-or-self::*[contains(@data-intent-property, ':literal:')]"  # FIX: is this test necessary?
           then:
+          - bookmark: "@id"
           - T: "上標"      # phrase(x 'super' 2)
           - x: "*[last()]"
           - test:
               if: "not(IsNode(*[last()], 'simple')) or $Impairment = 'Blindness'"
-              then: [T: "結束上標"]      # phrase(x super 2 'end of super')
+              then:
+              - bookmark: "@id"
+              - T: "結束上標"      # phrase(x super 2 'end of super')
           else:
           - test:
               if: "$Verbosity='Verbose'"
-              then: [T: "上標"]
-              else: [T: "上標"]
+              then:
+              - bookmark: "@id"
+              - T: "上標"
+              else:
+              - bookmark: "@id"
+              - T: "上標"
           - x: "*[last()]"
           - test:
               if: "$Verbosity='Verbose'"
-              then: [T: "結束上標"]
-              else: [T: "結束上標"]
+              then:
+              - bookmark: "@id"
+              - T: "結束上標"
+              else:
+              - bookmark: "@id"
+              - T: "結束上標"
 
 - name: default
   tag: munder
@@ -656,9 +685,6 @@
   - x: "SpeakIntentName(name(.), $Verbosity, 'prefix')"
   - x: "*"
   - test:
-      if: "not( IsBracketed(., '', '') or IsNode(*[last()], 'simple') )"
-      then: [x: "GetBracketingIntentName(name(.), $Verbosity, 'prefix', 'end')"]
-  - test:
       if: "IsNode(., '2D')"
       then: [pause: short]
       else: [pause: auto]
@@ -668,10 +694,8 @@
   tag: "*"
   match: "count(*)>0 and contains(@data-intent-property, ':postfix:')"
   replace:
-  - test:
-      if: "$Impairment = 'Blindness' and not( IsBracketed(., '', '') or IsNode(*[1], 'simple') )"
-      then: [x: "GetBracketingIntentName(name(.), $Verbosity, 'postfix', 'start')"]
   - x: "*"
+  - bookmark: "@id"
   - x: "SpeakIntentName(name(.), $Verbosity, 'postfix')"
 
 - name: infix-intent
@@ -680,21 +704,19 @@
   match: "count(*)>0 and contains(@data-intent-property, ':infix:')"
   replace:
   - test:
-      if: "$Impairment = 'Blindness' and not( IsBracketed(., '', '') or IsNode(*[1], 'simple') )"
-      then: [x: "GetBracketingIntentName(name(.), $Verbosity, 'infix', 'start')"]
-  - test:
       if: "count(*) = 1"  # in cases such as continued-row, plus/minus might have just one child
       then:
+      - bookmark: "@id"
       - x: "SpeakIntentName(name(.), $Verbosity, 'infix')"
       - pause: auto
       - x: "*[1]"
       else:
       - insert:
           nodes: "*"
-          replace: [x: "SpeakIntentName(name(.), $Verbosity, 'infix')", pause: auto]
-  - test:
-      if: "$Impairment = 'Blindness' and not( IsBracketed(., '', '') or IsNode(*[last()], 'simple') )"
-      then: [x: "GetBracketingIntentName(name(.), $Verbosity, 'infix', 'end')"]
+          replace:
+          - bookmark: "@id"
+          - x: "SpeakIntentName(name(.), $Verbosity, 'infix')"
+          - pause: auto
   - test:
       if: "IsNode(., '2D')"   # add (probably) a slightly longer pause if this came from a 2D node
       then: [pause: short]
@@ -717,10 +739,6 @@
           if: "not(contains(@data-intent-property, ':literal:'))"
           then: [x: "','"]
       - pause: auto
-  - test:
-      # speak "end ..." if not bracketed or last child is not simple and not last node
-      if: "$Impairment = 'Blindness' and not(*[last()][IsBracketed(., '', '') or IsNode(., 'simple')] )"
-      then: [x: "GetBracketingIntentName(name(.), $Verbosity, 'function', 'end')"]
   - test:
       if: "IsNode(., '2D')"
       then: [pause: short]
