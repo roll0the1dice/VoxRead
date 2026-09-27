@@ -62,14 +62,28 @@ public class TextContentTokenizer(
         }
     )
 
-    private fun tokenize(segment: Content.TextElement.Segment): List<Content.TextElement.Segment> =
-        textTokenizerFactory(resolveSegmentLanguage(segment)).tokenize(segment.text)
+    private fun tokenize(segment: Content.TextElement.Segment): List<Content.TextElement.Segment> {
+        val map = SpeechMap.from(segment.locator)
+        return textTokenizerFactory(resolveSegmentLanguage(segment)).tokenize(segment.text)
             .map { range ->
+                val locations = if (map == null) {
+                    segment.locator.locations
+                } else {
+                    val sliced = map.slice(range.first, range.last + 1)
+                    segment.locator.locations.copy(
+                        otherLocations = segment.locator.locations.otherLocations +
+                            (SpeechMap.KEY to sliced.toStored())
+                    )
+                }
                 segment.copy(
-                    locator = segment.locator.copy(text = extractTextContextIn(segment.text, range)),
+                    locator = segment.locator.copy(
+                        locations = locations,
+                        text = extractTextContextIn(segment.text, range)
+                    ),
                     text = segment.text.substring(range)
                 )
             }
+    }
 
     private fun resolveSegmentLanguage(segment: Content.TextElement.Segment): Language? =
         segment.language.takeUnless { overrideContentLanguage } ?: language

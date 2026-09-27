@@ -25,6 +25,7 @@ import org.readium.r2.shared.extensions.mapStateIn
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.publication.services.content.SpeechMap
 import org.readium.r2.shared.util.Url
 
 /**
@@ -227,11 +228,13 @@ public class TtsNavigator<
     }
 
     /**
-     * Word highlight for ordinary prose. Formula utterances are highlighted by
-     * element id instead, so a token inside spoken math does not become a locator.
+     * Word highlight for ordinary prose. Spoken math does not match the page, so
+     * a speech map is resolved in the reader instead of becoming a text quote.
+     * A missing range stays sentence-level and is not turned into a formula token.
      */
     private fun tokenLocator(utteranceLocator: Locator, range: IntRange?): Locator? {
         if (range == null) return null
+        if (SpeechMap.from(utteranceLocator) != null) return null
         if (utteranceLocator.locations.isFlag("isMath") || utteranceLocator.locations.isFlag("hasInlineMath")) {
             return null
         }

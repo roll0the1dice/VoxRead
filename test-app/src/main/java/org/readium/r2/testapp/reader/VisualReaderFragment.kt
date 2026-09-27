@@ -283,17 +283,17 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
 
             // Highlight the currently spoken utterance with the user's preferred color.
             (navigator as? DecorableNavigator)?.let { navigator ->
-                combine(highlight, highlightColor) { locator, color ->
-                    locator to color
-                }.observeWhenStarted(viewLifecycleOwner) { (locator, color) ->
-                    val decoration = locator?.let {
+                combine(highlight, highlightColor) { locators, color ->
+                    locators to color
+                }.observeWhenStarted(viewLifecycleOwner) { (locators, color) ->
+                    val decorations = locators.mapIndexed { index, locator ->
                         Decoration(
-                            id = "tts",
-                            locator = it,
+                            id = "tts-$index",
+                            locator = locator,
                             style = Decoration.Style.Highlight(tint = color.tint)
                         )
                     }
-                    navigator.applyDecorations(listOfNotNull(decoration), "tts")
+                    navigator.applyDecorations(decorations, "tts")
                 }
             }
         }

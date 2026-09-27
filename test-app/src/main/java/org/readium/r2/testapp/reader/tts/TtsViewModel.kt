@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 import org.readium.navigator.media.tts.AndroidTtsNavigator
 import org.readium.navigator.media.tts.AndroidTtsNavigatorFactory
@@ -25,6 +26,8 @@ import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.publication.html.cssSelector
+import org.readium.r2.shared.publication.services.content.SpeechMap
 import org.readium.r2.shared.util.Language
 import org.readium.r2.shared.util.getOrElse
 import org.readium.r2.testapp.reader.MediaService
@@ -86,16 +89,35 @@ class TtsViewModel private constructor(
         mediaServiceFacade.session.value?.ttsNavigator
 
     private var launchJob: Job? = null
+    private var pageCollectJob: Job? = null
     private var visualNavigator: VisualNavigator? = null
+    private var highlightSeq: Int = 0
+    private var pendingHref: String? = null
+    private var pendingJs: String? = null
+    private var lastHighlightKey: String? = null
 
     fun bindVisualNavigator(navigator: VisualNavigator) {
-        this.visualNavigator = navigator
+        attachNavigator(navigator)
         Timber.i("VisualNavigator successfully bound to TtsViewModel: $navigator")
     }
 
     fun unbindVisualNavigator() {
+        pageCollectJob?.cancel()
+        pageCollectJob = null
         this.visualNavigator = null
         Timber.i("VisualNavigator unbound from TtsViewModel")
+    }
+
+    private fun attachNavigator(navigator: VisualNavigator) {
+        if (visualNavigator === navigator && pageCollectJob?.isActive == true) return
+        visualNavigator = navigator
+        pageCollectJob?.cancel()
+        pageCollectJob = viewModelScope.launch {
+            navigator.currentLocator
+                .map { it.href.toString() }
+                .distinctUntilChanged()
+                .collect { replayHighlight(it) }
+        }
     }
 
     private fun highlightColorScript(cssColor: String): String {
@@ -103,14 +125,44 @@ class TtsViewModel private constructor(
         return "document.documentElement.style.setProperty('--vox-tts-highlight', $quoted);"
     }
 
-    private fun formulaHighlightScript(locator: Locator): String {
+    private fun legacyFormulaScript(locator: Locator, seq: Int): String {
         val other = locator.locations.otherLocations
         val payload = JSONObject()
+            .put("href", locator.href.toString())
+            .put("seq", seq)
             .put("inline", locator.isFlag("hasInlineMath"))
             .put("mathId", other["mathId"] as? String ?: JSONObject.NULL)
             .put("mathSelector", other["mathSelector"] as? String ?: JSONObject.NULL)
             .put("cssSelector", other["cssSelector"] as? String ?: JSONObject.NULL)
         return "window.voxReadHighlightMath && window.voxReadHighlightMath($payload);"
+    }
+
+    private fun speechHighlightScript(
+        locator: Locator,
+        utterance: String,
+        highlight: SpeechMap.Highlight,
+        seq: Int,
+    ): String {
+        val targets = JSONArray()
+        highlight.spans.forEach { span ->
+            targets.put(
+                JSONObject()
+                    .put("kind", if (span.kind == SpeechMap.Kind.Math) "math" else "text")
+                    .put("selector", span.selector)
+                    .put("node", span.node)
+                    .put("from", span.from)
+                    .put("to", span.to)
+                    .put("text", span.raw)
+                    .put("mathId", span.mathId)
+            )
+        }
+        val payload = JSONObject()
+            .put("href", locator.href.toString())
+            .put("seq", seq)
+            .put("utterance", utterance)
+            .put("sentence", highlight.sentenceLevel)
+            .put("targets", targets)
+        return "window.voxReadApplyHighlight && window.voxReadApplyHighlight($payload);"
     }
 
     private val _events: Channel<Event> = Channel(Channel.BUFFERED)
@@ -142,17 +194,12 @@ class TtsViewModel private constructor(
                 ?: MutableStateFlow(null)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val highlight: StateFlow<Locator?> =
+    val highlight: StateFlow<List<Locator>> =
         mediaServiceFacade.session.flatMapLatest { session ->
             session?.ttsNavigator?.location?.map { location ->
-                val utterance = location.utteranceLocator
-                if (utterance.isFlag("isMath") || utterance.isFlag("hasInlineMath")) {
-                    null
-                } else {
-                    location.tokenLocator ?: utterance
-                }
-            } ?: MutableStateFlow(null)
-        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+                spokenHighlights(location)
+            } ?: MutableStateFlow(emptyList())
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val highlightColor: StateFlow<TtsHighlightColor> = highlightColorStore.color
 
@@ -187,15 +234,7 @@ class TtsViewModel private constructor(
 
         mediaServiceFacade.session
             .flatMapLatest { it?.ttsNavigator?.location ?: MutableStateFlow(null) }
-            .map { it?.utteranceLocator }
-            .distinctUntilChanged()
-            .onEach { utterance ->
-                if (utterance != null && (utterance.isFlag("isMath") || utterance.isFlag("hasInlineMath"))) {
-                    applyFormulaHighlight(utterance)
-                } else {
-                    clearFormulaHighlight()
-                }
-            }
+            .onEach { location -> syncSpeechHighlight(location) }
             .launchIn(viewModelScope)
     }
 
@@ -212,8 +251,126 @@ class TtsViewModel private constructor(
     }
 
     private fun clearFormulaHighlight() {
-        visualNavigator?.runJs("window.voxReadClearHighlight && window.voxReadClearHighlight();")
+        if (pendingJs == null && pendingHref == null) return
+        lastHighlightKey = null
+        pendingHref = null
+        pendingJs = null
+        val seq = ++highlightSeq
+        visualNavigator?.runJs("window.voxReadClearHighlight && window.voxReadClearHighlight($seq);")
     }
+
+    private fun syncSpeechHighlight(location: TtsNavigator.Location?) {
+        if (location == null) {
+            clearFormulaHighlight()
+            return
+        }
+        val utterance = location.utteranceLocator
+        val map = SpeechMap.from(utterance)
+        if (map != null) {
+            val active = map.resolve(location.range)
+            if (active.spans.isEmpty()) {
+                clearFormulaHighlight()
+            } else {
+                dispatchHighlight(
+                    href = utterance.href.toString(),
+                    script = { seq ->
+                        speechHighlightScript(utterance, location.utterance, active, seq)
+                    }
+                )
+            }
+            return
+        }
+        if (utterance.isFlag("isMath") || utterance.isFlag("hasInlineMath")) {
+            dispatchHighlight(
+                href = utterance.href.toString(),
+                script = { seq -> legacyFormulaScript(utterance, seq) }
+            )
+        } else {
+            clearFormulaHighlight()
+        }
+    }
+
+    private fun dispatchHighlight(href: String, script: (Int) -> String) {
+        val key = script(0)
+        if (key == lastHighlightKey && pendingHref == href) return
+        lastHighlightKey = key
+        val seq = ++highlightSeq
+        val js = highlightColorScript(getCssHighlightColor(highlightColor.value)) + "\n" + script(seq)
+        pendingHref = href
+        pendingJs = js
+        val visible = visualNavigator?.currentLocator?.value?.href?.toString()
+        if (visible != null && visible != href) {
+            val clearSeq = ++highlightSeq
+            visualNavigator?.runJs("window.voxReadClearHighlight && window.voxReadClearHighlight($clearSeq);")
+            return
+        }
+        visualNavigator?.runJs(js) { result ->
+            if (result != null && !result.applied()) {
+                Timber.w("TTS highlight was not applied on $href (seq=$seq, result=$result)")
+            }
+        }
+    }
+
+    private fun replayHighlight(visibleHref: String) {
+        val href = pendingHref ?: return
+        val js = pendingJs ?: return
+        if (href != visibleHref) {
+            val clearSeq = ++highlightSeq
+            visualNavigator?.runJs("window.voxReadClearHighlight && window.voxReadClearHighlight($clearSeq);")
+            return
+        }
+        visualNavigator?.runJs(js) { result ->
+            if (result != null && !result.applied()) {
+                Timber.w("TTS highlight missed after the page became ready: $visibleHref ($result)")
+            }
+        }
+    }
+
+    private fun String.applied(): Boolean =
+        trim().trim('"') == "true"
+
+    /**
+     * Ordinary words use the same decoration as prose without formulas.
+     * The quote is the page text, so the highlighter does not search for the
+     * spoken form of a formula. A formula span is drawn by the page script.
+     */
+    private fun spokenHighlights(location: TtsNavigator.Location): List<Locator> {
+        val utterance = location.utteranceLocator
+        val map = SpeechMap.from(utterance)
+        if (map != null) {
+            return textDecorationLocators(utterance, map.resolve(location.range).spans)
+        }
+        if (utterance.isFlag("isMath") || utterance.isFlag("hasInlineMath")) {
+            return emptyList()
+        }
+        return listOf(location.tokenLocator ?: utterance)
+    }
+
+    private fun textDecorationLocators(
+        utterance: Locator,
+        spans: List<SpeechMap.Span>,
+    ): List<Locator> =
+        spans.mapNotNull { span ->
+            if (span.kind != SpeechMap.Kind.Text) return@mapNotNull null
+            val quote = span.raw.trim()
+            if (quote.isEmpty()) return@mapNotNull null
+            val selector = span.selector.ifBlank { utterance.locations.cssSelector }
+            val other = utterance.locations.otherLocations.toMutableMap()
+            other.remove("isMath")
+            other.remove("mathSelector")
+            other.remove("mathId")
+            other.remove("hasInlineMath")
+            other.remove(SpeechMap.KEY)
+            if (!selector.isNullOrBlank()) other["cssSelector"] = selector
+            utterance.copy(
+                locations = utterance.locations.copy(otherLocations = other),
+                text = Locator.Text(
+                    before = span.prefix.takeLast(32).ifBlank { null },
+                    highlight = quote,
+                    after = span.suffix.take(32).ifBlank { null },
+                ),
+            )
+        }
 
     private fun Locator.isFlag(key: String): Boolean {
         val value = locations.otherLocations[key]
@@ -233,7 +390,7 @@ class TtsViewModel private constructor(
 
     fun start(navigator: Navigator) {
         (navigator as? VisualNavigator)?.let {
-            this.visualNavigator = it
+            attachNavigator(it)
             Timber.i("VisualNavigator bound in start(): $it")
         }
 
@@ -271,23 +428,17 @@ class TtsViewModel private constructor(
         ttsNavigator.play()
     }
 
-    private fun VisualNavigator?.runJs(javascript: String) {
+    private fun VisualNavigator?.runJs(javascript: String, onResult: ((String?) -> Unit)? = null) {
         val nav = this as? EpubNavigatorFragment ?: return
         viewModelScope.launch {
             try {
-                nav.evaluateJavascript(javascript)
+                val result = nav.evaluateJavascript(javascript)
+                onResult?.invoke(result)
             } catch (e: Exception) {
                 Timber.w(e, "Unable to evaluate javascript on visualNavigator")
+                onResult?.invoke(null)
             }
         }
-    }
-
-    private fun applyFormulaHighlight(locator: Locator) {
-        val navigator = visualNavigator ?: return
-        val cssColor = getCssHighlightColor(highlightColor.value)
-        navigator.runJs(
-            highlightColorScript(cssColor) + "\n" + formulaHighlightScript(locator)
-        )
     }
 
     fun stop() {

@@ -4,7 +4,7 @@
  * available in the top-level LICENSE file of the project.
  */
 
-@file:OptIn(InternalReadiumApi::class)
+@file:OptIn(InternalReadiumApi::class, ExperimentalReadiumApi::class)
 
 package org.readium.r2.shared.publication.services.content.iterators
 
@@ -29,6 +29,8 @@ import org.readium.r2.shared.publication.PublicationServicesHolder
 import org.readium.r2.shared.publication.html.cssSelector
 import org.readium.r2.shared.publication.services.content.Content
 import org.readium.r2.shared.publication.services.content.Content.Attribute
+import org.readium.r2.shared.publication.services.content.SpeechAnchors
+import org.readium.r2.shared.publication.services.content.SpeechMap
 import org.readium.r2.shared.publication.services.content.Content.AttributeKey
 import org.readium.r2.shared.publication.services.content.Content.AudioElement
 import org.readium.r2.shared.publication.services.content.Content.ImageElement
@@ -46,13 +48,13 @@ import org.readium.r2.shared.util.resource.Resource
 import org.readium.r2.shared.util.toDebugDescription
 import org.readium.r2.shared.util.use
 import timber.log.Timber
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import android.content.Context
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 /**
  * Iterates an HTML [resource], starting from the given [locator].
  *
@@ -123,6 +125,12 @@ private companion object {
         // 显式指定 private 和明确的类型，满足 Explicit API 模式
         private val mathSpeechCache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
 
+        /** Blocks kept behind the reading position so the previous sentence can still move back. */
+        private const val BLOCKS_BEFORE: Int = 2
+
+        /** Blocks identified ahead of the reading position. The next window is loaded when reading reaches it. */
+        private const val BLOCKS_AFTER: Int = 8
+
 private fun fastCssSelector(
         element: org.jsoup.nodes.Element,
         cache: MutableMap<org.jsoup.nodes.Element, String>
@@ -174,11 +182,12 @@ private fun fastCssSelector(
     override suspend fun hasPrevious(): Boolean {
         if (currentElement?.delta == -1) return true
 
-        val elements = elements()
-        val index = (currentIndex ?: elements.startIndex) - 1
-
-        val content = elements.elements.getOrNull(index)
-            ?: return false
+        ensureChapter()
+        if ((currentIndex ?: readStart) - 1 < 0) {
+            extendBackward()
+        }
+        val index = (currentIndex ?: readStart) - 1
+        val content = builtElements.getOrNull(index) ?: return false
 
         currentIndex = index
         currentElement = ElementWithDelta(content, -1)
@@ -196,11 +205,12 @@ private fun fastCssSelector(
     override suspend fun hasNext(): Boolean {
         if (currentElement?.delta == +1) return true
 
-        val elements = elements()
-        val index = (currentIndex ?: (elements.startIndex - 1)) + 1
-
-        val content = elements.elements.getOrNull(index)
-            ?: return false
+        ensureChapter()
+        val index = (currentIndex ?: (readStart - 1)) + 1
+        while (index >= builtElements.size && parsedUntilUnit < units.size) {
+            extendForward()
+        }
+        val content = builtElements.getOrNull(index) ?: return false
 
         currentIndex = index
         currentElement = ElementWithDelta(content, +1)
@@ -217,20 +227,26 @@ private fun fastCssSelector(
 
     private var currentIndex: Int? = null
 
-    private suspend fun elements(): ParsedElements =
-        parsedElements
-            ?: parseElements().also { parsedElements = it }
+    private var chapterReady: Boolean = false
+    private var chapterDocument: org.jsoup.nodes.Document? = null
+    private var selectorCache: MutableMap<Element, String> = HashMap(2048)
+    private var units: List<Element> = emptyList()
+    private var mathIndex: Map<Element, Int> = emptyMap()
+    private var forwardParser: ContentParser? = null
+    private var parsedFromUnit: Int = 0
+    private var parsedUntilUnit: Int = 0
+    private var lastUnitCounts: List<Int> = emptyList()
+    private val builtElements = mutableListOf<Content.Element>()
+    private var readStart: Int = 0
+    private var documentLanguageCode: String? = null
 
-    private var parsedElements: ParsedElements? = null
+    /** Formulas given a chapter-scoped id so far. The rest of the chapter waits until reading reaches them. */
+    internal var identifiedFormulaCount: Int = 0
 
-
-
-    private suspend fun parseElements(): ParsedElements =
+    private suspend fun ensureChapter() {
+        if (chapterReady) return
+        chapterReady = true
         withContext(Dispatchers.Default) {
-            val totalStart = System.currentTimeMillis()
-            //android.util.Log.i("PERF_DEBUG", "============== 🚀 开始 parseElements ==============")
-
-            var stepStart = System.currentTimeMillis()
             val document = resource.use { res ->
                 val html = res
                     .read()
@@ -238,64 +254,253 @@ private fun fastCssSelector(
                     .getOrElse {
                         val error = DebugError("Failed to read HTML resource", it.cause)
                         Timber.w(error.toDebugDescription())
-                        return@withContext ParsedElements()
+                        return@withContext
                     }
-
                 Jsoup.parse(html)
             }
-            //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤1] HTML 读取与 Jsoup.parse 耗时: ${System.currentTimeMillis() - stepStart} ms")
-
-            // 🌟 贯穿全流程的共享选择器缓存池
-            val selectorCache = HashMap<org.jsoup.nodes.Element, String>(2048)
-
-            // 1. 公式预处理（共用缓存）
-            stepStart = System.currentTimeMillis()
-            preprocessMathElements(document.body(), selectorCache, documentLanguage(document))
-            //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤2] preprocessMathElements 全部公式耗时: ${System.currentTimeMillis() - stepStart} ms")
-
-            // 2. NodeTraversor 遍历（传入共享缓存，彻底消灭 2.2 秒延迟）
-            stepStart = System.currentTimeMillis()
-            val contentParser = ContentParser(
+            chapterDocument = document
+            documentLanguageCode = documentLanguage(document)
+            val body = document.body()
+            mathIndex = body.getElementsByTag("math").mapIndexed { index, math -> math to index }.toMap()
+            units = readingUnits(body)
+            val anchor = anchorUnit(document)
+            val from = (anchor - BLOCKS_BEFORE).coerceAtLeast(0)
+            val to = (anchor + BLOCKS_AFTER + 1).coerceAtMost(units.size)
+            forwardParser = ContentParser(
                 baseLocator = locator,
                 startElement = locator.locations.cssSelector?.let {
                     tryOrNull { document.selectFirst(it) }
                 },
                 beforeMaxLength = beforeMaxLength,
-                selectorCache = selectorCache // 🌟 传入共享缓存
+                selectorCache = selectorCache,
             )
-            NodeTraversor.traverse(contentParser, document.body())
-            val elements = contentParser.result()
-            val elementCount = elements.elements.size
-            //android.util.Log.i("PERF_DEBUG", "⏱️ [步骤3] NodeTraversor 遍历耗时: ${System.currentTimeMillis() - stepStart} ms (共生成 $elementCount 个朗读节点)")
-
-            if (elementCount == 0) {
-                return@withContext elements
+            val produced = parseUnitRange(from, to, forwardParser!!)
+            builtElements += produced
+            parsedFromUnit = from
+            parsedUntilUnit = to
+            if (parsedFromUnit == 0 && parsedUntilUnit == units.size) {
+                assignExactProgression()
             }
-
-            val adjustedStartIndex = if (elements.startIndex == 0 && locator.locations.progression != null) {
-                val prog = locator.locations.progression!!.coerceIn(0.0, 1.0)
-                (prog * elementCount).toInt().coerceIn(0, elementCount - 1)
-            } else {
-                elements.startIndex
-            }
-
-            val result = elements.copy(
-                startIndex = adjustedStartIndex,
-                elements = elements.elements.mapIndexed { index, element ->
-                    val progression = index.toDouble() / elementCount
-                    element.copy(
-                        progression = progression,
-                        totalProgression = totalProgressionRange?.let {
-                            totalProgressionRange.start + progression * (totalProgressionRange.endInclusive - totalProgressionRange.start)
-                        }
-                    )
+            val parserStart = forwardParser!!.readingStart()
+            val progression = locator.locations.progression
+            readStart = when {
+                progression == 1.0 && locator.locations.cssSelector == null ->
+                    builtElements.size
+                locator.locations.cssSelector != null ->
+                    parserStart
+                progression != null && parsedFromUnit == 0 && parsedUntilUnit == units.size -> {
+                    val prog = progression.coerceIn(0.0, 1.0)
+                    (prog * builtElements.size).toInt()
+                        .coerceIn(0, (builtElements.size - 1).coerceAtLeast(0))
                 }
-            )
-
-            //android.util.Log.i("PERF_DEBUG", "🏁 [总结] parseElements 整体返回总耗时: ${System.currentTimeMillis() - totalStart} ms")
-            //android.util.Log.i("PERF_DEBUG", "==================================================")
-            result
+                progression != null -> {
+                    val local = (anchor - from).coerceIn(0, lastUnitCounts.size)
+                    lastUnitCounts.take(local).sum()
+                }
+                else ->
+                    0
+            }
         }
+    }
+
+    private suspend fun extendForward() {
+        if (parsedUntilUnit >= units.size) return
+        val parser = forwardParser ?: return
+        val from = parsedUntilUnit
+        val to = (from + BLOCKS_AFTER).coerceAtMost(units.size)
+        builtElements += parseUnitRange(from, to, parser)
+        parsedUntilUnit = to
+        if (parsedFromUnit == 0 && parsedUntilUnit == units.size) {
+            assignExactProgression()
+        }
+    }
+
+    private suspend fun extendBackward() {
+        if (parsedFromUnit <= 0) return
+        val to = parsedFromUnit
+        val from = (to - BLOCKS_BEFORE).coerceAtLeast(0)
+        if (from >= to) return
+        val parser = ContentParser(
+            baseLocator = locator,
+            startElement = null,
+            beforeMaxLength = beforeMaxLength,
+            selectorCache = selectorCache,
+        )
+        val produced = parseUnitRange(from, to, parser)
+        if (produced.isEmpty()) {
+            parsedFromUnit = from
+            return
+        }
+        builtElements.addAll(0, produced)
+        val added = produced.size
+        readStart += added
+        currentIndex = currentIndex?.plus(added)
+        parsedFromUnit = from
+        if (parsedFromUnit == 0 && parsedUntilUnit == units.size) {
+            assignExactProgression()
+        }
+    }
+
+    private suspend fun parseUnitRange(
+        from: Int,
+        to: Int,
+        parser: ContentParser,
+    ): List<Content.Element> {
+        if (from >= to) return emptyList()
+        val language = documentLanguageCode
+        val before = parser.capturedCount()
+        identifyFormulas(units.subList(from, to), language)
+        val counts = mutableListOf<Int>()
+        for (index in from until to) {
+            val countBefore = parser.capturedCount()
+            NodeTraversor.traverse(parser, units[index])
+            counts.add(parser.capturedCount() - countBefore)
+        }
+        lastUnitCounts = counts
+        val fresh = parser.captured().drop(before)
+        val origin = from
+        val denominator = units.size.coerceAtLeast(1)
+        return fresh.mapIndexed { offset, element ->
+            element.withProgression((origin + offset).toDouble() / denominator)
+        }
+    }
+
+    /**
+     * Gives chapter-scoped ids only to formulas inside [roots].
+     * The index is still the formula's position in the whole chapter, so it matches the page.
+     */
+    private suspend fun identifyFormulas(
+        roots: List<Element>,
+        documentLanguage: String?,
+    ) {
+        val mathNodes = roots.flatMap { root ->
+            root.select("math, .katex, .MathJax").filter { it.parent() != null }
+        }
+        if (mathNodes.isEmpty()) return
+        identifiedFormulaCount += mathNodes.size
+
+        val converted = coroutineScope {
+            mathNodes.map { node ->
+                val mathmlElement = if (node.normalName() == "math") {
+                    node
+                } else {
+                    node.getElementsByTag("math").firstOrNull()
+                }
+                val target = mathmlElement ?: node
+                if (target.normalName() == "math" && target.id().isBlank()) {
+                    val index = mathIndex[target] ?: 0
+                    target.attr("id", "vox-math-$index")
+                }
+                val cssSelector = fastCssSelector(target, selectorCache)
+                async(Dispatchers.Default) {
+                    Triple(node, convertMathToSpeech(node, documentLanguage), cssSelector)
+                }
+            }.awaitAll()
+        }
+        for ((node, spokenText, cssSelector) in converted) {
+            if (spokenText.isBlank() || node.parent() == null) continue
+            val mathmlElement = if (node.normalName() == "math") {
+                node
+            } else {
+                node.getElementsByTag("math").firstOrNull()
+            }
+            val localId = (mathmlElement ?: node).id()
+            val mathId = SpeechAnchors.scope(locator.href.toString(), localId)
+            val replacement = org.jsoup.nodes.Element("span")
+                .attr("data-math-selector", cssSelector)
+                .attr("data-math-id", mathId)
+                .text(" $spokenText ")
+            node.replaceWith(replacement)
+        }
+    }
+
+    private fun assignExactProgression() {
+        val total = builtElements.size.coerceAtLeast(1)
+        for (index in builtElements.indices) {
+            builtElements[index] = builtElements[index].withProgression(index.toDouble() / total)
+        }
+    }
+
+    private fun Content.Element.withProgression(progression: Double): Content.Element =
+        copy(
+            progression = progression,
+            totalProgression = totalProgressionRange?.let {
+                it.start + progression * (it.endInclusive - it.start)
+            }
+        )
+
+    private fun anchorUnit(document: org.jsoup.nodes.Document): Int {
+        if (units.isEmpty()) return 0
+        locator.locations.cssSelector?.let { selector ->
+            val node = tryOrNull { document.selectFirst(selector) }
+            if (node != null) {
+                val match = units.indexOfLast { it == node || containsNode(it, node) }
+                if (match >= 0) return match
+            }
+        }
+        val progression = locator.locations.progression
+        if (progression != null) {
+            if (progression >= 1.0) return units.lastIndex
+            return (progression.coerceIn(0.0, 1.0) * units.size).toInt()
+                .coerceIn(0, units.lastIndex)
+        }
+        return 0
+    }
+
+    private fun containsNode(container: Element, node: Element): Boolean {
+        var current: org.jsoup.nodes.Node? = node
+        while (current != null) {
+            if (current == container) return true
+            current = current.parent()
+        }
+        return false
+    }
+
+    private fun splitsReading(element: Element): Boolean =
+        element.isBlock && element.normalName() != "math"
+
+    private fun readingUnits(root: Element): List<Element> {
+        val found = mutableListOf<Element>()
+        fun walk(element: Element) {
+            val children = element.children()
+            val blocks = children.filter { splitsReading(it) }
+            val ownText = element.childNodes().any { node ->
+                node is TextNode && node.wholeText.isNotBlank()
+            }
+            if (blocks.isEmpty()) {
+                if (element != root) {
+                    found.add(element)
+                } else if (children.isNotEmpty()) {
+                    found.addAll(children)
+                } else {
+                    found.add(element)
+                }
+                return
+            }
+            // Text before and after a nested block belongs to this element.
+            // Keep it together so those words are not dropped.
+            if (ownText && element != root) {
+                found.add(element)
+                return
+            }
+            for (child in children) {
+                if (splitsReading(child)) {
+                    walk(child)
+                } else if (child.hasText() || hasRetainedContent(child)) {
+                    found.add(child)
+                }
+            }
+        }
+        walk(root)
+        return found.ifEmpty { listOf(root) }
+    }
+
+    private fun hasRetainedContent(element: Element): Boolean =
+        element.normalName() in setOf("img", "audio", "video", "math", "svg") ||
+            element.getElementsByTag("math").isNotEmpty() ||
+            element.getElementsByTag("img").isNotEmpty() ||
+            element.getElementsByTag("audio").isNotEmpty() ||
+            element.getElementsByTag("video").isNotEmpty()
 
 
     private fun speechLocale(node: org.jsoup.nodes.Element, documentLanguage: String?): String {
@@ -370,70 +575,7 @@ private fun fastCssSelector(
 
 
     /**
-     * Ids are assigned in document order, matching voxread-math.js, so a
-     * display-formula wrapper inserted in the WebView does not change the locator.
-     */
-    private fun assignStableMathIds(root: org.jsoup.nodes.Element) {
-        root.getElementsByTag("math").forEachIndexed { index, math ->
-            if (math.id().isBlank()) {
-                math.attr("id", "vox-math-$index")
-            }
-        }
-    }
-
-    private suspend fun preprocessMathElements(
-        root: org.jsoup.nodes.Element,
-        selectorCache: MutableMap<org.jsoup.nodes.Element, String>,
-        documentLanguage: String?,
-    ): Unit = withContext(Dispatchers.Default) {
-        try {
-            assignStableMathIds(root)
-            val mathNodes = root.select("math, .katex, .MathJax")
-            if (mathNodes.isEmpty()) return@withContext
-
-            data class MathTaskItem(
-                val index: Int,
-                val node: org.jsoup.nodes.Element,
-                val cssSelector: String
-            )
-
-            val tasks = mathNodes.mapIndexed { index, node ->
-                val mathmlElement = if (node.normalName() == "math") node else node.getElementsByTag("math").firstOrNull()
-                val targetElement = mathmlElement ?: node
-                val cssSelector = fastCssSelector(targetElement, selectorCache)
-                MathTaskItem(index, node, cssSelector)
-            }
-
-            val results = tasks.map { item ->
-                async(Dispatchers.Default) {
-                    val spokenText = convertMathToSpeech(item.node, documentLanguage, item.index)
-                    Pair(item, spokenText)
-                }
-            }.awaitAll()
-
-            for ((item, spokenText) in results) {
-                if (spokenText.isNotBlank()) {
-                    if (item.node.parent() == null) continue
-                    val mathmlElement = if (item.node.normalName() == "math") {
-                        item.node
-                    } else {
-                        item.node.getElementsByTag("math").firstOrNull()
-                    }
-                    val mathId = (mathmlElement ?: item.node).id()
-                    val replacement = org.jsoup.nodes.Element("span")
-                        .attr("data-math-selector", item.cssSelector)
-                        .attr("data-math-id", mathId)
-                        .text(" $spokenText ")
-                    item.node.replaceWith(replacement)
-                }
-            }
-        } catch (t: Throwable) {
-            Timber.e(t, "preprocessMathElements 异常")
-        }
-    }
-
-    /**
-     * 🌟 下一章节公式预热（加 internal 修饰符和显式 : Unit 返回类型，满足 API 检查）
+     * Warms speech for the start of the next chapter only, not every formula in it.
      */
     internal fun preloadNextResourceMath(nextResource: Resource, scope: CoroutineScope): Unit {
         scope.launch(Dispatchers.IO) {
@@ -444,6 +586,7 @@ private fun fastCssSelector(
 
                 val doc = Jsoup.parse(html)
                 val mathNodes = doc.body().select("math, .katex, .MathJax")
+                    .take(BLOCKS_BEFORE + BLOCKS_AFTER + 1)
                 if (mathNodes.isEmpty()) return@launch
                 val language = documentLanguage(doc)
 
@@ -453,7 +596,7 @@ private fun fastCssSelector(
                     }
                 }.awaitAll()
 
-                Timber.d("下一章数学公式预热完毕，共缓存 ${mathNodes.size} 个公式")
+                Timber.d("下一章开头公式预热完毕，共缓存 ${mathNodes.size} 个公式")
             } catch (e: Throwable) {
                 Timber.w(e, "预热下一章公式失败")
             }
@@ -508,11 +651,18 @@ private fun fastCssSelector(
             }
         )
 
+        fun captured(): List<Content.Element> = elements.toList()
+
+        fun capturedCount(): Int = elements.size
+
+        fun readingStart(): Int = startIndex
+
         private val elements = mutableListOf<Content.Element>()
         private var startIndex = 0
 
         private val segmentsAcc = mutableListOf<TextElement.Segment>()
         private var textAcc = StringBuilder()
+        private val speechSpans = mutableListOf<SpeechMap.Span>()
         private var wholeRawTextAcc: String? = null
         private var elementRawTextAcc: String = ""
         private var rawTextAcc: String = ""
@@ -640,10 +790,21 @@ private fun fastCssSelector(
                     currentLanguage = language
                 }
 
-                noteTextOrigin(node)
                 val text = Parser.unescapeEntities(node.wholeText, false)
                 rawTextAcc += text
-                appendNormalisedText(text)
+                val math = noteTextOrigin(node)
+                if (math != null) {
+                    addSpeech(text, mathId = math.id, mathSelector = math.selector, textSelector = null, nodeIndex = 0)
+                } else {
+                    val anchor = textAnchor(node)
+                    addSpeech(
+                        text,
+                        mathId = null,
+                        mathSelector = null,
+                        textSelector = anchor?.first,
+                        nodeIndex = anchor?.second ?: 0,
+                    )
+                }
             } else if (node is Element) {
                 if (node.isBlock) {
                     // 🛡️ 防御检查，防止 List 为空时崩溃
@@ -655,12 +816,56 @@ private fun fastCssSelector(
             }
         }
 
-        private fun appendNormalisedText(text: String) {
-            textAcc.appendNormalisedWhitespace(text, lastCharIsWhitespace())
+        private fun addSpeech(
+            raw: String,
+            mathId: String?,
+            mathSelector: String?,
+            textSelector: String?,
+            nodeIndex: Int,
+        ) {
+            val normalized = SpeechMap.normalize(raw, stripLeading = lastCharIsWhitespace())
+            val start = textAcc.length
+            textAcc.append(normalized.text)
+            if (normalized.text.isEmpty()) return
+            val end = textAcc.length
+            if (mathId != null) {
+                speechSpans += SpeechMap.Span(
+                    start = start,
+                    end = end,
+                    kind = SpeechMap.Kind.Math,
+                    selector = mathSelector.orEmpty(),
+                    mathId = mathId,
+                )
+                return
+            }
+            if (textSelector == null || normalized.pieces.isEmpty()) return
+            val rawStart = normalized.pieces.first().rawStart
+            val rawEnd = normalized.pieces.last().rawEnd
+            speechSpans += SpeechMap.Span(
+                start = start,
+                end = end,
+                kind = SpeechMap.Kind.Text,
+                selector = textSelector,
+                node = nodeIndex,
+                from = rawStart,
+                to = rawEnd,
+                raw = raw.substring(rawStart, rawEnd),
+            )
         }
 
         private fun lastCharIsWhitespace(): Boolean =
             textAcc.lastOrNull() == ' '
+
+        private fun textAnchor(node: TextNode): Pair<String, Int>? {
+            val element = node.parent() as? Element ?: return null
+            val selector = tryOrNull { fastCssSelector(element, selectorCache) } ?: return null
+            var index = 0
+            for (child in element.childNodes()) {
+                if (child === node) return selector to index
+                if (child is TextNode) index++
+            }
+            return selector to index
+        }
 
         private fun flushText() {
             flushSegment()
@@ -673,7 +878,7 @@ private fun fastCssSelector(
 
             if (segmentsAcc.isEmpty()) return
 
-            segmentsAcc[segmentsAcc.size - 1] = segmentsAcc.last().run { copy(text = text.trimEnd()) }
+            segmentsAcc[segmentsAcc.size - 1] = segmentsAcc.last().trimmedEnd()
 
             elements.add(
                 TextElement(
@@ -698,19 +903,21 @@ private fun fastCssSelector(
             segmentsAcc.clear()
         }
 
-        private fun noteTextOrigin(node: TextNode) {
+        private fun noteTextOrigin(node: TextNode): MathMark? {
             var parent = node.parent()
             while (parent != null) {
                 if (parent is Element && parent.hasAttr("data-math-selector")) {
                     val selector = parent.attr("data-math-selector")
+                    val mark = MathMark(selector, parent.attr("data-math-id"))
                     if (selector.isNotBlank() && segmentMath.none { it.selector == selector }) {
-                        segmentMath.add(MathMark(selector, parent.attr("data-math-id")))
+                        segmentMath.add(mark)
                     }
-                    return
+                    return mark
                 }
                 parent = parent.parent()
             }
             segmentHasProse = true
+            return null
         }
 
         private fun locatorLocations(
@@ -737,30 +944,26 @@ private fun fastCssSelector(
         private fun flushSegment() {
             val mathMarks = segmentMath.toList()
             val hasProse = segmentHasProse
+            val built = textAcc.toString()
+            val pendingSpans = speechSpans.toList()
             segmentMath.clear()
             segmentHasProse = false
+            speechSpans.clear()
 
-            var text = textAcc.toString()
-            val trimmedText = text.trim()
-
-            if (text.isNotBlank()) {
-                if (segmentsAcc.isEmpty()) {
-                    text = text.trimStart()
-
-                    val whitespaceSuffix = text.lastOrNull()
-                        ?.takeIf { it.isWhitespace() }
-                        ?: ""
-
-                    text = trimmedText + whitespaceSuffix
-                }
-
+            if (built.isNotBlank()) {
+                val (text, kept) = spokenSegmentText(built, isFirst = segmentsAcc.isEmpty())
                 val parent = breadcrumbs.lastOrNull()
+                val locations = locatorLocations(parent, mathMarks, hasProse).toMutableMap()
+                val map = SpeechMap(pendingSpans).slice(kept.first, kept.last + 1)
+                if (map.spans.any { it.kind == SpeechMap.Kind.Math }) {
+                    locations[SpeechMap.KEY] = map.toStored()
+                }
 
                 segmentsAcc.add(
                     TextElement.Segment(
                         locator = baseLocator.copy(
                             locations = Locator.Locations(
-                                otherLocations = locatorLocations(parent, mathMarks, hasProse)
+                                otherLocations = locations
                             ),
                             text = Locator.Text.trimmingText(
                                 rawTextAcc,
@@ -812,52 +1015,34 @@ private fun Node.srcRelativeToHref(baseUrl: Url): Url? =
         ?.let { baseUrl.resolve(it) }
 
 /**
- * After normalizing the whitespace within a string, appends it to a string builder.
- *
- * Largely inspired by JSoup's `StringUtil.appendNormalisedWhitespace`.
- *
- * Note that we don't use directly JSoup's method because we need to keep the non-breaking
- * spaces in the text. Otherwise, they will be lost post-text tokenization and Hypothesis won't
- * match the results.
- *
- * @param string String to normalize whitespace within.
- * @param stripLeading Set to true if you wish to remove any leading whitespace.
+ * The first segment of a block drops leading whitespace and keeps at most one
+ * trailing space. Later segments keep the accumulated text. The returned range
+ * is the slice of [accumulated] that becomes [TextElement.Segment.text].
  */
-private fun StringBuilder.appendNormalisedWhitespace(
-    string: String,
-    stripLeading: Boolean,
-) {
-    var lastWasWhite = false
-    var reachedNonWhite = false
-    val len = string.length
-    var c: Int
-    var i = 0
-    while (i < len) {
-        c = string.codePointAt(i)
-        if (isWhitespace(c)) {
-            if ((stripLeading && !reachedNonWhite) || lastWasWhite) {
-                i += Character.charCount(c)
-                continue
-            }
-            append(' ')
-            lastWasWhite = true
-        } else if (!isInvisibleChar(c)) {
-            appendCodePoint(c)
-            lastWasWhite = false
-            reachedNonWhite = true
-        }
-        i += Character.charCount(c)
+private fun spokenSegmentText(accumulated: String, isFirst: Boolean): Pair<String, IntRange> {
+    if (!isFirst) return accumulated to (0 until accumulated.length)
+    val coreStart = accumulated.indexOfFirst { !it.isWhitespace() }
+    val coreEnd = accumulated.indexOfLast { !it.isWhitespace() } + 1
+    val keepEnd = if (accumulated.last().isWhitespace()) {
+        (coreEnd + 1).coerceAtMost(accumulated.length)
+    } else {
+        coreEnd
     }
+    val range = coreStart until keepEnd
+    return accumulated.substring(range.first, range.last + 1) to range
 }
 
-/**
- * Tests if a code point is "whitespace" as defined in the HTML spec.
- */
-private fun isWhitespace(c: Int): Boolean {
-    return c == ' '.code || c == '\t'.code || c == '\n'.code || c == '\u000c'.code || c == '\r'.code
-}
-
-private fun isInvisibleChar(c: Int): Boolean {
-    return c == 8203 || c == 173 // zero width sp, soft hyphen
-    // previously also included zw non join, zw join - but removing those breaks semantic meaning of text
+private fun TextElement.Segment.trimmedEnd(): TextElement.Segment {
+    val trimmed = text.trimEnd()
+    if (trimmed.length == text.length) return this
+    val map = SpeechMap.from(locator) ?: return copy(text = trimmed)
+    val sliced = map.slice(0, trimmed.length)
+    return copy(
+        text = trimmed,
+        locator = locator.copy(
+            locations = locator.locations.copy(
+                otherLocations = locator.locations.otherLocations + (SpeechMap.KEY to sliced.toStored())
+            )
+        )
+    )
 }

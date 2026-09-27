@@ -32,13 +32,46 @@
     }
   }
 
+  var appliedSeq = -1;
+  var lastRequest = null;
+
+  function pageHref() {
+    return document.documentElement.getAttribute("data-vox-href") || "";
+  }
+
+  // Same id rule as SpeechAnchors in SpeechMap.kt: vox:{href}#{localId}.
+  function localMathId(id) {
+    if (!id || id.indexOf("vox:") !== 0) return id || "";
+    var hash = id.lastIndexOf("#");
+    if (hash < 4) return id;
+    return id.substring(hash + 1);
+  }
+
   function findMath(request) {
     if (!request) return null;
-    if (request.mathId) {
-      var byId = document.getElementById(request.mathId);
+    var local = localMathId(request.mathId);
+    if (local) {
+      var byId = document.getElementById(local);
       if (byId) return byId;
     }
-    return query(request.mathSelector);
+    return query(request.mathSelector || request.selector);
+  }
+
+  function formulaNodes(target) {
+    var local = localMathId(target && target.mathId);
+    var found = [];
+    var maths = allMath();
+    var i;
+    for (i = 0; i < maths.length; i++) {
+      var id = maths[i].id || "";
+      var source = maths[i].getAttribute("data-vox-source") || "";
+      if (local && (id === local || source === local || id.indexOf(local + "-row-") === 0)) {
+        found.push(maths[i]);
+      }
+    }
+    if (found.length) return found;
+    var fallback = findMath(target) || query(target && target.selector);
+    return fallback ? [fallback] : [];
   }
 
   function usableRect(rect) {
@@ -53,19 +86,249 @@
     return rect.bottom > 0 && rect.right > 0 && rect.top < height && rect.left < width;
   }
 
-  function clearHighlight() {
+  var textHighlightName = "voxread-tts";
+
+  function clearVisual() {
     var nodes = document.querySelectorAll(".voxread-force-highlight");
     for (var i = 0; i < nodes.length; i++) {
       nodes[i].classList.remove("voxread-force-highlight");
     }
+    var boxes = document.querySelectorAll(".voxread-highlight-box");
+    for (var j = 0; j < boxes.length; j++) {
+      if (boxes[j].parentNode) boxes[j].parentNode.removeChild(boxes[j]);
+    }
+    if (window.CSS && CSS.highlights) CSS.highlights.delete(textHighlightName);
+  }
+
+  function clearHighlight(seq) {
+    if (typeof seq === "number" && seq < appliedSeq) return false;
+    if (typeof seq === "number") appliedSeq = seq;
+    lastRequest = null;
+    clearVisual();
+    return true;
+  }
+
+  function clipRect(rect, element) {
+    var top = Math.max(rect.top, 0);
+    var left = Math.max(rect.left, 0);
+    var bottom = Math.min(rect.bottom, window.innerHeight || 0);
+    var right = Math.min(rect.right, window.innerWidth || 0);
+    var node = element && element.parentNode;
+    while (node && node !== document.body && node.nodeType === 1) {
+      var style = window.getComputedStyle(node);
+      var overflow = (style.overflow || "") + (style.overflowX || "") + (style.overflowY || "");
+      if (/(auto|scroll|hidden)/.test(overflow)) {
+        var box = node.getBoundingClientRect();
+        top = Math.max(top, box.top);
+        left = Math.max(left, box.left);
+        bottom = Math.min(bottom, box.bottom);
+        right = Math.min(right, box.right);
+      }
+      node = node.parentNode;
+    }
+    if (right - left < 1 || bottom - top < 1) return null;
+    return { top: top, left: left, width: right - left, height: bottom - top };
+  }
+
+  function placeBox(rect, element) {
+    var visible = clipRect(rect, element);
+    if (!visible) return false;
+    var box = createEl("div");
+    box.setAttribute("class", "voxread-highlight-box");
+    box.style.position = "fixed";
+    box.style.left = visible.left + "px";
+    box.style.top = visible.top + "px";
+    box.style.width = visible.width + "px";
+    box.style.height = visible.height + "px";
+    box.style.pointerEvents = "none";
+    document.body.appendChild(box);
+    return true;
+  }
+
+  function textNodeAt(target) {
+    var root = query(target.selector);
+    if (!root) return null;
+    var nodes = [];
+    var children = root.childNodes;
+    for (var i = 0; i < children.length; i++) {
+      if (children[i].nodeType === 3) nodes.push(children[i]);
+    }
+    return nodes[target.node] || null;
+  }
+
+  function directTextRange(target) {
+    var node = textNodeAt(target);
+    if (!node || !node.nodeValue) return null;
+    var from = Math.max(0, target.from || 0);
+    var to = target.to == null ? node.nodeValue.length : target.to;
+    to = Math.min(node.nodeValue.length, to);
+    if (to <= from) return null;
+    var range = document.createRange();
+    try {
+      range.setStart(node, from);
+      range.setEnd(node, to);
+    } catch (error) {
+      return null;
+    }
+    return range;
+  }
+
+  function findQuoteRange(root, quote) {
+    if (!root || !quote) return null;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var parts = [];
+    var full = "";
+    var node;
+    while ((node = walker.nextNode())) {
+      parts.push({ node: node, start: full.length });
+      full += node.nodeValue || "";
+    }
+    var at = full.indexOf(quote);
+    if (at < 0) return null;
+    function point(offset) {
+      for (var i = 0; i < parts.length; i++) {
+        var next = i + 1 < parts.length ? parts[i + 1].start : full.length;
+        if (offset <= next) {
+          return { node: parts[i].node, offset: offset - parts[i].start };
+        }
+      }
+      return null;
+    }
+    var start = point(at);
+    var end = point(at + quote.length);
+    if (!start || !end) return null;
+    var range = document.createRange();
+    try {
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+    } catch (error) {
+      return null;
+    }
+    return range;
+  }
+
+  function textRange(target) {
+    var direct = directTextRange(target);
+    var quote = target && target.text;
+    if (direct && (!quote || direct.toString().indexOf(quote) >= 0)) return direct;
+    if (!quote) return direct;
+    return findQuoteRange(query(target.selector) || document.body, quote) || direct;
+  }
+
+  function paintTextRanges(ranges) {
+    if (!ranges.length) return false;
+    if (window.CSS && CSS.highlights && typeof Highlight === "function") {
+      var paint = new Highlight();
+      for (var i = 0; i < ranges.length; i++) paint.add(ranges[i]);
+      CSS.highlights.set(textHighlightName, paint);
+      return true;
+    }
+    var found = false;
+    for (var r = 0; r < ranges.length; r++) {
+      var rects = ranges[r].getClientRects();
+      for (var i = 0; i < rects.length; i++) {
+        if (usableRect(rects[i])) found = true;
+        placeBox(rects[i], ranges[r].startContainer && ranges[r].startContainer.parentNode);
+      }
+    }
+    return found;
+  }
+
+  function drawMath(target) {
+    var nodes = formulaNodes(target);
+    if (!nodes.length) {
+      warn("voxread: formula element not found", target);
+      return false;
+    }
+    var visible = false;
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].classList.add("voxread-force-highlight");
+      var rects = nodes[i].getClientRects();
+      if (!rects.length && usableRect(nodes[i].getBoundingClientRect())) {
+        rects = [nodes[i].getBoundingClientRect()];
+      }
+      for (var r = 0; r < rects.length; r++) {
+        if (usableRect(rects[r])) visible = true;
+        placeBox(rects[r], nodes[i]);
+      }
+    }
+    return visible;
+  }
+
+  function drawTargets(request) {
+    var targets = (request && request.targets) || [];
+    if (!targets.length) return false;
+    var textRanges = [];
+    var ok = true;
+    for (var i = 0; i < targets.length; i++) {
+      var target = targets[i];
+      if (target && target.kind === "text") {
+        var range = textRange(target);
+        if (range) textRanges.push(range);
+        else ok = false;
+      } else if (!drawMath(target)) {
+        ok = false;
+      }
+    }
+    if (textRanges.length && !paintTextRanges(textRanges)) ok = false;
+    return ok;
+  }
+
+  function acceptRequest(request) {
+    if (!request) return false;
+    if (typeof request.seq === "number" && request.seq < appliedSeq) return false;
+    var href = pageHref();
+    if (request.href && href && request.href !== href) {
+      clearVisual();
+      lastRequest = null;
+      return false;
+    }
+    if (request.href && !href) {
+      document.documentElement.setAttribute("data-vox-href", request.href);
+    }
+    if (typeof request.seq === "number") appliedSeq = request.seq;
+    return true;
+  }
+
+  function paint(request) {
+    clearVisual();
+    lastRequest = request;
+    return drawTargets(request);
+  }
+
+  function repaintHighlight() {
+    if (!lastRequest) return false;
+    return paint(lastRequest);
+  }
+
+  function applyHighlight(request) {
+    if (!acceptRequest(request)) return false;
+    return paint(request);
   }
 
   function highlight(request) {
-    clearHighlight();
-    if (!request) return false;
-
+    if (!request) {
+      clearHighlight();
+      return false;
+    }
+    if (request.targets) return applyHighlight(request);
+    if (request.mathId || request.mathSelector) {
+      return applyHighlight({
+        href: request.href || "",
+        seq: request.seq,
+        utterance: request.utterance || "",
+        targets: [{
+          kind: "math",
+          mathId: request.mathId || "",
+          selector: request.mathSelector || request.cssSelector || ""
+        }]
+      });
+    }
     if (request.inline) {
-      var anchor = query(request.cssSelector) || findMath(request);
+      if (!acceptRequest(request)) return false;
+      clearVisual();
+      lastRequest = null;
+      var anchor = query(request.cssSelector);
       if (!anchor) {
         warn("voxread: inline formula sentence has no target", request);
         return false;
@@ -78,14 +341,12 @@
       container.classList.add("voxread-force-highlight");
       return true;
     }
+    return false;
+  }
 
-    var math = findMath(request) || query(request.cssSelector);
-    if (!math) {
-      warn("voxread: formula element not found", request);
-      return false;
-    }
-    math.classList.add("voxread-force-highlight");
-    return true;
+  function setPageHref(href) {
+    if (!href) return;
+    document.documentElement.setAttribute("data-vox-href", href);
   }
 
   function followTarget(locator) {
@@ -139,9 +400,15 @@
 
   function allMath() {
     var found = [];
-    var nodes = document.getElementsByTagName("*");
-    for (var i = 0; i < nodes.length; i++) {
-      if (localName(nodes[i]) === "math") found.push(nodes[i]);
+    function add(list) {
+      if (!list) return;
+      for (var i = 0; i < list.length; i++) {
+        if (found.indexOf(list[i]) === -1) found.push(list[i]);
+      }
+    }
+    add(document.getElementsByTagName("math"));
+    if (document.getElementsByTagNameNS) {
+      add(document.getElementsByTagNameNS("*", "math"));
     }
     return found;
   }
@@ -384,6 +651,7 @@
       } else {
         copy.removeAttribute("id");
       }
+      if (baseId) copy.setAttribute("data-vox-source", baseId);
       copy.setAttribute("data-vox-break", "row");
       copies.push(copy);
     }
@@ -483,25 +751,26 @@
     else math.style.fontSize = scale + "em";
   }
 
+  function viewerMaxHeight(page) {
+    return Math.max(page.height - 96, 120) + "px";
+  }
+
+  /*
+   * The formula stays in its own block. Readium paginates :root with CSS
+   * columns, so a position:fixed layer appended to body is clipped into
+   * another column and the current page loses the formula.
+   */
   function openZoom(equation, scroll) {
-    if (equation.getAttribute("data-vox-zoomed") === "true") return;
-    var anchor = captureAnchor();
+    if (equation.classList.contains("is-viewing")) return;
     var savedMaxHeight = scroll.style.maxHeight;
-    var placeholder = createEl("div");
-    placeholder.setAttribute("class", "vox-formula-placeholder");
-    placeholder.style.height = equation.offsetHeight + "px";
-    var overlay = createEl("div");
-    overlay.setAttribute("class", "vox-formula-overlay");
-    var frame = createEl("div");
-    frame.setAttribute("class", "vox-formula-overlay-scroll");
-    var controls = createEl("div");
+    var page = pageMetrics();
     var scale = 1;
+    var controls = createEl("div");
+    controls.setAttribute("class", "vox-formula-controls");
     function control(label, onClick) {
       var button = createEl("button");
       button.setAttribute("type", "button");
       button.setAttribute("class", "vox-formula-open");
-      button.style.display = "inline-block";
-      button.style.marginRight = "0.4em";
       button.appendChild(document.createTextNode(label));
       button.addEventListener("click", function (event) {
         event.preventDefault();
@@ -509,6 +778,13 @@
         onClick();
       });
       controls.appendChild(button);
+    }
+    function closeZoom() {
+      setMathFontScale(scroll, 1);
+      scroll.style.maxHeight = savedMaxHeight;
+      if (controls.parentNode) controls.parentNode.removeChild(controls);
+      equation.classList.remove("is-viewing");
+      scheduleRemeasure();
     }
     control("缩小", function () {
       scale = Math.max(0.8, Math.round((scale - 0.25) * 100) / 100);
@@ -519,28 +795,11 @@
       setMathFontScale(scroll, scale);
     });
     control("关闭", closeZoom);
-    scroll.style.maxHeight = "none";
-    equation.insertBefore(placeholder, scroll);
-    frame.appendChild(controls);
-    frame.appendChild(scroll);
-    overlay.appendChild(frame);
-    document.body.appendChild(overlay);
-    equation.setAttribute("data-vox-zoomed", "true");
-
-    function closeZoom() {
-      setMathFontScale(scroll, 1);
-      scroll.style.maxHeight = savedMaxHeight;
-      equation.insertBefore(scroll, placeholder);
-      if (placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      equation.removeAttribute("data-vox-zoomed");
-      pendingAnchor = anchor || pendingAnchor;
-      scheduleRemeasure();
-    }
-
-    overlay.addEventListener("click", function (event) {
-      if (event.target === overlay) closeZoom();
-    });
+    var opener = equation.querySelector(".vox-formula-open");
+    if (opener) equation.insertBefore(controls, opener);
+    else equation.appendChild(controls);
+    scroll.style.maxHeight = viewerMaxHeight(page);
+    equation.classList.add("is-viewing");
   }
 
   function buildEquation(math) {
@@ -577,7 +836,9 @@
       after.appendChild(node);
       node = next;
     }
-    paragraph.parentNode.insertBefore(built.equation, child);
+    // The equation is a sibling of the paragraph; child still belongs to the
+    // paragraph. Using child here throws NotFoundError and aborts page setup.
+    paragraph.parentNode.insertBefore(built.equation, paragraph.nextSibling);
     built.scroll.appendChild(carriedNode(math));
     if (
       child !== math &&
@@ -649,7 +910,7 @@
     var blocks = Array.prototype.slice.call(document.querySelectorAll(".vox-formula-block"));
     var i;
     for (i = 0; i < blocks.length; i++) {
-      if (blocks[i].getAttribute("data-vox-zoomed") === "true") continue;
+      if (blocks[i].classList.contains("is-viewing")) continue;
       clearBreak(blocks[i]);
       blocks[i].classList.remove("is-wide", "is-tall");
       var scroll = blocks[i].querySelector(".vox-formula-scroll");
@@ -659,12 +920,18 @@
 
     for (i = 0; i < blocks.length; i++) {
       var block = blocks[i];
-      if (block.getAttribute("data-vox-zoomed") === "true") continue;
       var scroller = block.querySelector(".vox-formula-scroll");
       if (!scroller) continue;
-      var naturalHeight = scroller.scrollHeight;
-      var wide = scroller.scrollWidth > scroller.clientWidth + 2;
-      var tallerThanPage = naturalHeight > page.height - 32;
+      if (block.classList.contains("is-viewing")) {
+        if (!page.scrollMode) scroller.style.maxHeight = viewerMaxHeight(page);
+        continue;
+      }
+      var math = formulaMath(scroller);
+      var contentWidth = math ? math.offsetWidth : 0;
+      var contentHeight = math ? math.offsetHeight : 0;
+      var boxWidth = scroller.clientWidth;
+      var wide = boxWidth > 0 && contentWidth > boxWidth + 4;
+      var tallerThanPage = contentHeight > page.height - 32;
       if (wide) block.classList.add("is-wide");
       if (tallerThanPage) block.classList.add("is-tall");
       if (tallerThanPage && !page.scrollMode) {
@@ -687,6 +954,7 @@
     remeasureTimer = setTimeout(function () {
       var id = pendingAnchor || captureAnchor();
       classifyFormulas();
+      repaintHighlight();
       if (!id) return;
       restoringAnchor = true;
       requestAnimationFrame(function () {
@@ -718,6 +986,8 @@
 
   window.voxReadClearHighlight = clearHighlight;
   window.voxReadHighlightMath = highlight;
+  window.voxReadApplyHighlight = applyHighlight;
+  window.voxReadSetPageHref = setPageHref;
   wrapScroll();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
@@ -733,6 +1003,12 @@
   if (document.fonts && document.fonts.addEventListener) {
     document.fonts.addEventListener("loadingdone", function () { scheduleRemeasure(); });
   }
-  window.addEventListener("resize", function () { scheduleRemeasure(); });
-  window.addEventListener("scroll", rememberAnchor, true);
+  window.addEventListener("resize", function () {
+    scheduleRemeasure();
+    repaintHighlight();
+  });
+  window.addEventListener("scroll", function () {
+    rememberAnchor();
+    repaintHighlight();
+  }, true);
 })();

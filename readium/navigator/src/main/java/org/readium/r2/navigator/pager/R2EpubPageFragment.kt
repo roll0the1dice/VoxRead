@@ -461,9 +461,8 @@ internal class R2EpubPageFragment : Fragment() {
             if (followsFormula) {
                 android.util.Log.w(
                     "VoxRead",
-                    "Skipping TTS follow; no usable rect for ${locator.href}"
+                    "Formula locator has no usable rect; falling back to progression for ${locator.href}"
                 )
-                return
             }
         }
 

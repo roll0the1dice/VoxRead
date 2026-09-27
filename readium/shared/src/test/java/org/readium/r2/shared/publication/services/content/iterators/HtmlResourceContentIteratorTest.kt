@@ -17,6 +17,10 @@ import org.readium.r2.shared.publication.services.content.Content.AttributeKey.C
 import org.readium.r2.shared.publication.services.content.Content.AttributeKey.Companion.LANGUAGE
 import org.readium.r2.shared.publication.services.content.Content.TextElement
 import org.readium.r2.shared.publication.services.content.Content.TextElement.Segment
+import org.readium.r2.shared.publication.services.content.SpeechAnchors
+import org.readium.r2.shared.publication.services.content.SpeechMap
+import org.readium.r2.shared.publication.services.content.TextContentTokenizer
+import org.readium.r2.shared.util.tokenizer.TextUnit
 import org.readium.r2.shared.util.Language
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
@@ -711,10 +715,10 @@ class HtmlResourceContentIteratorTest {
         assertEquals(3, segments.size)
         assertEquals(true, segments[0].locator.locations["isMath"])
         assertEquals("#a", segments[0].locator.locations["mathSelector"])
-        assertEquals("a", segments[0].locator.locations["mathId"])
+        assertEquals(SpeechAnchors.scope(locator.href.toString(), "a"), segments[0].locator.locations["mathId"])
         assertEquals(true, segments[1].locator.locations["isMath"])
         assertEquals("#b", segments[1].locator.locations["mathSelector"])
-        assertEquals("b", segments[1].locator.locations["mathId"])
+        assertEquals(SpeechAnchors.scope(locator.href.toString(), "b"), segments[1].locator.locations["mathId"])
         assertEquals(true, segments[2].locator.locations["hasInlineMath"])
         assertNull(segments[2].locator.locations["isMath"])
         assertNull(segments[2].locator.locations["mathSelector"])
@@ -740,9 +744,9 @@ class HtmlResourceContentIteratorTest {
             .flatMap { it.segments }
 
         assertEquals("#vox-math-0", segments[0].locator.locations["mathSelector"])
-        assertEquals("vox-math-0", segments[0].locator.locations["mathId"])
+        assertEquals(SpeechAnchors.scope(locator.href.toString(), "vox-math-0"), segments[0].locator.locations["mathId"])
         assertEquals("#keep", segments[1].locator.locations["mathSelector"])
-        assertEquals("keep", segments[1].locator.locations["mathId"])
+        assertEquals(SpeechAnchors.scope(locator.href.toString(), "keep"), segments[1].locator.locations["mathId"])
     }
 
     @Test
@@ -776,4 +780,151 @@ class HtmlResourceContentIteratorTest {
             MathSpeechLanguage.code = null
         }
     }
+
+    @Test
+    fun `inline formulas map speech back to each source node`() = runTest {
+        MathSpeechLanguage.code = "zh"
+        val html = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <html xmlns="http://www.w3.org/1999/xhtml" lang="zh">
+            <body>
+                <p id="p1">设函数 <math id="h1"><semantics><msub><mi>H</mi><mo>*</mo></msub><annotation>H_*</annotation></semantics></math> 恰好具有一个零点。当 <math id="eta"><semantics><mrow><msub><mi>η</mi><mn>0</mn></msub><mo>∈</mo><mo>(</mo><mo>-</mo><mn>1</mn><mo>,</mo><mn>0</mn><mo>)</mo></mrow><annotation>\eta_0 \in (-1,0)</annotation></semantics></math> 时，函数 <math id="h2"><semantics><msub><mi>H</mi><mo>*</mo></msub><annotation>H_*</annotation></semantics></math> 仍然连续。</p>
+                <p id="p2">重复的 <math id="h3"><semantics><msub><mi>H</mi><mo>*</mo></msub><annotation>H_*</annotation></semantics></math> 与紧随的 <math id="eta2"><semantics><annotation>\eta_0 \in (-1,0)</annotation><mi>η</mi></semantics></math><math id="h4"><semantics><annotation>H_*</annotation><mi>H</mi></semantics></math> 之后回到中文。</p>
+                <p id="p3">见 <math id="mx"><semantics><mtext>其中</mtext><mi>x</mi><annotation>HIDDENLATEX</annotation></semantics></math> 结束。</p>
+                <p id="p4"><math id="split" display="block"><semantics><mi>x</mi><annotation>第一句。第二句</annotation></semantics></math></p>
+            </body>
+            </html>
+            """
+        try {
+            val first = paragraph(html, "p1")
+            val map = checkNotNull(SpeechMap.from(first.locator))
+            val mathIds = map.spans.filter { it.kind == SpeechMap.Kind.Math }.map { it.mathId }
+            assertEquals(
+                listOf("h1", "eta", "h2").map { SpeechAnchors.scope(locator.href.toString(), it) },
+                mathIds
+            )
+            assertEquals(mathIds.distinct(), mathIds)
+            val prose = map.spans.first { it.kind == SpeechMap.Kind.Text && it.raw.contains("恰好具有一个零点") }
+            assertEquals("#p1", prose.selector)
+            assertTrue(prose.node > 0)
+            assertFalse(prose.raw.contains("设函数"))
+
+            val h1 = map.spans.first { it.mathId.endsWith("#h1") }
+            val onFormula = map.resolve(h1.start..h1.start)
+            assertEquals(false, onFormula.sentenceLevel)
+            assertEquals(h1.mathId, onFormula.spans.single().mathId)
+
+            val exactly = SpeechMap.normalize(prose.raw, stripLeading = false).text.indexOf("恰")
+            val onWord = map.resolve((prose.start + exactly)..(prose.start + exactly))
+            assertEquals(SpeechMap.Kind.Text, onWord.spans.single().kind)
+            assertEquals("恰", onWord.spans.single().raw)
+            assertTrue(onWord.spans.single().suffix.startsWith("好"))
+            assertTrue(onWord.spans.none { it.kind == SpeechMap.Kind.Math })
+
+            val eta = map.spans.first { it.mathId.endsWith("#eta") }
+            val onEta = map.resolve(eta.start..eta.start)
+            assertEquals(eta.mathId, onEta.spans.single().mathId)
+            assertNotEquals(h1.mathId, onEta.spans.single().mathId)
+
+            val sentence = map.resolve(null)
+            assertEquals(true, sentence.sentenceLevel)
+            assertTrue(sentence.spans.count { it.kind == SpeechMap.Kind.Math } >= 3)
+
+            val second = paragraph(html, "p2")
+            val repeated = checkNotNull(SpeechMap.from(second.locator))
+            val repeatedIds = repeated.spans.filter { it.kind == SpeechMap.Kind.Math }.map { it.mathId }
+            assertEquals(
+                listOf("h3", "eta2", "h4").map { SpeechAnchors.scope(locator.href.toString(), it) },
+                repeatedIds
+            )
+            val backToProse = repeated.spans.last { it.kind == SpeechMap.Kind.Text }
+            assertTrue(backToProse.raw.contains("回到中文"))
+            val spokenBack = repeated.resolve(backToProse.start..backToProse.start)
+            assertEquals(SpeechMap.Kind.Text, spokenBack.spans.single().kind)
+
+            val note = paragraph(html, "p3")
+            val noted = checkNotNull(SpeechMap.from(note.locator))
+            assertTrue(noted.spans.filter { it.kind == SpeechMap.Kind.Text }.none { it.raw.contains("HIDDENLATEX") })
+            val spokenNote = note.text
+            val hiddenAt = spokenNote.indexOf("HIDDENLATEX")
+            assertTrue("spoken note was [$spokenNote]", hiddenAt >= 0)
+            assertEquals(
+                SpeechAnchors.scope(locator.href.toString(), "mx"),
+                noted.resolve(hiddenAt..hiddenAt).spans.single().mathId
+            )
+            assertTrue(noted.spans.filter { it.kind == SpeechMap.Kind.Text }.none { it.raw.contains("其中") })
+
+            val split = paragraph(html, "p4")
+            val whole = checkNotNull(SpeechMap.from(split.locator))
+            val period = split.text.indexOf('。')
+            assertTrue(period > 0)
+            val left = whole.slice(0, period + 1)
+            val right = whole.slice(period + 1, split.text.length)
+            val splitId = SpeechAnchors.scope(locator.href.toString(), "split")
+            assertTrue(left.spans.all { it.kind == SpeechMap.Kind.Math && it.mathId == splitId })
+            assertTrue(right.spans.any { it.kind == SpeechMap.Kind.Math && it.mathId == splitId })
+
+            val sentences = TextContentTokenizer(Language("zh"), TextUnit.Sentence)
+                .tokenize(element(html, "p1"))
+                .filterIsInstance<TextElement>()
+                .flatMap { it.segments }
+            var search = 0
+            assertTrue(sentences.size > 1)
+            for (sentenceSegment in sentences) {
+                val at = first.text.indexOf(sentenceSegment.text, search)
+                assertTrue(at >= 0)
+                val expected = map.slice(at, at + sentenceSegment.text.length)
+                val actual = checkNotNull(SpeechMap.from(sentenceSegment.locator))
+                assertEquals(
+                    expected.spans.map { it.kind to it.mathId to it.selector to it.node },
+                    actual.spans.map { it.kind to it.mathId to it.selector to it.node }
+                )
+                assertTrue(actual.spans.all { it.start >= 0 && it.end <= sentenceSegment.text.length })
+                search = at + sentenceSegment.text.length
+            }
+
+            val otherHref = Url("/dir/other.xhtml")!!
+            val other = paragraph(html, "p1", locator.copy(href = otherHref))
+            val otherId = checkNotNull(SpeechMap.from(other.locator)).spans
+                .first { it.kind == SpeechMap.Kind.Math }
+                .mathId
+            assertEquals(SpeechAnchors.scope(otherHref.toString(), "h1"), otherId)
+            assertNotEquals(mathIds.first(), otherId)
+        } finally {
+            MathSpeechLanguage.code = null
+        }
+    }
+
+    @Test
+    fun `formula ids cover the reading window before the rest of the chapter`() = runTest {
+        val paragraphs = (0 until 40).joinToString("") { index ->
+            """<p id="p$index">文字 <math id="m$index"><mi>x</mi></math> 后</p>"""
+        }
+        val html = """<html xmlns="http://www.w3.org/1998/xhtml"><body>$paragraphs</body></html>"""
+        val iter = iterator(html, locator(selector = "#p20"))
+        assertTrue(iter.hasNext())
+        val around = iter.identifiedFormulaCount
+        assertTrue("identified $around formulas on the first step", around in 1..11)
+        while (iter.hasNext()) {
+            iter.next()
+        }
+        assertTrue(iter.identifiedFormulaCount > around)
+        assertTrue(iter.identifiedFormulaCount < 40)
+    }
+
+    private suspend fun paragraph(
+        html: String,
+        id: String,
+        start: Locator = locator,
+    ): Segment =
+        element(html, id, start).segments.single()
+
+    private suspend fun element(
+        html: String,
+        id: String,
+        start: Locator = locator,
+    ): TextElement =
+        iterator(html, start).elements()
+            .filterIsInstance<TextElement>()
+            .single { it.locator.locations["cssSelector"] == "#$id" }
 }

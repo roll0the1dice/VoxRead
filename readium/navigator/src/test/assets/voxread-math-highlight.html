@@ -1,0 +1,204 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>VoxRead MathML highlight regression</title>
+<!-- Serve the repository root over HTTP and open this file in a browser.
+     Add ?xhtml=1 to also check native XHTML where the browser permits it. -->
+<style>
+  body { font: 16px sans-serif; }
+  iframe { width: 420px; height: 700px; border: 1px solid #ccc; }
+  .pass { color: #176b36; }
+  .fail { color: #b00020; }
+</style>
+<h1>MathML highlight regression</h1>
+<p id="summary">Running…</p>
+<ol id="results"></ol>
+<div id="pages"></div>
+<script>
+(async function () {
+  const fixture = new URL("fixtures/tts-mathml.xhtml", location.href).href;
+  const source = await (await fetch(fixture, { cache: "no-store" })).text();
+  let passed = 0;
+  let failed = 0;
+
+  function check(name, condition) {
+    const item = document.createElement("li");
+    item.className = condition ? "pass" : "fail";
+    item.textContent = (condition ? "PASS: " : "FAIL: ") + name;
+    document.querySelector("#results").appendChild(item);
+    condition ? passed++ : failed++;
+  }
+
+  async function page(type) {
+    const frame = document.createElement("iframe");
+    const loaded = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(type + " frame failed to load")), 10000);
+      frame.onload = () => { clearTimeout(timer); resolve(); };
+    });
+    if (type === "text/html") {
+      frame.srcdoc = source.replace("<head>", '<head><base href="' + fixture + '">');
+    } else {
+      frame.src = fixture;
+    }
+    document.querySelector("#pages").appendChild(frame);
+    await loaded;
+    return frame.contentWindow;
+  }
+
+  const types = new URLSearchParams(location.search).has("xhtml")
+    ? ["text/html", "application/xhtml+xml"] : ["text/html"];
+  for (const type of types) {
+    const w = await page(type);
+    const d = w.document;
+    check(type + ": setup completes without an exception", w.pageErrors.length === 0);
+    check(type + ": all four display formulas have layout containers",
+      d.querySelectorAll("#sample .vox-formula-block").length === 4);
+    const maths = Array.from(d.querySelectorAll("#sample math"));
+    check(type + ": all ten original formulas survive", maths.length === 10);
+    for (let index = 0; index < maths.length; index++) {
+      const math = maths[index];
+      const target = math;
+      const found = w.voxReadHighlightMath({
+        mathId: "vox-math-" + index,
+        mathSelector: "#vox-math-" + index,
+        cssSelector: "#vox-math-" + index
+      });
+      check(type + ": formula " + index + " replaces the previous visible highlight",
+        found && d.querySelectorAll(".voxread-force-highlight").length === 1 &&
+        target.classList.contains("voxread-force-highlight") &&
+        target.getBoundingClientRect().height > 0 &&
+        w.getComputedStyle(target).backgroundColor !== "rgba(0, 0, 0, 0)");
+    }
+    w.voxReadClearHighlight();
+    check(type + ": stopping clears the highlight",
+      d.querySelectorAll(".voxread-force-highlight").length === 0);
+  }
+
+  const w = document.querySelector("iframe").contentWindow;
+  const blocks = Array.from(w.document.querySelector("#mixed-sample").children);
+  check("mixed paragraph: prose and wrapped formula retain reading order",
+    blocks.length === 4 && blocks[0].textContent.trim() === "before" &&
+    blocks[1].querySelector("#vox-math-10") !== null &&
+    blocks[2].textContent.trim() === "after" && blocks[3].textContent === "next");
+  check("mixed paragraph: formula remains highlightable after extraction",
+    w.voxReadHighlightMath({ mathId: "vox-math-10" }) &&
+    w.document.querySelector(".voxread-force-highlight").id === "vox-math-10");
+
+  const chapter = "/chapters/one.xhtml";
+  w.voxReadSetPageHref(chapter);
+  w.document.querySelector("#speech-map").scrollIntoView();
+  const speech = w.document;
+  function highlightedText() {
+    var paint = w.CSS && w.CSS.highlights && w.CSS.highlights.get("voxread-tts");
+    if (!paint) return "";
+    var text = "";
+    paint.forEach(function (range) { text += range.toString(); });
+    return text;
+  }
+
+  const prose = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 1,
+    utterance: "设函数",
+    targets: [{ kind: "text", selector: "#p-speech-1", node: 0, from: 0, to: 3 }]
+  });
+  check("spoken prose highlights that text node, not a formula",
+    prose && highlightedText() === "设函数" &&
+    speech.querySelector(".voxread-force-highlight") === null);
+
+  const firstFormula = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 2,
+    utterance: "H star",
+    targets: [{ kind: "math", mathId: "vox:" + chapter + "#h-star", selector: "#h-star" }]
+  });
+  check("the same sentence can move from prose onto H_*",
+    firstFormula && speech.getElementById("h-star").classList.contains("voxread-force-highlight") &&
+    !speech.getElementById("eta-range").classList.contains("voxread-force-highlight") &&
+    !speech.getElementById("h-star-again").classList.contains("voxread-force-highlight"));
+
+  const secondFormula = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 3,
+    utterance: "eta",
+    targets: [{ kind: "math", mathId: "vox:" + chapter + "#eta-range", selector: "#eta-range" }]
+  });
+  check("a later formula replaces the previous one",
+    secondFormula && speech.getElementById("eta-range").classList.contains("voxread-force-highlight") &&
+    !speech.getElementById("h-star").classList.contains("voxread-force-highlight"));
+
+  const stale = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 2,
+    utterance: "H star",
+    targets: [{ kind: "math", mathId: "h-star", selector: "#h-star" }]
+  });
+  check("an older highlight request is discarded",
+    stale === false && speech.getElementById("eta-range").classList.contains("voxread-force-highlight"));
+
+  const wrongChapter = w.voxReadApplyHighlight({
+    href: "/chapters/two.xhtml",
+    seq: 4,
+    utterance: "H star",
+    targets: [{ kind: "math", mathId: "h-star-again", selector: "#h-star-again" }]
+  });
+  check("a request for another chapter does not stick on this page",
+    wrongChapter === false && speech.querySelector(".voxread-force-highlight") === null);
+
+  const again = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 4,
+    utterance: "H star again",
+    targets: [{ kind: "math", mathId: "vox:" + chapter + "#h-star-again", selector: "#h-star-again" }]
+  });
+  check("the repeated H_* is a different formula from the first",
+    again && speech.getElementById("h-star-again").classList.contains("voxread-force-highlight") &&
+    !speech.getElementById("h-star").classList.contains("voxread-force-highlight") &&
+    !speech.getElementById("h-star-3").classList.contains("voxread-force-highlight"));
+
+  const back = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 5,
+    utterance: "回到中文",
+    targets: [{ kind: "text", selector: "#p-speech-2", node: 2, from: 0, to: 6 }]
+  });
+  check("reading returns to the Chinese after the formulas",
+    back && speech.querySelector(".voxread-force-highlight") === null &&
+    highlightedText().indexOf("之后回到中") >= 0);
+
+  speech.getElementById("h-star").scrollIntoView({ block: "center" });
+  w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 6,
+    utterance: "H star",
+    targets: [{ kind: "math", mathId: "h-star", selector: "#h-star" }]
+  });
+  const beforeFont = speech.getElementById("h-star").getBoundingClientRect().height;
+  speech.documentElement.style.fontSize = "40px";
+  speech.getElementById("h-star").scrollIntoView({ block: "center" });
+  w.dispatchEvent(new Event("resize"));
+  const afterFont = speech.getElementById("h-star").getBoundingClientRect();
+  const fontBoxEl = speech.querySelector(".voxread-highlight-box");
+  const fontBox = fontBoxEl && fontBoxEl.getBoundingClientRect();
+  check("a font-size change keeps the highlight on the formula",
+    fontBox && afterFont.height >= beforeFont &&
+    Math.abs(fontBox.top - afterFont.top) < 3 &&
+    Math.abs(fontBox.height - afterFont.height) < 3);
+
+  const rows = w.voxReadApplyHighlight({
+    href: chapter,
+    seq: 7,
+    utterance: "steps",
+    targets: [{ kind: "math", mathId: "vox:" + chapter + "#steps", selector: "#steps" }]
+  });
+  const markedRows = Array.from(speech.querySelectorAll("math.voxread-force-highlight"));
+  check("a formula split across rows highlights every fragment",
+    rows && markedRows.length === 2 &&
+    markedRows.every(function (node) {
+      return node.id === "steps" || node.getAttribute("data-vox-source") === "steps";
+    }));
+
+  document.querySelector("#summary").textContent = passed + " passed, " + failed + " failed";
+})().catch(error => {
+  document.querySelector("#summary").textContent = "ERROR: " + error.stack;
+});
+</script>
