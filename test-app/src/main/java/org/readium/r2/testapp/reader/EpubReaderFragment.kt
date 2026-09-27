@@ -24,7 +24,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import org.readium.r2.navigator.DecorableNavigator
+import org.readium.r2.navigator.VisualNavigator
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.*
 import org.readium.r2.navigator.epub.css.FontStyle
@@ -95,6 +97,10 @@ class EpubReaderFragment : VisualReaderFragment() {
                     decorationTemplates[DecorationStyleAnnotationMark::class] = annotationMarkTemplate()
                     decorationTemplates[DecorationStylePageNumber::class] = pageNumberTemplate()
 
+                    registerJavascriptInterface("VoxFormula") {
+                        VoxFormulaBridge(opener = ::openFormulaViewer)
+                    }
+
                     // Declare a custom font family for reflowable EPUBs.
                     addFontFamilyDeclaration(FontFamily.LITERATA) {
                         addFontFace {
@@ -128,6 +134,37 @@ class EpubReaderFragment : VisualReaderFragment() {
         )
 
         super.onCreate(savedInstanceState)
+    }
+
+    fun openFormulaViewer(payload: String) {
+        if (!isAdded || childFragmentManager.findFragmentByTag(FormulaViewerDialog.TAG) != null) return
+        val json = try {
+            JSONObject(payload)
+        } catch (_: Exception) {
+            return
+        }
+        val mathml = json.optString("mathml")
+        if (mathml.isBlank()) return
+        val href = (navigator as? VisualNavigator)?.currentLocator?.value?.href?.toString().orEmpty()
+        locatorBeforeFormula = (navigator as? VisualNavigator)?.currentLocator?.value
+        formulaFollowSuspended = true
+        lifecycleScope.launch {
+            navigator.evaluateJavascript("window.__voxFormulaOpen = true;")
+        }
+        suspendReaderChrome()
+        FormulaViewerDialog.newInstance(
+            key = model.scopedFormulaKey(href, json.optString("id")),
+            mathml = mathml,
+            orientation = requireActivity().requestedOrientation,
+        ).show(childFragmentManager, FormulaViewerDialog.TAG)
+    }
+
+    fun pauseFormulaSpeech() {
+        model.tts?.pause()
+    }
+
+    fun resumeFormulaSpeech() {
+        model.tts?.play()
     }
 
     override fun onCreateView(

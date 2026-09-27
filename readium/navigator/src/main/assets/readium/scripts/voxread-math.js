@@ -98,6 +98,10 @@
       if (boxes[j].parentNode) boxes[j].parentNode.removeChild(boxes[j]);
     }
     if (window.CSS && CSS.highlights) CSS.highlights.delete(textHighlightName);
+    var speaking = document.querySelectorAll(".vox-formula-block.is-speaking");
+    for (var s = 0; s < speaking.length; s++) {
+      speaking[s].classList.remove("is-speaking");
+    }
   }
 
   function clearHighlight(seq) {
@@ -240,19 +244,15 @@
       warn("voxread: formula element not found", target);
       return false;
     }
-    var visible = false;
     for (var i = 0; i < nodes.length; i++) {
-      nodes[i].classList.add("voxread-force-highlight");
-      var rects = nodes[i].getClientRects();
-      if (!rects.length && usableRect(nodes[i].getBoundingClientRect())) {
-        rects = [nodes[i].getBoundingClientRect()];
-      }
-      for (var r = 0; r < rects.length; r++) {
-        if (usableRect(rects[r])) visible = true;
-        placeBox(rects[r], nodes[i]);
-      }
+      var block = nodes[i].closest && nodes[i].closest(".vox-formula-block");
+      var box = block || nodes[i];
+      box.classList.add("voxread-force-highlight");
+      if (block && block.classList.contains("is-preview")) block.classList.add("is-speaking");
+      var rect = box.getBoundingClientRect();
+      if (usableRect(rect)) placeBox(rect, box);
     }
-    return visible;
+    return true;
   }
 
   function drawTargets(request) {
@@ -365,6 +365,7 @@
     if (window.readium.scrollToLocator.__voxread) return;
     var original = window.readium.scrollToLocator.bind(window.readium);
     function wrapped(locator) {
+      if (window.__voxFormulaOpen) return true;
       var locations = (locator && locator.locations) || {};
       if (locations.isMath || locations.hasInlineMath) {
         var element = followTarget(locator);
@@ -389,6 +390,7 @@
   var anchorTimer = 0;
   var restoringAnchor = false;
   var pendingAnchor = null;
+  var restoreReady = false;
 
   function createEl(name) {
     var ns = document.documentElement && document.documentElement.namespaceURI;
@@ -659,44 +661,6 @@
     parent.removeChild(math);
   }
 
-  function holdPage(hold) {
-    if (window.Android && Android.setEquationDragHold) Android.setEquationDragHold(hold);
-  }
-
-  function bindScroll(scroll) {
-    var startX = 0;
-    var startLeft = 0;
-    scroll.addEventListener("touchstart", function (event) {
-      if (!event.touches || !event.touches.length) return;
-      startX = event.touches[0].clientX;
-      startLeft = scroll.scrollLeft;
-      if (scroll.scrollWidth - scroll.clientWidth > 1) holdPage(true);
-    }, { passive: true });
-
-    scroll.addEventListener("touchmove", function (event) {
-      if (!event.touches || !event.touches.length) return;
-      var max = scroll.scrollWidth - scroll.clientWidth;
-      if (max <= 1) return;
-      var dx = startX - event.touches[0].clientX;
-      var next = startLeft + dx;
-      if ((next <= 0 && dx < 0) || (next >= max && dx > 0)) {
-        holdPage(false);
-        return;
-      }
-      scroll.scrollLeft = Math.max(0, Math.min(max, next));
-      holdPage(true);
-      event.preventDefault();
-      event.stopPropagation();
-    }, { passive: false });
-
-    scroll.addEventListener("touchend", function () {
-      holdPage(false);
-    });
-    scroll.addEventListener("touchcancel", function () {
-      holdPage(false);
-    });
-  }
-
   function pageMetrics() {
     var root = document.documentElement;
     var style = window.getComputedStyle(root);
@@ -744,62 +708,45 @@
     return null;
   }
 
-  function setMathFontScale(scroll, scale) {
+  function exportMath(math) {
+    var clone = math.cloneNode(true);
+    function strip(node) {
+      if (node.removeAttribute) node.removeAttribute("id");
+      var children = node.children || [];
+      for (var i = 0; i < children.length; i++) strip(children[i]);
+    }
+    strip(clone);
+    if (!clone.getAttribute("xmlns")) {
+      clone.setAttribute("xmlns", "http://www.w3.org/1998/Math/MathML");
+    }
+    if (math.id) clone.setAttribute("data-vox-source", math.id);
+    if (window.XMLSerializer) {
+      try {
+        return new XMLSerializer().serializeToString(clone);
+      } catch (error) {
+        warn("voxread: formula serialize failed", error);
+      }
+    }
+    return clone.outerHTML || "";
+  }
+
+  function openFormula(block) {
+    var scroll = block.querySelector(".vox-formula-scroll");
     var math = formulaMath(scroll);
-    if (!math) return;
-    if (!scale || scale === 1) math.style.fontSize = "";
-    else math.style.fontSize = scale + "em";
+    if (!math || !window.VoxFormula || !VoxFormula.open) return;
+    try {
+      VoxFormula.open(JSON.stringify({
+        id: math.id || "",
+        mathml: exportMath(math)
+      }));
+    } catch (error) {
+      warn("voxread: unable to open formula viewer", error);
+    }
   }
 
-  function viewerMaxHeight(page) {
-    return Math.max(page.height - 96, 120) + "px";
-  }
-
-  /*
-   * The formula stays in its own block. Readium paginates :root with CSS
-   * columns, so a position:fixed layer appended to body is clipped into
-   * another column and the current page loses the formula.
-   */
-  function openZoom(equation, scroll) {
-    if (equation.classList.contains("is-viewing")) return;
-    var savedMaxHeight = scroll.style.maxHeight;
-    var page = pageMetrics();
-    var scale = 1;
-    var controls = createEl("div");
-    controls.setAttribute("class", "vox-formula-controls");
-    function control(label, onClick) {
-      var button = createEl("button");
-      button.setAttribute("type", "button");
-      button.setAttribute("class", "vox-formula-open");
-      button.appendChild(document.createTextNode(label));
-      button.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        onClick();
-      });
-      controls.appendChild(button);
-    }
-    function closeZoom() {
-      setMathFontScale(scroll, 1);
-      scroll.style.maxHeight = savedMaxHeight;
-      if (controls.parentNode) controls.parentNode.removeChild(controls);
-      equation.classList.remove("is-viewing");
-      scheduleRemeasure();
-    }
-    control("缩小", function () {
-      scale = Math.max(0.8, Math.round((scale - 0.25) * 100) / 100);
-      setMathFontScale(scroll, scale);
-    });
-    control("放大", function () {
-      scale = Math.min(3, Math.round((scale + 0.25) * 100) / 100);
-      setMathFontScale(scroll, scale);
-    });
-    control("关闭", closeZoom);
-    var opener = equation.querySelector(".vox-formula-open");
-    if (opener) equation.insertBefore(controls, opener);
-    else equation.appendChild(controls);
-    scroll.style.maxHeight = viewerMaxHeight(page);
-    equation.classList.add("is-viewing");
+  function stopPageGesture(event) {
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   function buildEquation(math) {
@@ -813,16 +760,25 @@
     }
     var button = createEl("button");
     button.setAttribute("type", "button");
-    button.setAttribute("class", "vox-formula-open");
-    button.appendChild(document.createTextNode("查看"));
+    button.setAttribute("class", "vox-formula-expand");
+    button.setAttribute("aria-label", "查看完整公式");
+    button.appendChild(document.createTextNode("\u2922"));
+    var hint = createEl("p");
+    hint.setAttribute("class", "vox-formula-hint");
+    hint.appendChild(document.createTextNode("点击查看完整公式"));
+    var speaking = createEl("p");
+    speaking.setAttribute("class", "vox-formula-speak");
+    speaking.appendChild(document.createTextNode("正在朗读公式 · 点击展开"));
     equation.appendChild(scroll);
     equation.appendChild(button);
-    button.addEventListener("click", function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      openZoom(equation, scroll);
-    });
-    bindScroll(scroll);
+    equation.appendChild(hint);
+    equation.appendChild(speaking);
+    function open(event) {
+      stopPageGesture(event);
+      openFormula(equation);
+    }
+    button.addEventListener("click", open);
+    equation.addEventListener("click", open);
     return { equation: equation, scroll: scroll };
   }
 
@@ -905,40 +861,50 @@
     }, 80);
   }
 
+  function fitPreview(block, page) {
+    var scroller = block.querySelector(".vox-formula-scroll");
+    var math = formulaMath(scroller);
+    if (!scroller || !math) return;
+    math.style.fontSize = "";
+    scroller.style.maxHeight = "";
+    block.classList.remove("is-preview", "is-shrunk");
+    var box = scroller.clientWidth;
+    if (box < 2) return;
+    var limit = page.height - 48;
+    var tooWide = math.offsetWidth > box + 4;
+    var tooTall = math.offsetHeight > limit;
+    if (tooWide) {
+      var ratio = box / Math.max(math.offsetWidth, 1);
+      var scale = ratio >= 0.85 ? ratio : 0.85;
+      math.style.fontSize = (Math.round(scale * 1000) / 1000) + "em";
+      if (scale < 0.999) block.classList.add("is-shrunk");
+      tooWide = math.offsetWidth > box + 4;
+      tooTall = math.offsetHeight > limit;
+    }
+    if (tooWide || tooTall) {
+      block.classList.add("is-preview");
+      scroller.style.maxHeight = Math.max(120, Math.min(page.height * 0.42, limit)) + "px";
+    }
+  }
+
   function classifyFormulas() {
     var page = pageMetrics();
     var blocks = Array.prototype.slice.call(document.querySelectorAll(".vox-formula-block"));
     var i;
     for (i = 0; i < blocks.length; i++) {
-      if (blocks[i].classList.contains("is-viewing")) continue;
       clearBreak(blocks[i]);
-      blocks[i].classList.remove("is-wide", "is-tall");
       var scroll = blocks[i].querySelector(".vox-formula-scroll");
+      var math = formulaMath(scroll);
       if (scroll) scroll.style.maxHeight = "";
+      if (math) math.style.fontSize = "";
+      blocks[i].classList.remove("is-preview", "is-shrunk");
     }
     if (blocks.length) blocks[0].offsetHeight;
 
     for (i = 0; i < blocks.length; i++) {
-      var block = blocks[i];
-      var scroller = block.querySelector(".vox-formula-scroll");
-      if (!scroller) continue;
-      if (block.classList.contains("is-viewing")) {
-        if (!page.scrollMode) scroller.style.maxHeight = viewerMaxHeight(page);
-        continue;
-      }
-      var math = formulaMath(scroller);
-      var contentWidth = math ? math.offsetWidth : 0;
-      var contentHeight = math ? math.offsetHeight : 0;
-      var boxWidth = scroller.clientWidth;
-      var wide = boxWidth > 0 && contentWidth > boxWidth + 4;
-      var tallerThanPage = contentHeight > page.height - 32;
-      if (wide) block.classList.add("is-wide");
-      if (tallerThanPage) block.classList.add("is-tall");
-      if (tallerThanPage && !page.scrollMode) {
-        scroller.style.maxHeight = Math.max(page.height - 96, 80) + "px";
-      }
+      fitPreview(blocks[i], page);
       if (page.scrollMode || page.vertical) continue;
-      var target = breakTarget(block);
+      var target = breakTarget(blocks[i]);
       var rect = target.getBoundingClientRect();
       var fitsOnePage = target.offsetHeight <= page.height;
       var startsMidPage = rect.top > page.top + 8;
@@ -965,7 +931,7 @@
           rect.top < window.innerHeight * 0.5 &&
           rect.left >= 0 &&
           rect.left < window.innerWidth;
-        if (!visible && window.readium && readium.scrollToId) {
+        if (restoreReady && !window.__voxFormulaOpen && !visible && window.readium && readium.scrollToId) {
           readium.scrollToId(id);
         }
         restoringAnchor = false;
@@ -984,18 +950,22 @@
     });
   }
 
+  function startLayout() {
+    wrapScroll();
+    // Let the chapter paint before measuring formulas. Otherwise the WebView
+    // stays blank until every display formula has been wrapped.
+    setTimeout(layoutEquations, 0);
+  }
+
   window.voxReadClearHighlight = clearHighlight;
   window.voxReadHighlightMath = highlight;
   window.voxReadApplyHighlight = applyHighlight;
   window.voxReadSetPageHref = setPageHref;
   wrapScroll();
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      wrapScroll();
-      layoutEquations();
-    });
+    document.addEventListener("DOMContentLoaded", startLayout);
   } else {
-    layoutEquations();
+    startLayout();
   }
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(function () { scheduleRemeasure(); });
@@ -1008,6 +978,7 @@
     repaintHighlight();
   });
   window.addEventListener("scroll", function () {
+    restoreReady = true;
     rememberAnchor();
     repaintHighlight();
   }, true);

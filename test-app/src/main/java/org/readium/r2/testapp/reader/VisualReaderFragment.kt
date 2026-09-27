@@ -43,6 +43,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 import org.readium.navigator.media.tts.android.AndroidTtsEngine
 import org.readium.r2.navigator.DecorableNavigator
+import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.OverflowableNavigator
 import org.readium.r2.navigator.SelectableNavigator
@@ -102,6 +104,11 @@ abstract class VisualReaderFragment : BaseReaderFragment() {
 
     // 🌟 核心：这行必须声明在类体内、所有函数的最外层！
     private val isSystemUiVisible = MutableStateFlow(true)
+
+    /** While the fullscreen formula viewer is open, TTS keeps speaking but does not turn pages. */
+    internal var formulaFollowSuspended = false
+    internal var locatorBeforeFormula: Locator? = null
+    private var chromeWasVisible = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -278,7 +285,9 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                 // Improve performances by throttling the moves to maximum one per second.
                 .throttleLatest(1.seconds)
                 .observeWhenStarted(viewLifecycleOwner) { locator ->
-                    navigator.go(locator, animated = false)
+                    if (!formulaFollowSuspended) {
+                        navigator.go(locator, animated = false)
+                    }
                 }
 
             // Highlight the currently spoken utterance with the user's preferred color.
@@ -629,6 +638,33 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
     private fun showImageViewer(image: Content.ImageElement) {
         ImageViewerDialogFragment.newInstance(image)
             .show(childFragmentManager, ImageViewerDialogFragment.TAG)
+    }
+
+    internal fun suspendReaderChrome() {
+        chromeWasVisible = isSystemUiVisible.value
+        isSystemUiVisible.value = false
+        activity?.hideSystemUi()
+    }
+
+    internal fun restoreReaderChrome() {
+        if (chromeWasVisible) {
+            activity?.showSystemUi()
+            isSystemUiVisible.value = true
+        }
+    }
+
+    internal fun onFormulaViewerClosed() {
+        val playing = model.tts?.isPlaying?.value == true
+        val restore = if (playing) model.tts?.position?.value else locatorBeforeFormula
+        formulaFollowSuspended = false
+        locatorBeforeFormula = null
+        viewLifecycleOwner.lifecycleScope.launch {
+            val visual = navigator as? EpubNavigatorFragment
+            visual?.evaluateJavascript("window.__voxFormulaOpen = false;")
+            delay(200)
+            restore?.let { navigator.go(it, animated = false) }
+        }
+        restoreReaderChrome()
     }
 
     fun updateSystemUiVisibility() {

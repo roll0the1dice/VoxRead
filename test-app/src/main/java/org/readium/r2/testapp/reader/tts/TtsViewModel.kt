@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import org.readium.navigator.media.common.MediaNavigator
 import org.readium.navigator.media.tts.AndroidTtsNavigator
 import org.readium.navigator.media.tts.AndroidTtsNavigatorFactory
 import org.readium.navigator.media.tts.TtsNavigator
@@ -38,6 +39,7 @@ import org.readium.r2.testapp.reader.preferences.PreferencesManager
 import org.readium.r2.testapp.reader.preferences.UserPreferencesViewModel
 import org.readium.r2.testapp.utils.extensions.mapStateIn
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * View model controlling a [TtsNavigator] to read a publication aloud.
@@ -200,6 +202,36 @@ class TtsViewModel private constructor(
                 spokenHighlights(location)
             } ?: MutableStateFlow(emptyList())
         }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val speechSession = AtomicLong(0)
+    private val speechSequence = AtomicLong(0)
+
+    /**
+     * Latest playback and formula, available as soon as a subscriber collects.
+     * The formula comes from the speech map, not from a highlight drawn on the page.
+     */
+    val speech: StateFlow<TtsSpeechState> =
+        mediaServiceFacade.session.flatMapLatest { session ->
+            val navigator = session?.ttsNavigator
+            if (session == null || navigator == null) {
+                flowOf(TtsSpeechState.stopped(speechSequence.incrementAndGet()))
+            } else {
+                val sessionId = speechSession.incrementAndGet()
+                combine(session.navigator.playback, navigator.location) { playback, location ->
+                    TtsSpeechState(
+                        session = sessionId,
+                        sequence = speechSequence.incrementAndGet(),
+                        play = playOf(playback),
+                        chapterHref = location.utteranceLocator.href.toString(),
+                        formulaId = formulaIdOf(location),
+                    )
+                }
+            }
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            TtsSpeechState.stopped(speechSequence.incrementAndGet()),
+        )
 
     val highlightColor: StateFlow<TtsHighlightColor> = highlightColorStore.color
 
@@ -371,6 +403,32 @@ class TtsViewModel private constructor(
                 ),
             )
         }
+
+    private fun playOf(playback: MediaNavigator.Playback): TtsPlay =
+        when (playback.state) {
+            is TtsNavigator.State.Ended,
+            is TtsNavigator.State.Failure,
+            -> TtsPlay.Stopped
+            else -> if (playback.playWhenReady) TtsPlay.Playing else TtsPlay.Paused
+        }
+
+    /**
+     * A word range may name the formula it lands on. A sentence-level range may
+     * name a formula only when that utterance is exactly one formula.
+     */
+    private fun formulaIdOf(location: TtsNavigator.Location?): String? {
+        if (location == null) return null
+        val utterance = location.utteranceLocator
+        val href = utterance.href.toString()
+        val map = SpeechMap.from(utterance)
+        if (map != null) {
+            val mathId = map.spokenMathId(location.range) ?: return null
+            return TtsSpeechState.key(bookId, href, mathId)
+        }
+        if (!utterance.isFlag("isMath")) return null
+        val id = utterance.locations.otherLocations["mathId"] as? String ?: return null
+        return TtsSpeechState.key(bookId, href, id)
+    }
 
     private fun Locator.isFlag(key: String): Boolean {
         val value = locations.otherLocations[key]

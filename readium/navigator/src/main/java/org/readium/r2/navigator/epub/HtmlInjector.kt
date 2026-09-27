@@ -60,7 +60,10 @@ internal fun Resource.injectHtml(
         }
 
         injectables.add(
-            script(assetsBaseHref.resolve(Url("readium/scripts/voxread-math.js")!!))
+            script(
+                assetsBaseHref.resolve(Url("readium/scripts/voxread-math.js")!!),
+                defer = true
+            )
         )
 
         // Disable the text selection if the publication is protected.
@@ -90,5 +93,5 @@ internal fun Resource.injectHtml(
         Try.success(content.toByteArray())
     }
 
-private fun script(src: Url): String =
-    """<script type="text/javascript" src="$src"></script>"""
+private fun script(src: Url, defer: Boolean = false): String =
+    """<script type="text/javascript" src="$src"${if (defer) " defer=\"defer\"" else ""}></script>"""

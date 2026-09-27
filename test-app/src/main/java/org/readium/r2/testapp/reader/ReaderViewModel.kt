@@ -47,6 +47,7 @@ import org.readium.r2.testapp.data.BookRepository
 import org.readium.r2.testapp.data.model.Highlight
 import org.readium.r2.testapp.domain.toUserError
 import org.readium.r2.testapp.reader.preferences.UserPreferencesViewModel
+import org.readium.r2.testapp.reader.tts.TtsSpeechState
 import org.readium.r2.testapp.reader.tts.TtsViewModel
 import org.readium.r2.testapp.search.SearchPagingSource
 import org.readium.r2.testapp.utils.EventChannel
@@ -64,6 +65,9 @@ class ReaderViewModel(
     EpubNavigatorFragment.Listener,
     ImageNavigatorFragment.Listener,
     PdfNavigatorFragment.Listener {
+
+    fun scopedFormulaKey(href: String, localId: String): String =
+        TtsSpeechState.key(bookId, href, localId)
 
     val readerInitData =
         try {

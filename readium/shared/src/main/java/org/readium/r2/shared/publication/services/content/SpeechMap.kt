@@ -73,6 +73,25 @@ public class SpeechMap(
      * span that contains its first index, so a formula and the following word
      * are not highlighted as if they were spoken together.
      */
+    /**
+     * The formula under a word range. A missing range is sentence level: one
+     * formula is reported only when the utterance is that formula alone.
+     */
+    public fun spokenMathId(range: IntRange?): String? {
+        val active = resolve(range)
+        if (active.sentenceLevel) {
+            val mathIds = spans.mapNotNull { span ->
+                span.mathId.takeIf { span.kind == Kind.Math && it.isNotBlank() }
+            }.distinct()
+            val onlyMath = spans.isNotEmpty() && spans.all { it.kind == Kind.Math }
+            if (onlyMath && mathIds.size == 1) return mathIds[0]
+            return null
+        }
+        return active.spans.mapNotNull { span ->
+            span.mathId.takeIf { span.kind == Kind.Math && it.isNotBlank() }
+        }.distinct().singleOrNull()
+    }
+
     public fun resolve(range: IntRange?): Highlight {
         if (range == null || spans.isEmpty()) {
             return Highlight(sentenceLevel = true, spans = spans)

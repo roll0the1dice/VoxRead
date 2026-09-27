@@ -78,10 +78,10 @@ div.math-block.vox-break-before {
   max-width: 100%;
   min-width: 0;
   height: auto;
-  overflow: auto;
+  overflow: hidden;
   padding-block: 0.25em;
-  touch-action: pan-x pan-y;
-  -webkit-overflow-scrolling: touch;
+  /* Body swipes turn the page. Panning stays in the fullscreen viewer. */
+  touch-action: auto;
 }
 
 .vox-formula-scroll > *|math {
@@ -95,39 +95,53 @@ div.math-block.vox-break-before {
   overflow-wrap: normal;
 }
 
-.vox-formula-open {
-  display: none;
-  margin-top: 0.25em;
-  padding: 0.15em 0.6em;
+.vox-formula-block.is-preview .vox-formula-scroll {
+  max-height: 42vh;
+  -webkit-mask-image: linear-gradient(#000 0 70%, transparent), linear-gradient(90deg, #000 0 82%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(#000 0 70%, transparent), linear-gradient(90deg, #000 0 82%, transparent);
+  mask-composite: intersect;
+}
+
+.vox-formula-expand {
+  position: absolute;
+  z-index: 2;
+  top: 0.2em;
+  right: 0.2em;
+  width: 2em;
+  height: 2em;
+  padding: 0;
   border: 0;
-  border-radius: 0.3em;
-  background: rgba(128, 128, 128, 0.2);
+  border-radius: 0.35em;
+  background: rgba(128, 128, 128, 0.28);
   color: inherit;
   font: inherit;
-  font-size: 0.8em;
+  font-size: 0.85em;
+  line-height: 2em;
 }
 
-.vox-formula-block > .vox-formula-open {
-  display: inline-block;
-}
-
-.vox-formula-block.is-viewing > .vox-formula-open {
+.vox-formula-hint,
+.vox-formula-speak {
   display: none;
+  margin: 0;
+  padding: 0.15em 2.2em 0 0;
+  font-size: 0.75em;
+  line-height: 1.3;
+  text-align: right;
+  opacity: 0.85;
+  pointer-events: none;
 }
 
-.vox-formula-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35em;
-  margin-top: 0.35em;
+.vox-formula-block.is-preview .vox-formula-hint {
+  display: block;
 }
 
-.vox-formula-controls .vox-formula-open {
-  display: inline-block;
+.vox-formula-block.is-preview.is-speaking .vox-formula-speak {
+  display: block;
 }
 
-.vox-formula-block.is-viewing .vox-formula-scroll {
-  background: rgba(128, 128, 128, 0.12);
+.vox-formula-block.is-preview.is-speaking .vox-formula-hint {
+  display: none;
 }
 
 /*
