@@ -505,7 +505,7 @@ class TtsViewModel private constructor(
     }
 
     private suspend fun openSession(navigator: Navigator) {
-        val start = (navigator as? VisualNavigator)?.firstVisibleElementLocator()
+        val start = readingStart(navigator)
 
         val ttsNavigator = ttsNavigatorFactory.createNavigator(
             this,
@@ -529,6 +529,23 @@ class TtsViewModel private constructor(
         }
 
         ttsNavigator.play()
+    }
+
+    /**
+     * Starts at the text on the current page. The visible-element locator carries
+     * that snippet; the scroll progression covers the case where the page has
+     * not reported an element yet.
+     */
+    private suspend fun readingStart(navigator: Navigator): Locator? {
+        val current = navigator.currentLocator.value
+        val visible = (navigator as? VisualNavigator)?.firstVisibleElementLocator()
+            ?: return current
+        if (visible.locations.progression != null || visible.href != current.href) {
+            return visible
+        }
+        return visible.copy(
+            locations = visible.locations.copy(progression = current.locations.progression)
+        )
     }
 
     private fun VisualNavigator?.runJs(javascript: String, onResult: ((String?) -> Unit)? = null) {

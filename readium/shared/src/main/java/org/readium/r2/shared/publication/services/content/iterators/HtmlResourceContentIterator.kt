@@ -269,11 +269,10 @@ private fun fastCssSelector(
             val anchor = anchorUnit(document)
             val from = (anchor - BLOCKS_BEFORE).coerceAtLeast(0)
             val to = (anchor + BLOCKS_AFTER + 1).coerceAtMost(units.size)
+            val anchoredElement = startElementFor(document, anchor)
             forwardParser = ContentParser(
                 baseLocator = locator,
-                startElement = locator.locations.cssSelector?.let {
-                    tryOrNull { document.selectFirst(it) }
-                },
+                startElement = anchoredElement,
                 beforeMaxLength = beforeMaxLength,
                 selectorCache = selectorCache,
                 formulaBundles = formulaBundles,
@@ -286,23 +285,18 @@ private fun fastCssSelector(
                 assignExactProgression()
             }
             val parserStart = forwardParser!!.readingStart()
-            val progression = locator.locations.progression
+            val atEnd = locator.locations.progression == 1.0 &&
+                locator.locations.cssSelector == null &&
+                locator.text.highlight.isNullOrBlank()
             readStart = when {
-                progression == 1.0 && locator.locations.cssSelector == null ->
+                atEnd ->
                     builtElements.size
-                locator.locations.cssSelector != null ->
+                anchoredElement != null && forwardParser!!.matchedStart() ->
                     parserStart
-                progression != null && parsedFromUnit == 0 && parsedUntilUnit == units.size -> {
-                    val prog = progression.coerceIn(0.0, 1.0)
-                    (prog * builtElements.size).toInt()
-                        .coerceIn(0, (builtElements.size - 1).coerceAtLeast(0))
-                }
-                progression != null -> {
+                else -> {
                     val local = (anchor - from).coerceIn(0, lastUnitCounts.size)
                     lastUnitCounts.take(local).sum()
                 }
-                else ->
-                    0
             }
         }
     }
@@ -437,22 +431,69 @@ private fun fastCssSelector(
             }
         )
 
+    /**
+     * The block where reading should begin. A selector generated from the live
+     * page can point at the chapter's first element after the DOM is rewritten,
+     * so visible text and the scroll progression take precedence when they disagree.
+     */
     private fun anchorUnit(document: org.jsoup.nodes.Document): Int {
         if (units.isEmpty()) return 0
-        locator.locations.cssSelector?.let { selector ->
-            val node = tryOrNull { document.selectFirst(selector) }
-            if (node != null) {
-                val match = units.indexOfLast { it == node || containsNode(it, node) }
-                if (match >= 0) return match
-            }
+        textAnchorUnit()?.let { return it }
+        val selected = selectorUnit(document)
+        val progressed = progressionUnit()
+        if (selected != null && (progressed == null || near(selected, progressed))) {
+            return selected
         }
-        val progression = locator.locations.progression
-        if (progression != null) {
-            if (progression >= 1.0) return units.lastIndex
-            return (progression.coerceIn(0.0, 1.0) * units.size).toInt()
-                .coerceIn(0, units.lastIndex)
-        }
+        if (progressed != null) return progressed
+        if (selected != null) return selected
         return 0
+    }
+
+    private fun startElementFor(
+        document: org.jsoup.nodes.Document,
+        anchor: Int,
+    ): Element? {
+        val selector = locator.locations.cssSelector ?: return null
+        if (selectorUnit(document) != anchor) return null
+        return tryOrNull { document.selectFirst(selector) }
+    }
+
+    private fun selectorUnit(document: org.jsoup.nodes.Document): Int? {
+        val selector = locator.locations.cssSelector ?: return null
+        val node = tryOrNull { document.selectFirst(selector) } ?: return null
+        val exact = units.indexOfFirst { it == node }
+        if (exact >= 0) return exact
+        return units.indexOfFirst { containsNode(it, node) }.takeIf { it >= 0 }
+    }
+
+    private fun textAnchorUnit(): Int? {
+        val highlight = locator.text.highlight
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            ?.take(80)
+            ?.takeIf { it.length >= 4 }
+            ?: return null
+        val matches = units.mapIndexedNotNull { index, unit ->
+            val text = unit.text().replace(Regex("\\s+"), " ")
+            if (text.contains(highlight)) index else null
+        }
+        if (matches.isEmpty()) return null
+        if (matches.size == 1) return matches.first()
+        val guess = progressionUnit() ?: return matches.first()
+        return matches.minByOrNull { kotlin.math.abs(it - guess) }
+    }
+
+    private fun progressionUnit(): Int? {
+        val progression = locator.locations.progression ?: return null
+        if (units.isEmpty()) return null
+        if (progression >= 1.0) return units.lastIndex
+        return (progression.coerceIn(0.0, 1.0) * units.size).toInt()
+            .coerceIn(0, units.lastIndex)
+    }
+
+    private fun near(unit: Int, guess: Int): Boolean {
+        val slack = maxOf(4, units.size / 10)
+        return kotlin.math.abs(unit - guess) <= slack
     }
 
     private fun containsNode(container: Element, node: Element): Boolean {
@@ -676,8 +717,11 @@ private fun fastCssSelector(
 
         fun readingStart(): Int = startIndex
 
+        fun matchedStart(): Boolean = matchedStart
+
         private val elements = mutableListOf<Content.Element>()
         private var startIndex = 0
+        private var matchedStart = false
 
         private val segmentsAcc = mutableListOf<TextElement.Segment>()
         private var textAcc = StringBuilder()
@@ -899,8 +943,9 @@ private fun fastCssSelector(
 
             val parent = breadcrumbs.lastOrNull()
 
-            if (startIndex == 0 && startElement != null && parent?.element == startElement) {
+            if (!matchedStart && startElement != null && parent?.element == startElement) {
                 startIndex = elements.size
+                matchedStart = true
             }
 
             if (segmentsAcc.isEmpty()) return

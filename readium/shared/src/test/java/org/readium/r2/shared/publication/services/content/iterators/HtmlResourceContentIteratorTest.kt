@@ -912,6 +912,58 @@ class HtmlResourceContentIteratorTest {
         assertTrue(iter.identifiedFormulaCount < 40)
     }
 
+    @Test
+    fun `visible text starts reading at that paragraph`() = runTest {
+        val html = chapterHtml(20)
+        val iter = iterator(
+            html,
+            locator(
+                selector = "html > body > p:nth-child(1)",
+                progression = 0.05,
+                highlight = "段落 7 的正文"
+            )
+        )
+        assertTrue(iter.hasNext())
+        assertTrue((iter.next() as TextElement).segments.first().text.contains("段落 7"))
+    }
+
+    @Test
+    fun `progression starts reading near the current page when the selector misses`() = runTest {
+        val html = chapterHtml(20)
+        val iter = iterator(
+            html,
+            locator(
+                selector = "#missing",
+                progression = 0.5,
+            )
+        )
+        assertTrue(iter.hasNext())
+        assertTrue((iter.next() as TextElement).segments.first().text.contains("段落 10"))
+    }
+
+    @Test
+    fun `a selector far from the current page does not rewind to the chapter start`() = runTest {
+        val html = chapterHtml(20)
+        val iter = iterator(
+            html,
+            locator(
+                selector = "html > body > p:nth-child(1)",
+                progression = 0.8,
+            )
+        )
+        assertTrue(iter.hasNext())
+        val text = (iter.next() as TextElement).segments.first().text
+        assertFalse(text.contains("段落 0"))
+        assertTrue(text.contains("段落 16"))
+    }
+
+    private fun chapterHtml(count: Int): String {
+        val paragraphs = (0 until count).joinToString("") { index ->
+            """<p id="p$index">段落 $index 的正文</p>"""
+        }
+        return """<html xmlns="http://www.w3.org/1999/xhtml"><body>$paragraphs</body></html>"""
+    }
+
     private suspend fun paragraph(
         html: String,
         id: String,

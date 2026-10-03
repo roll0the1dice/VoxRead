@@ -50,8 +50,18 @@ internal class TtsUtteranceIterator(
         CursorList()
 
     /**
-     * [Content.Iterator] used to iterate through the [publication].
+     * Opening words visible on the current page. The first spoken block can
+     * start on the previous page, so sentences before this snippet are skipped.
      */
+    private val resumeText: String? =
+        initialLocator?.text?.highlight
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            ?.take(80)
+            ?.takeIf { it.length >= 4 }
+
+    private var resumeOnNextForward: Boolean = resumeText != null
+
     private var publicationIterator: Content.Iterator = createIterator(initialLocator)
         set(value) {
             field = value
@@ -177,12 +187,19 @@ internal class TtsUtteranceIterator(
             return loadNextUtterances(direction)
         }
 
+        var cursor = when (direction) {
+            Direction.Forward -> -1
+            Direction.Backward -> nextUtterances.size
+        }
+        if (direction == Direction.Forward && resumeOnNextForward) {
+            resumeOnNextForward = false
+            val at = nextUtterances.indexOfFirst { matchesResume(it.utterance) }
+            if (at > 0) cursor = at - 1
+        }
+
         utterances = CursorList(
             list = nextUtterances,
-            index = when (direction) {
-                Direction.Forward -> -1
-                Direction.Backward -> nextUtterances.size
-            }
+            index = cursor
         )
 
         return true
@@ -244,6 +261,14 @@ internal class TtsUtteranceIterator(
 
             else -> emptyList()
         }
+    }
+
+    private fun matchesResume(utterance: String): Boolean {
+        val spoken = utterance.replace(Regex("\\s+"), " ").trim()
+        val target = resumeText ?: return false
+        if (spoken.isEmpty()) return false
+        if (spoken.contains(target)) return true
+        return spoken.contains(target.take(12))
     }
 
     private fun <E> CursorList<E>.hasNextIn(direction: Direction): Boolean =
