@@ -1,0 +1,4 @@
+<resources>
+    <string name="reader_brightness">亮度</string>
+    <string name="reader_theme">日间／夜间模式</string>
+</resources>

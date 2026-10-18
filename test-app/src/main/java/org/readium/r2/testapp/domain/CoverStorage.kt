@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.uuid.Uuid
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.readium.r2.shared.publication.Publication
@@ -55,12 +56,15 @@ class CoverStorage(
 
     private suspend fun storeCover(cover: Bitmap?): File =
         withContext(Dispatchers.IO) {
-            val coverImageFile = File(coverDir(), "${Uuid.random()}.png")
-            val resized = cover?.let { Bitmap.createScaledBitmap(it, 120, 200, true) }
-            val fos = FileOutputStream(coverImageFile)
-            resized?.compress(Bitmap.CompressFormat.PNG, 80, fos)
-            fos.flush()
-            fos.close()
+            val coverImageFile = File(coverDir(), "${Uuid.random()}-aspect-v2.png")
+            val resized = cover?.let {
+                val scale = minOf(1.0, 600.0 / it.width, 900.0 / it.height)
+                Bitmap.createScaledBitmap(it, (it.width * scale).roundToInt().coerceAtLeast(1),
+                    (it.height * scale).roundToInt().coerceAtLeast(1), true)
+            }
+            FileOutputStream(coverImageFile).use { output ->
+                resized?.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
             coverImageFile
         }
 

@@ -34,6 +34,9 @@ interface BooksDao {
     @Query("DELETE FROM " + Book.TABLE_NAME + " WHERE " + Book.ID + " = :bookId")
     suspend fun deleteBook(bookId: Long)
 
+    @Query("UPDATE books SET cover = :cover WHERE id = :bookId AND cover = :previousCover")
+    suspend fun updateCover(bookId: Long, previousCover: String, cover: String): Int
+
     /**
      * Retrieve a book from its ID.
      */

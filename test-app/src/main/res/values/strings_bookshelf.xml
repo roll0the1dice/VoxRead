@@ -1,0 +1,3 @@
+<resources>
+    <string name="bookshelf_progress_badge">已读 %1$d%%</string>
+</resources>

@@ -28,6 +28,9 @@ class BookRepository(
 
     suspend fun get(id: Long) = booksDao.get(id)
 
+    suspend fun updateCover(bookId: Long, previousCover: String, cover: String): Int =
+        booksDao.updateCover(bookId, previousCover, cover)
+
     suspend fun saveProgression(locator: Locator, bookId: Long) =
         booksDao.saveProgression(locator.toJSON().toString(), bookId)
 

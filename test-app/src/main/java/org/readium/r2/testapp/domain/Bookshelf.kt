@@ -169,6 +169,34 @@ class Bookshelf(
         return Try.success(Unit)
     }
 
+    /** Rebuild legacy thumbnails from the source; their original aspect ratio was lost. */
+    suspend fun refreshLegacyCover(book: Book) {
+        if (book.cover.endsWith("-aspect-v2.png")) return
+        // Background refresh must not trigger downloads or permission prompts.
+        if (!book.url.isFile && !book.href.startsWith("content://")) return
+        val asset = assetRetriever.retrieve(book.url, book.mediaType).getOrNull() ?: return
+        try {
+            val publication = publicationOpener.open(asset, allowUserInteraction = false).getOrNull() ?: return
+            try {
+                val replacement = coverStorage.storeCover(publication, null).getOrNull() ?: return
+                if (replacement.length() == 0L) {
+                    replacement.delete()
+                    return
+                }
+                val id = book.id
+                if (id != null && bookRepository.updateCover(id, book.cover, replacement.path) > 0) {
+                    File(book.cover).delete()
+                } else {
+                    replacement.delete()
+                }
+            } finally {
+                publication.close()
+            }
+        } finally {
+            asset.close()
+        }
+    }
+
     suspend fun deleteBook(book: Book) {
         val id = book.id!!
         bookRepository.deleteBook(id)

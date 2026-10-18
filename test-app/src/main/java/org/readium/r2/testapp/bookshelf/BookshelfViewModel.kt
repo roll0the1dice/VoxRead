@@ -12,6 +12,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
+import org.readium.r2.testapp.utils.tryOrLog
 import org.readium.r2.shared.util.AbsoluteUrl
 import org.readium.r2.shared.util.DebugError
 import org.readium.r2.shared.util.toUrl
@@ -28,6 +31,20 @@ class BookshelfViewModel(application: Application) : AndroidViewModel(applicatio
 
     val channel = EventChannel(Channel<Event>(Channel.BUFFERED), viewModelScope)
     val books = app.bookRepository.books()
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val attempted = mutableSetOf<Long>()
+            books.collect { shelf ->
+                shelf.forEach { book ->
+                    val id = book.id
+                    if (id != null && attempted.add(id)) {
+                        tryOrLog { app.bookshelf.refreshLegacyCover(book) }
+                    }
+                }
+            }
+        }
+    }
 
     fun deletePublication(book: Book) =
         viewModelScope.launch {

@@ -53,6 +53,8 @@ class BookshelfAdapter(
             Picasso.get()
                 .load(File(book.cover))
                 .placeholder(R.drawable.cover)
+                .fit()
+                .centerInside()
                 .into(binding.bookshelfCoverImage)
             bindProgress(book)
             binding.root.singleClick {
@@ -68,15 +70,12 @@ class BookshelfAdapter(
             val fraction = storedReadingFraction(book.progression)
             if (fraction == null) {
                 binding.bookshelfProgressLabel.visibility = View.GONE
-                binding.bookshelfProgress.visibility = View.GONE
                 return
             }
             val percent = (fraction * 100).roundToInt().coerceIn(0, 100)
             binding.bookshelfProgressLabel.visibility = View.VISIBLE
-            binding.bookshelfProgress.visibility = View.VISIBLE
             binding.bookshelfProgressLabel.text =
-                binding.root.context.getString(R.string.reading_progress_percent, percent)
-            binding.bookshelfProgress.progress = (fraction * 1000).roundToInt()
+                binding.root.context.getString(R.string.bookshelf_progress_badge, percent)
         }
     }
 
@@ -97,7 +96,8 @@ class BookshelfAdapter(
                 oldItem.href == newItem.href &&
                 oldItem.author == newItem.author &&
                 oldItem.identifier == newItem.identifier &&
-                oldItem.progression == newItem.progression
+                oldItem.progression == newItem.progression &&
+                oldItem.cover == newItem.cover
         }
     }
 }

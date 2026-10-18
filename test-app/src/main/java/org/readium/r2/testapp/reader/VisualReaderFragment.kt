@@ -53,6 +53,9 @@ import kotlinx.parcelize.Parcelize
 import org.readium.navigator.media.tts.android.AndroidTtsEngine
 import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.navigator.epub.EpubPreferencesEditor
+import org.readium.r2.navigator.preferences.Theme
+import org.readium.r2.testapp.reader.preferences.MainPreferencesBottomSheetDialogFragment
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.OverflowableNavigator
 import org.readium.r2.navigator.SelectableNavigator
@@ -68,7 +71,6 @@ import org.readium.r2.shared.util.Language
 import org.readium.r2.testapp.R
 import org.readium.r2.testapp.data.model.Highlight
 import org.readium.r2.testapp.databinding.FragmentReaderBinding
-import org.readium.r2.testapp.reader.tts.TtsControls
 import org.readium.r2.testapp.reader.tts.TtsHighlightColorBottomSheetDialogFragment
 import org.readium.r2.testapp.reader.tts.TtsPreferencesBottomSheetDialogFragment
 import org.readium.r2.testapp.reader.tts.TtsViewModel
@@ -91,6 +93,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.readium.r2.testapp.utils.compose.AppTheme
@@ -180,7 +184,10 @@ binding.fragmentReaderContainer.setOnApplyWindowInsetsListener { container, inse
         menuHost.addMenuProvider(
             object : MenuProvider {
                 override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                    menu.findItem(R.id.tts).isVisible = (model.tts != null)
+                    menu.findItem(R.id.tts).isVisible = false
+                    menu.findItem(R.id.toc).isVisible = false
+                    menu.findItem(R.id.settings).isVisible = false
+                    menu.findItem(R.id.info).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
                 }
 
 override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
@@ -209,10 +216,33 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
     @Composable
     private fun Overlay() {
         val showControls by isSystemUiVisible.collectAsState()
+        var showPlayer by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+        var showProgress by remember { mutableStateOf(false) }
+        var showBrightness by remember { mutableStateOf(false) }
         val locator by navigator.currentLocator.asStateWhenStarted()
         val positions by model.positions.asStateWhenStarted()
         val progress = remember(locator, positions.size) {
             readingProgress(locator, positions.size)
+        }
+
+        if (showPlayer) model.tts?.let { tts ->
+            org.readium.r2.testapp.reader.tts.TtsPlayerScreen(
+                model = tts,
+                publication = publication,
+                positions = positions,
+                fallbackLocator = locator,
+                onDismiss = { showPlayer = false },
+                onOutline = {
+                    showPlayer = false
+                    model.activityChannel.send(ReaderViewModel.ActivityCommand.OpenOutlineRequested)
+                },
+                onPreferences = {
+                    TtsPreferencesBottomSheetDialogFragment().show(childFragmentManager, "TtsSettings")
+                },
+                onHighlightColor = {
+                    TtsHighlightColorBottomSheetDialogFragment().show(childFragmentManager, "TtsHighlightColor")
+                },
+            )
         }
 
         AnimatedVisibility(
@@ -223,11 +253,19 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(8.dp),
+                    .navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ReadingProgressBar(
+                model.tts?.let { tts ->
+                    ReaderListenButton(
+                        model = tts,
+                        onClick = {
+                            showPlayer = true
+                            if (!tts.showControls.value) tts.start(navigator)
+                        },
+                    )
+                }
+                if (showProgress) ReadingProgressBar(
                     progress = progress,
                     canSeek = positions.isNotEmpty(),
                     onSeek = { fraction ->
@@ -237,19 +275,33 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                         }
                     },
                 )
-                model.tts?.let { tts ->
-                    TtsControls(
-                        model = tts,
-                        onPreferences = {
-                            TtsPreferencesBottomSheetDialogFragment()
-                                .show(childFragmentManager, "TtsSettings")
-                        },
-                        onHighlightColor = {
-                            TtsHighlightColorBottomSheetDialogFragment()
-                                .show(childFragmentManager, "TtsHighlightColor")
-                        },
-                    )
-                }
+                ReaderBottomToolbar(
+                    showSettings = model.settings != null,
+                    showTheme = model.settings?.editor?.value is EpubPreferencesEditor,
+                    onOutline = {
+                        model.activityChannel.send(ReaderViewModel.ActivityCommand.OpenOutlineRequested)
+                    },
+                    onProgress = { showProgress = !showProgress },
+                    onTheme = {
+                        val settings = model.settings
+                        val editor = settings?.editor?.value as? EpubPreferencesEditor
+                        editor?.let {
+                            it.theme.set(if (it.theme.effectiveValue == Theme.DARK) {
+                                Theme.LIGHT
+                            } else {
+                                Theme.DARK
+                            })
+                            settings.commit()
+                        }
+                    },
+                    onBrightness = { showBrightness = !showBrightness },
+                    onSettings = {
+                        MainPreferencesBottomSheetDialogFragment()
+                            .show(childFragmentManager, "Settings")
+                    },
+                    showBrightness = showBrightness,
+                    window = requireActivity().window,
+                )
             }
         }
     }

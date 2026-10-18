@@ -150,7 +150,7 @@ open class ReaderActivity : AppCompatActivity() {
 
         supportActionBar!!.setDisplayHomeAsUpEnabled(
             when (currentFragment) {
-                is OutlineFragment, is DrmManagementFragment -> true
+                is OutlineFragment, is DrmManagementFragment, is VisualReaderFragment -> true
                 else -> false
             }
         )
@@ -206,7 +206,11 @@ open class ReaderActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             android.R.id.home -> {
-                supportFragmentManager.popBackStack()
+                if (supportFragmentManager.backStackEntryCount > 0) {
+                    supportFragmentManager.popBackStack()
+                } else {
+                    finish()
+                }
                 return true
             }
         }

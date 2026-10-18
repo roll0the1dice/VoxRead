@@ -562,10 +562,29 @@ class TtsViewModel private constructor(
     }
 
     fun stop() {
+        setSleepTimer(null)
         launchJob = null
         clearFormulaHighlight()
         mediaServiceFacade.closeSession()
     }
+
+    private var sleepTimerJob: Job? = null
+    private val _sleepTimerMinutes = MutableStateFlow<Int?>(null)
+    val sleepTimerMinutes: StateFlow<Int?> = _sleepTimerMinutes.asStateFlow()
+
+    fun setSleepTimer(minutes: Int?) {
+        sleepTimerJob?.cancel()
+        _sleepTimerMinutes.value = minutes
+        sleepTimerJob = minutes?.let {
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(it * 60_000L)
+                pause()
+                _sleepTimerMinutes.value = null
+            }
+        }
+    }
+
+    fun seekTo(locator: Locator) { navigatorNow?.go(locator) }
 
     fun play() { navigatorNow?.play() }
     fun pause() { navigatorNow?.pause() }

@@ -1,83 +1,65 @@
-<!--
-  Copyright 2023 Readium Foundation. All rights reserved.
-  Use of this source code is governed by the BSD-style license
-  available in the top-level LICENSE file of the project.
--->
-
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/bookshelf_cardView"
-    android:layout_width="120dp"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="5dp">
+    android:layout_margin="6dp"
+    app:cardCornerRadius="6dp"
+    app:cardElevation="1dp">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:orientation="vertical"
-        android:weightSum="4">
+        android:layout_height="wrap_content">
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            tools:ignore="UselessParent">
+        <ImageView
+            android:id="@+id/bookshelf_coverImage"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="?attr/colorSurface"
+            android:contentDescription="@string/cover_image"
+            android:scaleType="fitCenter"
+            app:layout_constraintDimensionRatio="H,2:3"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-            <ImageView
-                android:id="@+id/bookshelf_coverImage"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="@string/cover_image" />
+        <TextView
+            android:id="@+id/bookshelf_titleText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="?android:attr/textColorPrimary"
+            android:textSize="12sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/bookshelf_coverImage"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start|bottom"
-                android:background="@android:drawable/screen_background_dark_transparent"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/bookshelf_titleText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="12dp"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="2dp"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/bookshelf_progressLabel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="2dp"
-                    android:textColor="#FFFFFF"
-                    android:textSize="11sp"
-                    android:visibility="gone"
-                    tools:text="42%"
-                    tools:visibility="visible" />
-
-                <ProgressBar
-                    android:id="@+id/bookshelf_progress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="12dp"
-                    android:layout_marginBottom="8dp"
-                    android:contentDescription="@string/reading_progress_slider"
-                    android:max="1000"
-                    android:progressBackgroundTint="#66FFFFFF"
-                    android:progressTint="@android:color/white"
-                    android:visibility="gone"
-                    tools:progress="420"
-                    tools:visibility="visible" />
-            </LinearLayout>
-
-        </FrameLayout>
-
-    </LinearLayout>
-
+        <TextView
+            android:id="@+id/bookshelf_progressLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@android:color/transparent"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="3dp"
+            android:maxLines="1"
+            android:textColor="@android:color/white"
+            android:shadowColor="#CC000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:textSize="10sp"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="@id/bookshelf_coverImage"
+            app:layout_constraintEnd_toEndOf="@id/bookshelf_coverImage"
+            app:layout_constraintTop_toTopOf="@id/bookshelf_coverImage"
+            tools:text="已读 42%"
+            tools:visibility="visible" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>
