@@ -86,9 +86,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.readium.r2.testapp.utils.compose.AppTheme
+import org.readium.r2.testapp.utils.extensions.asStateWhenStarted
 
 /*
  * Base reader fragment class
@@ -164,7 +170,9 @@ binding.fragmentReaderContainer.setOnApplyWindowInsetsListener { container, inse
         }
 
         binding.overlay.setContent {
-            Overlay()
+            AppTheme {
+                Overlay()
+            }
         }
 
         val menuHost: MenuHost = requireActivity()
@@ -198,31 +206,50 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
         }
     }
 
-@Composable
+    @Composable
     private fun Overlay() {
-        // 🌟 监听系统 UI 是否可见
         val showControls by isSystemUiVisible.collectAsState()
+        val locator by navigator.currentLocator.asStateWhenStarted()
+        val positions by model.positions.asStateWhenStarted()
+        val progress = remember(locator, positions.size) {
+            readingProgress(locator, positions.size)
+        }
 
         AnimatedVisibility(
             visible = showControls,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
         ) {
-            model.tts?.let { tts ->
-                TtsControls(
-                    model = tts,
-                    onPreferences = {
-                        TtsPreferencesBottomSheetDialogFragment()
-                            .show(childFragmentManager, "TtsSettings")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ReadingProgressBar(
+                    progress = progress,
+                    canSeek = positions.isNotEmpty(),
+                    onSeek = { fraction ->
+                        val index = indexForProgressFraction(fraction, positions.size)
+                        positions.getOrNull(index)?.let { target ->
+                            navigator.go(target, animated = false)
+                        }
                     },
-                    onHighlightColor = {
-                        TtsHighlightColorBottomSheetDialogFragment()
-                            .show(childFragmentManager, "TtsHighlightColor")
-                    },
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(8.dp)
                 )
+                model.tts?.let { tts ->
+                    TtsControls(
+                        model = tts,
+                        onPreferences = {
+                            TtsPreferencesBottomSheetDialogFragment()
+                                .show(childFragmentManager, "TtsSettings")
+                        },
+                        onHighlightColor = {
+                            TtsHighlightColorBottomSheetDialogFragment()
+                                .show(childFragmentManager, "TtsHighlightColor")
+                        },
+                    )
+                }
             }
         }
     }

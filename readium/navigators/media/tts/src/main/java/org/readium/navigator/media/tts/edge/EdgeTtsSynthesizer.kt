@@ -7,6 +7,7 @@
 package org.readium.navigator.media.tts.edge
 
 import android.util.LruCache
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
@@ -55,7 +56,7 @@ internal class EdgeTtsSynthesizer(
         fun onPcm(pcm: ByteArray): Boolean
         fun onRange(start: Int, end: Int, frame: Int)
         fun onDone()
-        fun onError(network: Boolean, message: String)
+        fun onError(network: Boolean, message: String, forbidden: Boolean = false)
     }
 
     // 缓存数据模型：存储 PCM 数据切片与同步文字高亮边界
@@ -82,7 +83,7 @@ internal class EdgeTtsSynthesizer(
                     override fun onPcm(pcm: ByteArray): Boolean = !cancelled.get()
                     override fun onRange(start: Int, end: Int, frame: Int) {}
                     override fun onDone() {}
-                    override fun onError(network: Boolean, message: String) {}
+                    override fun onError(network: Boolean, message: String, forbidden: Boolean) {}
                 }
                 synthesize(request, cancelled, dummyListener, isPreload = true)
                 Timber.d("Edge TTS: 预加载成功装入 LRU -> text='${request.text.take(20)}...'")
@@ -144,8 +145,8 @@ internal class EdgeTtsSynthesizer(
                 listener.onDone()
             }
 
-            override fun onError(network: Boolean, message: String) {
-                listener.onError(network, message)
+            override fun onError(network: Boolean, message: String, forbidden: Boolean) {
+                listener.onError(network, message, forbidden)
             }
         }
 
@@ -168,7 +169,7 @@ internal class EdgeTtsSynthesizer(
                         EdgeTtsDrm.adjustClockFromHttpDate(outcome.httpDate)
                         val retry = runTurn(ssml, request.text, cancelled, recordingListener, forceFresh = true)
                         if (retry is TurnOutcome.Failure) {
-                            recordingListener.onError(true, retry.message)
+                            recordingListener.onError(retry.network, retry.message, retry.forbidden)
                             return
                         }
                         if (retry == TurnOutcome.Cancelled) {
@@ -311,7 +312,7 @@ internal class EdgeTtsSynthesizer(
         } catch (e: Exception) {
             Timber.e(e, "Edge TTS synthesis failed")
             outcome = TurnOutcome.Failure(
-                network = true,
+                network = e is IOException,
                 forbidden = false,
                 message = e.message ?: "Synthesis failed",
                 httpDate = null

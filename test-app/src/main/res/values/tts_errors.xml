@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tts_error_forbidden">The speech service rejected the request (403). Try again later or check for an app update.</string>
+</resources>

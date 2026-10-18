@@ -7,15 +7,18 @@
 package org.readium.r2.testapp.bookshelf
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.squareup.picasso.Picasso
 import java.io.File
+import kotlin.math.roundToInt
 import org.readium.r2.testapp.R
 import org.readium.r2.testapp.data.model.Book
 import org.readium.r2.testapp.databinding.ItemRecycleBookBinding
+import org.readium.r2.testapp.reader.storedReadingFraction
 import org.readium.r2.testapp.utils.singleClick
 
 class BookshelfAdapter(
@@ -51,6 +54,7 @@ class BookshelfAdapter(
                 .load(File(book.cover))
                 .placeholder(R.drawable.cover)
                 .into(binding.bookshelfCoverImage)
+            bindProgress(book)
             binding.root.singleClick {
                 onBookClick(book)
             }
@@ -58,6 +62,21 @@ class BookshelfAdapter(
                 onBookLongClick(book)
                 true
             }
+        }
+
+        private fun bindProgress(book: Book) {
+            val fraction = storedReadingFraction(book.progression)
+            if (fraction == null) {
+                binding.bookshelfProgressLabel.visibility = View.GONE
+                binding.bookshelfProgress.visibility = View.GONE
+                return
+            }
+            val percent = (fraction * 100).roundToInt().coerceIn(0, 100)
+            binding.bookshelfProgressLabel.visibility = View.VISIBLE
+            binding.bookshelfProgress.visibility = View.VISIBLE
+            binding.bookshelfProgressLabel.text =
+                binding.root.context.getString(R.string.reading_progress_percent, percent)
+            binding.bookshelfProgress.progress = (fraction * 1000).roundToInt()
         }
     }
 
@@ -77,7 +96,8 @@ class BookshelfAdapter(
             return oldItem.title == newItem.title &&
                 oldItem.href == newItem.href &&
                 oldItem.author == newItem.author &&
-                oldItem.identifier == newItem.identifier
+                oldItem.identifier == newItem.identifier &&
+                oldItem.progression == newItem.progression
         }
     }
 }

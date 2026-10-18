@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tts_error_forbidden">语音服务拒绝了请求（403）。请稍后重试或检查应用更新。</string>
+</resources>

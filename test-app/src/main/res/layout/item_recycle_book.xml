@@ -39,9 +39,41 @@
                     android:id="@+id/bookshelf_titleText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="16dp"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="2dp"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/bookshelf_progressLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="2dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:visibility="gone"
+                    tools:text="42%"
+                    tools:visibility="visible" />
+
+                <ProgressBar
+                    android:id="@+id/bookshelf_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="4dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginEnd="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:contentDescription="@string/reading_progress_slider"
+                    android:max="1000"
+                    android:progressBackgroundTint="#66FFFFFF"
+                    android:progressTint="@android:color/white"
+                    android:visibility="gone"
+                    tools:progress="420"
+                    tools:visibility="visible" />
             </LinearLayout>
 
         </FrameLayout>

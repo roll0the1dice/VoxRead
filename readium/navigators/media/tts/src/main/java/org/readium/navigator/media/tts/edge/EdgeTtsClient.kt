@@ -116,7 +116,11 @@ internal class EdgeTtsClient(
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             val forbidden = response?.code == 403
-            val message = response?.message?.takeIf { it.isNotBlank() } ?: t.message ?: "WebSocket failed"
+            val message = if (response != null) {
+                "HTTP ${response.code} ${response.message}".trim()
+            } else {
+                "${t.javaClass.simpleName}: ${t.message ?: "WebSocket failed"}"
+            }
             events.offer(
                 Event.Failed(
                     forbidden = forbidden,

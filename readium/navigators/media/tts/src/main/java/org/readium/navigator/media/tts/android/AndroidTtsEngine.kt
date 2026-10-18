@@ -24,6 +24,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.readium.navigator.media.tts.TtsEngine
+import org.readium.navigator.media.tts.edge.EdgeTtsErrorCodes
 import org.readium.navigator.media.tts.edge.EdgeTtsService
 import org.readium.navigator.media.tts.edge.EdgeTtsVoiceStore
 import org.readium.navigator.media.tts.edge.EdgeTtsVoices
@@ -177,6 +178,7 @@ public class AndroidTtsEngine private constructor(
         public data object InvalidRequest : Error("Invalid request")
         public data object Network : Error("A network error occurred.")
         public data object NetworkTimeout : Error("Network timeout")
+        public data object Forbidden : Error("The speech service rejected the request (HTTP 403).")
         public data object NotInstalledYet : Error("Voice not installed yet.")
         public data object Output : Error("An error related to the output occurred.")
         public data object Service : Error("An error occurred with the TTS service.")
@@ -189,6 +191,7 @@ public class AndroidTtsEngine private constructor(
                     ERROR_INVALID_REQUEST -> InvalidRequest
                     ERROR_NETWORK -> Network
                     ERROR_NETWORK_TIMEOUT -> NetworkTimeout
+                    EdgeTtsErrorCodes.FORBIDDEN -> Forbidden
                     ERROR_NOT_INSTALLED_YET -> NotInstalledYet
                     ERROR_OUTPUT -> Output
                     ERROR_SERVICE -> Service

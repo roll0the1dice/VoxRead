@@ -582,6 +582,7 @@ class TtsViewModel private constructor(
                 when (engineError) {
                     is AndroidTtsEngine.Error.LanguageMissingData -> Event.OnMissingVoiceData(engineError.language)
                     is AndroidTtsEngine.Error.Network -> Event.OnError(TtsError.EngineError.Network(engineError))
+                    is AndroidTtsEngine.Error.Forbidden -> Event.OnError(TtsError.EngineError.Forbidden(engineError))
                     else -> Event.OnError(TtsError.EngineError.Other(engineError))
                 }.also { Timber.e("Error type: $error") }
             }

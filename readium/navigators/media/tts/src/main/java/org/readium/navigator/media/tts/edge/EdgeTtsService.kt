@@ -253,11 +253,13 @@ public class EdgeTtsService : TextToSpeechService() {
                         }
                     }
 
-                    override fun onError(network: Boolean, message: String) {
+                    override fun onError(network: Boolean, message: String, forbidden: Boolean) {
                         Log.e(TAG, "Edge TTS 合成错误 (network=$network): $message")
                         Timber.e("Edge TTS synthesis error: $message")
                         try {
-                            if (network) {
+                            if (forbidden) {
+                                callback.error(EdgeTtsErrorCodes.FORBIDDEN)
+                            } else if (network) {
                                 callback.error(TextToSpeech.ERROR_NETWORK)
                             } else {
                                 callback.error(TextToSpeech.ERROR_SYNTHESIS)

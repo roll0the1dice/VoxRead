@@ -41,7 +41,7 @@ internal object EdgeTtsConstants {
         CHROMIUM_FULL_VERSION.substringBefore('.')
 
     val SEC_MS_GEC_VERSION: String =
-        "1-$CHROMIUM_FULL_VERSION"
+        "2-$CHROMIUM_FULL_VERSION"
 
     val USER_AGENT: String =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +

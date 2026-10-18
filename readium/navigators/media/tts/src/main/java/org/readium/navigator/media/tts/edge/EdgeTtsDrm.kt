@@ -6,7 +6,6 @@
 
 package org.readium.navigator.media.tts.edge
 
-import java.security.MessageDigest
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -21,7 +20,7 @@ import java.util.concurrent.atomic.AtomicLong
  * 2. Shift it to the Windows FILETIME epoch (1601-01-01).
  * 3. Snap down to a 5-minute (300 s) window.
  * 4. Convert to 100-nanosecond ticks.
- * 5. SHA-256 the decimal ticks concatenated with the trusted client token.
+ * 5. Apply the v2 CS64/SHA-256 protocol digest to the decimal ticks and client token.
  */
 internal object EdgeTtsDrm {
 
@@ -58,7 +57,7 @@ internal object EdgeTtsDrm {
         ticks -= ticks % WINDOW_SECONDS
         ticks *= TICKS_PER_SECOND.toDouble()
         val payload = formatTicks(ticks) + EdgeTtsConstants.TRUSTED_CLIENT_TOKEN
-        return sha256Hex(payload).uppercase(Locale.US)
+        return EdgeTtsTokenV2.hash(payload)
     }
 
     internal fun formatTicks(ticks: Double): String =
@@ -85,11 +84,4 @@ internal object EdgeTtsDrm {
         return null
     }
 
-    private fun sha256Hex(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val bytes = digest.digest(value.toByteArray(Charsets.US_ASCII))
-        return bytes.joinToString(separator = "") { byte ->
-            String.format(Locale.US, "%02x", byte)
-        }
-    }
 }

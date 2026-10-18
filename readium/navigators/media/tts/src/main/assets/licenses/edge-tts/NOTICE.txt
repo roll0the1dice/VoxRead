@@ -1,0 +1,9 @@
+EdgeTtsTokenV2.kt is a Kotlin adaptation of the v2 protocol digest in
+edge-tts 7.3.0, src/edge_tts/drm.py, by the edge-tts contributors.
+Source: https://github.com/rany2/edge-tts/tree/7.3.0
+
+The adaptation is licensed under LGPL-3.0. The upstream license is in
+LICENSE.txt; its incorporated GPL-3.0 terms are in GPL-3.txt.
+VoxRead modifications: JVM 32-bit arithmetic, a compact SHA-256 round
+loop, and integration with the existing Android clock-skew correction.
+The rest of the Readium toolkit retains its existing license.

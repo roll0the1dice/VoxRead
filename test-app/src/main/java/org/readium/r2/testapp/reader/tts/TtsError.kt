@@ -30,6 +30,9 @@ sealed class TtsError(
         class Network(override val cause: AndroidTtsEngine.Error.Network) :
             EngineError(cause)
 
+        class Forbidden(override val cause: AndroidTtsEngine.Error.Forbidden) :
+            EngineError(cause)
+
         class Other(override val cause: AndroidTtsEngine.Error) :
             EngineError(cause)
     }
@@ -43,6 +46,7 @@ sealed class TtsError(
     fun toUserError(): UserError = when (this) {
         is ContentError -> UserError(R.string.tts_error_other, cause = this)
         is EngineError.Network -> UserError(R.string.tts_error_network, cause = this)
+        is EngineError.Forbidden -> UserError(R.string.tts_error_forbidden, cause = this)
         is EngineError.Other -> UserError(R.string.tts_error_other, cause = this)
         is Initialization -> UserError(R.string.tts_error_initialization, cause = this)
         is ServiceError -> UserError(R.string.error_unexpected, cause = this)

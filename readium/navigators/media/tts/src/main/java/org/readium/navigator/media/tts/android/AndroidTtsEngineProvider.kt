@@ -89,7 +89,9 @@ public class AndroidTtsEngineProvider(
         val errorCode = when (error) {
             AndroidTtsEngine.Error.Unknown ->
                 ERROR_CODE_UNSPECIFIED
-            AndroidTtsEngine.Error.InvalidRequest ->
+            AndroidTtsEngine.Error.InvalidRequest,
+            AndroidTtsEngine.Error.Forbidden,
+            ->
                 ERROR_CODE_IO_BAD_HTTP_STATUS
             AndroidTtsEngine.Error.Network ->
                 ERROR_CODE_IO_NETWORK_CONNECTION_FAILED

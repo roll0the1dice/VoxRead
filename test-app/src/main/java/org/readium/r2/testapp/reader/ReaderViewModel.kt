@@ -21,7 +21,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.readium.r2.navigator.Decoration
@@ -34,6 +37,7 @@ import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.LocatorCollection
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.publication.services.positions
 import org.readium.r2.shared.publication.services.search.SearchIterator
 import org.readium.r2.shared.publication.services.search.SearchTry
 import org.readium.r2.shared.publication.services.search.search
@@ -107,6 +111,27 @@ class ReaderViewModel(
         readerInitData = readerInitData
     )
 
+    private val _positions = MutableStateFlow<List<Locator>>(emptyList())
+
+    /** Discrete positions used to display and seek reading progress. */
+    val positions: StateFlow<List<Locator>> = _positions.asStateFlow()
+
+    private val progressionToSave = MutableStateFlow<Locator?>(null)
+
+    init {
+        viewModelScope.launch {
+            _positions.value = publication.positions()
+        }
+        viewModelScope.launch {
+            combine(progressionToSave.filterNotNull(), _positions) { locator, loaded ->
+                locator.withDisplayProgress(loaded.size)
+            }.collectLatest { locator ->
+                Timber.v("Saving locator for book $bookId: $locator.")
+                bookRepository.saveProgression(locator, bookId)
+            }
+        }
+    }
+
     override fun onCleared() {
         // When the ReaderViewModel is disposed of, we want to close the publication to avoid
         // using outdated information (such as the initial location) if the `ReaderActivity` is
@@ -114,9 +139,8 @@ class ReaderViewModel(
         readerRepository.close(bookId)
     }
 
-    fun saveProgression(locator: Locator) = viewModelScope.launch {
-        Timber.v("Saving locator for book $bookId: $locator.")
-        bookRepository.saveProgression(locator, bookId)
+    fun saveProgression(locator: Locator) {
+        progressionToSave.value = locator
     }
 
     fun getBookmarks() = bookRepository.bookmarksForBook(bookId)
