@@ -11,11 +11,13 @@ plugins {
 }
 
 subprojects {
-    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    if (name != "desktop-app") {
+        apply(plugin = "org.jlleitschuh.gradle.ktlint")
 
-    ktlint {
-        android.set(true)
-        version = "1.8.0"
+        ktlint {
+            android.set(true)
+            version = "1.8.0"
+        }
     }
 
     afterEvaluate {
@@ -45,7 +47,7 @@ dokka {
 
 dependencies {
     subprojects
-        .filter { it.name != "test-app" && !it.path.startsWith(":demos") }
+        .filter { it.name != "test-app" && it.name != "desktop-app" && !it.path.startsWith(":demos") }
         .filter { it.buildFile.exists() }
         .forEach { dokka(project(it.path)) }
 }

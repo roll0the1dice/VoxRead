@@ -109,4 +109,5 @@ project(":readium:streamer")
     .name = "readium-streamer"
 
 include("test-app")
+include(":desktop-app")
 include(":demos:navigator")
