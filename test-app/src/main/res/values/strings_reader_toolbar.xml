@@ -1,4 +1,7 @@
 <resources>
     <string name="reader_brightness">亮度</string>
     <string name="reader_theme">日间／夜间模式</string>
+    <string name="reading_progress_position_pending">本章 %1$d / … · 全书页数待计算</string>
+    <string name="reading_progress_position_counting">本章 %1$d / … · 全书 %2$d/%3$d 章</string>
+    <string name="reading_progress_position_failed">本章 %1$d / … · 全书页数未完成，可翻页重试</string>
 </resources>

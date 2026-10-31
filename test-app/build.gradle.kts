@@ -118,4 +118,6 @@ dependencies {
     // Room database
     implementation(libs.androidx.room3)
     ksp(libs.androidx.room3.compiler)
+
+    testImplementation(libs.junit)
 }

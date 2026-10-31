@@ -5,14 +5,22 @@ import android.view.Window
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -25,12 +33,76 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.readium.r2.testapp.R
 import org.readium.r2.testapp.reader.tts.TtsViewModel
 import org.readium.r2.testapp.utils.extensions.asStateWhenStarted
 
 private val ToolbarInk = Color(0xFF60656E)
+
+@Composable
+internal fun ReaderChapterTitle(title: String?) {
+    val chapterTitle = title?.trim()?.takeIf { it.isNotEmpty() } ?: return
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Absolute.Left,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = Color.White.copy(alpha = 0.85f),
+            contentColor = ToolbarInk,
+        ) {
+            Text(
+                text = chapterTitle,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/** Page count remains visible when the reader controls are hidden. */
+@Composable
+internal fun ReaderPageIndicator(
+    currentPage: Int?,
+    totalPages: Int?,
+    cumulativePending: Boolean = false,
+    calculation: ReaderPaginationDisplay.Calculation = ReaderPaginationDisplay.Calculation.WaitingForIdle,
+) {
+    val total = totalPages?.takeIf { it > 0 }
+    if (total == null && !cumulativePending) return
+    val current = currentPage?.let { page -> total?.let { page.coerceIn(1, it) } ?: page.coerceAtLeast(1) } ?: return
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.Absolute.Right,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = Color.White.copy(alpha = 0.85f),
+            contentColor = ToolbarInk,
+        ) {
+            Text(
+                text = if (!cumulativePending) {
+                    stringResource(R.string.reading_progress_position, current, requireNotNull(total))
+                } else when (calculation) {
+                    is ReaderPaginationDisplay.Calculation.Counting ->
+                        stringResource(R.string.reading_progress_position_counting, current, calculation.completed, calculation.total)
+                    ReaderPaginationDisplay.Calculation.Failed ->
+                        stringResource(R.string.reading_progress_position_failed, current)
+                    else -> stringResource(R.string.reading_progress_position_pending, current)
+                },
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+            )
+        }
+    }
+}
 
 @Composable
 internal fun ReaderListenButton(model: TtsViewModel, onClick: () -> Unit) {

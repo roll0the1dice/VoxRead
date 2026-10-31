@@ -16,7 +16,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.MessageQueue
 import android.util.LayoutDirection
+import android.util.Log
 import android.view.ActionMode
 import android.view.LayoutInflater
 import android.view.PixelCopy
@@ -26,6 +28,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import androidx.annotation.MainThread
 import androidx.collection.forEach
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.os.BundleCompat
@@ -42,6 +45,9 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 import kotlin.reflect.KClass
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +55,10 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.Decoration
@@ -293,6 +303,17 @@ public class EpubNavigatorFragment internal constructor(
     }
 
     private var state: State = State.Initializing
+
+    private val _isNavigating = MutableStateFlow(true)
+
+    /** True until the foreground resource has loaded and its locator is ready. */
+    @ExperimentalReadiumApi
+    public val isNavigating: StateFlow<Boolean> get() = _isNavigating
+
+    private fun beginForegroundNavigation() {
+        _isNavigating.value = true
+        paginationMapReduce.cancel()
+    }
 
     // Configurable
 
@@ -540,6 +561,7 @@ public class EpubNavigatorFragment internal constructor(
 
     private inner class PageChangeListener : ViewPager.SimpleOnPageChangeListener() {
         override fun onPageSelected(position: Int) {
+            if (position != currentPagerPosition) beginForegroundNavigation()
             currentReflowablePageFragment?.webView?.let { webView ->
                 if (viewModel.isScrollEnabled.value) {
                     if (currentPagerPosition < position) {
@@ -594,6 +616,18 @@ public class EpubNavigatorFragment internal constructor(
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // A renderer caught in saved fragment state is temporary and must not be restored.
+        if (savedInstanceState != null) {
+            val restoredRenderers = childFragmentManager.fragments
+                .filterIsInstance<R2EpubPageFragment>()
+                .filter { it.paginationOnly }
+            if (restoredRenderers.isNotEmpty()) {
+                childFragmentManager.beginTransaction().apply {
+                    restoredRenderers.forEach { remove(it) }
+                }.commitAllowingStateLoss()
+            }
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -722,6 +756,9 @@ public class EpubNavigatorFragment internal constructor(
             } ?: return
             val (index, _) = page
 
+            if (resourcePager.currentItem != index || currentReflowablePageFragment?.isLoaded?.value != true) {
+                beginForegroundNavigation()
+            }
             if (resourcePager.currentItem != index) {
                 resourcePager.currentItem = index
             }
@@ -1094,6 +1131,180 @@ public class EpubNavigatorFragment internal constructor(
         return null
     }
 
+    private val chapterPageCounts = ChapterPageCounts()
+    private val paginationWorker = PaginationWorker()
+    private val paginationMapReduce = PaginationMapReduce()
+    private val paginationContainerIds = intArrayOf(
+        R.id.pagination_container,
+        R.id.pagination_container_secondary,
+        R.id.pagination_container_3,
+        R.id.pagination_container_4,
+        R.id.pagination_container_5,
+        R.id.pagination_container_6,
+        R.id.pagination_container_7,
+        R.id.pagination_container_8,
+    )
+    private val paginationMutex = Mutex()
+    private var paginationLayout: Triple<EpubSettings, Int, Int>? = null
+
+    private suspend fun updatePaginationLayout(): Triple<EpubSettings, Int, Int> {
+        val layout = Triple(settings.value, resourcePager.width, resourcePager.height)
+        if (paginationLayout != layout) {
+            paginationWorker.run { chapterPageCounts.clear() }
+            paginationLayout = layout
+        }
+        return layout
+    }
+
+    /**
+     * Actual screen pagination across the complete publication.
+     */
+    public data class Pagination(public val pagesBefore: Int, public val totalPages: Int)
+
+    /**
+     * Counts actual screen pages for all resources, with the offset preceding [href].
+     *
+     * Call on the main thread after a pagination notification. Missing chapters are laid out
+     * in parallel using eight background renderer slots, without changing the current locator.
+     * [cachedOnly] reads existing counts without rendering missing chapters.
+     * Cache operations and summation run on a dedicated low-priority worker. WebView calls
+     * remain on the main thread and are scheduled only when its message queue is idle.
+     * Counts are reused for the current settings and viewport. Returns null if a chapter fails
+     * to finish layout or the settings/viewport change while counting.
+     */
+    @ExperimentalReadiumApi
+    @MainThread
+    public suspend fun paginationFor(
+        href: Url,
+        cachedOnly: Boolean = false,
+        onProgress: (completed: Int, total: Int) -> Unit = { _, _ -> },
+    ): Pagination? = paginationMutex.withLock {
+        if (view == null || _isNavigating.value || viewModel.layout == Layout.FIXED || childFragmentManager.isStateSaved) {
+            return@withLock null
+        }
+        val chapter = paginationWorker.run {
+            readingOrder.indexOfFirst {
+                it.url().removeFragment().isEquivalent(href.removeFragment())
+            }
+        }
+        if (chapter < 0) return@withLock null
+        val layout = updatePaginationLayout()
+        if (layout.second <= 0 || layout.third <= 0) return@withLock null
+
+        val chapterCount = readingOrder.size
+        val missing = paginationWorker.run { chapterPageCounts.missingBefore(chapterCount) }
+        if (cachedOnly && missing.isNotEmpty()) return@withLock null
+        var completed = chapterCount - missing.size
+        onProgress(completed, chapterCount)
+        // Map: overlap chapter loading/layout, keeping WebView calls on their required thread.
+        try {
+            paginationMapReduce.map(
+                chapters = missing,
+                measure = { index, slot ->
+                    awaitPaginationIdle()
+                    if (view == null || _isNavigating.value || layout != Triple(settings.value, resourcePager.width, resourcePager.height)) {
+                        null
+                    } else {
+                        measureChapterPageCount(index, slot)
+                    }
+                },
+                onMapped = { index, pages ->
+                    if (view != null && layout == Triple(settings.value, resourcePager.width, resourcePager.height)) {
+                        paginationWorker.run { chapterPageCounts.record(index, pages) }
+                        onProgress(++completed, chapterCount)
+                    }
+                    delay(100)
+                },
+            )
+        } catch (cancelled: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            return@withLock null
+        }
+        if (view == null || _isNavigating.value || updatePaginationLayout() != layout) return@withLock null
+        // Reduce: sum all chapters for y and only preceding chapters for x's offset.
+        paginationWorker.run {
+            chapterPageCounts.reduce(chapter, chapterCount)?.let { Pagination(it.pagesBefore, it.totalPages) }
+        }
+    }
+
+    private suspend fun awaitPaginationIdle() {
+        // Animations may keep the queue busy indefinitely; yield without starving pagination.
+        withTimeoutOrNull(250L) {
+            suspendCancellableCoroutine<Unit> { continuation ->
+                val queue = Looper.getMainLooper().queue
+                val idleHandler = MessageQueue.IdleHandler {
+                    if (continuation.isActive) continuation.resumeWith(Result.success(Unit))
+                    false
+                }
+                continuation.invokeOnCancellation { queue.removeIdleHandler(idleHandler) }
+                queue.addIdleHandler(idleHandler)
+            }
+        } ?: delay(16)
+    }
+
+    override fun onDestroy() {
+        paginationWorker.close()
+        super.onDestroy()
+    }
+
+    private suspend fun measureChapterPageCount(index: Int, slot: Int): Int? {
+        if (childFragmentManager.isStateSaved) return null
+        val link = readingOrder[index]
+        val fragment = R2EpubPageFragment.newInstance(
+            url = viewModel.urlTo(link),
+            link = link,
+            positionCount = positionsByReadingOrder.getOrNull(index)?.size ?: 0,
+            paginationOnly = true,
+        )
+        if (!config.useReadiumCssFontSize) fragment.setFontSize(settings.value.fontSize)
+        childFragmentManager.beginTransaction()
+            .add(paginationContainerIds[slot], fragment)
+            .commitNow()
+        try {
+            val measured = withTimeoutOrNull(15_000L) {
+                fragment.awaitLoaded()
+                val webView = fragment.webView ?: return@withTimeoutOrNull null
+                var previousCount = 0
+                var stableSamples = 0
+                while (true) {
+                    delay(250)
+                    awaitPaginationIdle()
+                    val ready = suspendCancellableCoroutine { continuation ->
+                        webView.evaluateJavascript(
+                            """
+                            (function() {
+                              return (!document.fonts || document.fonts.status === 'loaded') &&
+                                (!window.voxIsLayoutReady || window.voxIsLayoutReady()) &&
+                                Array.from(document.images).every(function(image) {
+                                  return image.complete || image.loading === 'lazy';
+                                });
+                            })()
+                            """.trimIndent()
+                        ) { result ->
+                            if (continuation.isActive) continuation.resumeWith(Result.success(result == "true"))
+                        }
+                    }
+                    val count = webView.numPages
+                    stableSamples = if (ready && webView.width > 0 && count == previousCount) stableSamples + 1 else 0
+                    previousCount = count
+                    if (stableSamples >= 3) return@withTimeoutOrNull count
+                }
+                @Suppress("UNREACHABLE_CODE")
+                null
+            }
+            if (measured == null) {
+                Log.w("VoxPagination", "Chapter ${index + 1} pagination timed out; loaded=${fragment.isLoaded.value}")
+            }
+            return measured
+        } finally {
+            // This temporary renderer must also be removed when its counting job is cancelled.
+            fragment.webView?.stopLoading()
+            if (!childFragmentManager.isDestroyed) {
+                childFragmentManager.beginTransaction().remove(fragment).commitAllowingStateLoss()
+            }
+        }
+    }
+
     override val currentLocator: StateFlow<Locator> get() = _currentLocator
     private val _currentLocator = MutableStateFlow(
         initialLocator
@@ -1204,12 +1415,27 @@ public class EpubNavigatorFragment internal constructor(
 
             // Deprecated notifications
             reflowableWebView?.let {
+                // Keep actual counts from already visible chapters, even during TTS. This
+                // cache update never creates another renderer or waits for background layout.
+                val chapter = resourcePager.currentItem
+                val pages = it.numPages
+                val sampleLayout = Triple(settings.value, resourcePager.width, resourcePager.height)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    paginationMutex.withLock {
+                        if (view == null || sampleLayout != Triple(settings.value, resourcePager.width, resourcePager.height)) {
+                            return@withLock
+                        }
+                        updatePaginationLayout()
+                        paginationWorker.run { chapterPageCounts.record(chapter, pages) }
+                    }
+                }
                 paginationListener?.onPageChanged(
                     pageIndex = it.mCurItem,
                     totalPages = it.numPages,
                     locator = currentLocator
                 )
             }
+            _isNavigating.value = false
         }
     }
 

@@ -12,6 +12,15 @@
         />
 
     <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/chapter_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:clickable="false"
+        android:focusable="false"
+        />
+
+    <androidx.compose.ui.platform.ComposeView
         android:id="@+id/overlay"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

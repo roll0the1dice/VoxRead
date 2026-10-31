@@ -15,6 +15,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentResultListener
+import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.commit
 import androidx.fragment.app.commitNow
 import androidx.lifecycle.ViewModelProvider
@@ -186,7 +187,20 @@ open class ReaderActivity : AppCompatActivity() {
     }
 
     private fun closeOutlineFragment(locator: Locator) {
-        readerFragment.go(locator, true)
+        // Load only after the reader is shown. Hidden WebViews can defer the visual callback
+        // used to reveal a freshly loaded chapter, leaving a directory jump blank.
+        val listener = object : FragmentManager.OnBackStackChangedListener {
+            override fun onBackStackChanged() {
+                if (readerFragment.isHidden) return
+                supportFragmentManager.removeOnBackStackChangedListener(this)
+                readerFragment.view?.post {
+                    if (!isFinishing && !isDestroyed && readerFragment.isAdded) {
+                        readerFragment.go(locator, true)
+                    }
+                }
+            }
+        }
+        supportFragmentManager.addOnBackStackChangedListener(listener)
         supportFragmentManager.popBackStack()
     }
 

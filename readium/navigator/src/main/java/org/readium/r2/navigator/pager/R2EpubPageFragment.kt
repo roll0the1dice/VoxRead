@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.readium.r2.navigator.R
 import org.readium.r2.navigator.R2BasicWebView
 import org.readium.r2.navigator.VoxScreenTiming
@@ -73,6 +74,9 @@ internal class R2EpubPageFragment : Fragment() {
 
     private val positionCount: Long
         get() = requireArguments().getLong("positionCount")
+
+    internal val paginationOnly: Boolean
+        get() = requireArguments().getBoolean("paginationOnly")
 
     var webView: R2WebView? = null
         private set
@@ -157,8 +161,20 @@ internal class R2EpubPageFragment : Fragment() {
         val webView = binding.webView
         this.webView = webView
 
-        webView.visibility = View.INVISIBLE
-        navigator?.webViewListener?.let { listener ->
+        webView.visibility = if (paginationOnly) View.VISIBLE else View.INVISIBLE
+        navigator?.webViewListener?.let { navigatorListener ->
+            // Background pagination uses the same CSS and resource loader, without changing
+            // the visible locator or invoking the app's formula/image/navigation interfaces.
+            val listener = if (paginationOnly) {
+                object : R2BasicWebView.Listener by navigatorListener {
+                    override fun onPageLoaded(webView: R2BasicWebView, link: Link) {}
+                    override fun onProgressionChanged() {}
+                    override fun javascriptInterfacesForResource(link: Link): Map<String, Any?> = emptyMap()
+                    override fun shouldOverrideUrlLoading(webView: WebView, request: WebResourceRequest): Boolean = true
+                }
+            } else {
+                navigatorListener
+            }
             webView.listener = listener
 
             link?.let { link ->
@@ -182,6 +198,10 @@ internal class R2EpubPageFragment : Fragment() {
         webView.settings.builtInZoomControls = true
         webView.settings.displayZoomControls = false
         webView.settings.textZoom = textZoom
+        if (paginationOnly) webView.settings.offscreenPreRaster = true
+        if (paginationOnly && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, true)
+        }
         webView.resourceUrl = resourceUrl
         webView.setPadding(0, 0, 0, 0)
         webView.addJavascriptInterface(webView, "Android")
@@ -248,12 +268,16 @@ internal class R2EpubPageFragment : Fragment() {
                     if (view == null) return@launch
                     enhanceAnchor = locator.locations.htmlId
                     VoxScreenTiming.note("position", "beforeShow=1")
-                    loadLocator(
-                        pageView,
-                        requireNotNull(navigator).overflow.value.readingProgression,
-                        locator
-                    )
-                    pendingLocator = null
+                    val positioned = withTimeoutOrNull(1500L) {
+                        loadLocator(
+                            pageView,
+                            requireNotNull(navigator).overflow.value.readingProgression,
+                            locator
+                        )
+                        true
+                    } == true
+                    // Retry after revealing the view if a hidden renderer deferred the callback.
+                    if (positioned) pendingLocator = null
                     pageView.onContentReady { onLoadPage() }
                 }
             }
@@ -310,24 +334,44 @@ internal class R2EpubPageFragment : Fragment() {
      * Will run the given [action] when the content of the [WebView] is fully laid out.
      */
     private fun WebView.onContentReady(action: () -> Unit) {
-        awaitVisual(0, action)
+        if (paginationOnly) {
+            // No visible frame is drawn by the transparent background renderer. Force a DOM
+            // layout instead of waiting for a visual-state callback that may never arrive.
+            evaluateJavascript("void(document.documentElement.offsetWidth)") { action() }
+        } else {
+            awaitVisual(0, action)
+        }
     }
 
     private fun WebView.awaitVisual(id: Int, action: () -> Unit) {
         val posted = SystemClock.elapsedRealtime()
         val current = isCurrentResource
         if (current) VoxScreenTiming.note("visualPost", "id=$id")
+        var delivered = false
+        lateinit var fallback: Runnable
+        fun complete() {
+            if (delivered) return
+            delivered = true
+            removeCallbacks(fallback)
+            if (this@R2EpubPageFragment.view != null && this === this@R2EpubPageFragment.webView) action()
+        }
+        fallback = Runnable {
+            if (delivered || this@R2EpubPageFragment.view == null) return@Runnable
+            if (current) VoxScreenTiming.note("visualFallback", "id=$id")
+            evaluateJavascript("void(document.documentElement.offsetWidth)") { complete() }
+        }
+        postDelayed(fallback, 1000)
         if (WebViewFeature.isFeatureSupported(WebViewFeature.VISUAL_STATE_CALLBACK)) {
             WebViewCompat.postVisualStateCallback(this, id.toLong()) {
                 if (current) {
                     val wait = SystemClock.elapsedRealtime() - posted
                     VoxScreenTiming.note("visual", "id=$id wait=${wait}ms")
                 }
-                action()
+                complete()
             }
         } else {
             evaluateJavascript("true") {
-                postDelayed(500, action)
+                postDelayed(500) { complete() }
             }
         }
     }
@@ -477,6 +521,10 @@ internal class R2EpubPageFragment : Fragment() {
                             )
                         }
                         .also { pendingLocator = null }
+                    if (paginationOnly) {
+                        webView.evaluateJavascript("window.__voxBackgroundPagination = true;", null)
+                        startFormulaEnhance()
+                    }
                 }
 
                 link?.let {
@@ -637,6 +685,7 @@ internal class R2EpubPageFragment : Fragment() {
             link: Link? = null,
             initialLocator: Locator? = null,
             positionCount: Int = 0,
+            paginationOnly: Boolean = false,
         ): R2EpubPageFragment =
             R2EpubPageFragment().apply {
                 arguments = Bundle().apply {
@@ -644,6 +693,7 @@ internal class R2EpubPageFragment : Fragment() {
                     putParcelable("link", link)
                     putParcelable("initialLocator", initialLocator)
                     putLong("positionCount", positionCount.toLong())
+                    putBoolean("paginationOnly", paginationOnly)
                 }
             }
     }

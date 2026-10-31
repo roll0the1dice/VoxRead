@@ -21,12 +21,12 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import androidx.annotation.RequiresApi
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.safety.Safelist
@@ -600,9 +600,9 @@ internal open class R2BasicWebView(context: Context, attrs: AttributeSet) : WebV
         }
     }
 
-    internal suspend fun runJavaScriptSuspend(javascript: String): String = suspendCoroutine { cont ->
+    internal suspend fun runJavaScriptSuspend(javascript: String): String = suspendCancellableCoroutine { cont ->
         runJavaScript(javascript) { result ->
-            cont.resume(result)
+            if (cont.isActive) cont.resume(result)
         }
     }
 

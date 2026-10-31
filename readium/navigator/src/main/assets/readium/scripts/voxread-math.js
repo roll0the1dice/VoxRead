@@ -1243,7 +1243,7 @@
         report("scan", "count=" + planMath.length + " ms=" + Math.round(planStartedAt - started));
       }
       var slice = clock();
-      while (planIndex < planMath.length && clock() - slice < BUDGET_MS) {
+      while (planIndex < planMath.length && clock() - slice < (window.__voxBackgroundPagination ? 2 : BUDGET_MS)) {
         if (inPriorityRange(planMath[planIndex].getBoundingClientRect())) nearMath.push(planMath[planIndex]);
         else farMath.push(planMath[planIndex]);
         planIndex++;
@@ -1308,7 +1308,7 @@
   function runSlice() {
     var start = clock();
     var steps = 0;
-    while (phase !== "done" && clock() - start < BUDGET_MS && steps < 24) {
+    while (phase !== "done" && clock() - start < (window.__voxBackgroundPagination ? 2 : BUDGET_MS) && steps < 24) {
       if (!advance()) break;
       steps++;
     }
@@ -1323,7 +1323,9 @@
   function pump() {
     if (pumping || phase === "done" || phase === "idle") return;
     pumping = true;
-    setTimeout(runSlice, 0);
+    // Hidden pagination WebViews may never receive idle callbacks. Keep their short slices
+    // spaced out using timers; the native scheduler cancels this renderer during user input.
+    setTimeout(runSlice, window.__voxBackgroundPagination ? 32 : 0);
   }
 
   function invalidateFits() {
@@ -1373,6 +1375,9 @@
   }
 
   window.voxBeginEnhance = beginEnhance;
+  window.voxIsLayoutReady = function () {
+    return !!window.__voxSkipFormulaEnhance || (phase === "done" && !refitTimer && !pumping);
+  };
 
   window.voxReadClearHighlight = clearHighlight;
   window.voxReadHighlightMath = highlight;

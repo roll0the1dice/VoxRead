@@ -18,6 +18,8 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
 import androidx.annotation.ColorInt
 import androidx.appcompat.widget.SearchView
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.core.os.BundleCompat
 import androidx.core.view.MenuHost
 import androidx.core.view.MenuProvider
@@ -27,7 +29,11 @@ import androidx.fragment.app.commitNow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -36,24 +42,68 @@ import org.readium.r2.navigator.VisualNavigator
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.*
 import org.readium.r2.navigator.epub.css.FontStyle
+import org.readium.r2.navigator.input.DragEvent
+import org.readium.r2.navigator.input.InputListener
+import org.readium.r2.navigator.input.KeyEvent
+import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.navigator.html.HtmlDecorationTemplate
 import org.readium.r2.navigator.html.HtmlDecorationTemplates
 import org.readium.r2.navigator.html.toCss
 import org.readium.r2.navigator.preferences.FontFamily
 import org.readium.r2.shared.ExperimentalReadiumApi
+import org.readium.r2.shared.publication.Layout
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.epub.pageList
+import org.readium.r2.shared.util.Url
 import org.readium.r2.testapp.LITERATA
 import org.readium.r2.testapp.R
 import org.readium.r2.testapp.reader.preferences.UserPreferencesViewModel
 import org.readium.r2.testapp.reader.tts.TtsPlay
 import org.readium.r2.testapp.reader.tts.TtsSpeechState
 import org.readium.r2.testapp.search.SearchFragment
+import org.readium.r2.testapp.utils.extensions.asStateWhenStarted
 
 @OptIn(ExperimentalReadiumApi::class)
 class EpubReaderFragment : VisualReaderFragment() {
 
     override lateinit var navigator: EpubNavigatorFragment
+
+    private data class PaginationRequest(
+        val pageIndex: Int,
+        val totalPages: Int,
+        val href: Url,
+        val width: Int,
+        val height: Int,
+    )
+    private data class PaginationContext(val href: Url, val settings: EpubSettings, val width: Int, val height: Int)
+    private data class PaginationWork(val context: PaginationContext, val activity: Long)
+    private val paginationDisplay = ReaderPaginationDisplay<PaginationContext>()
+    private val paginationRequest = MutableStateFlow<PaginationRequest?>(null)
+    private val paginationActivity = MutableStateFlow(0L)
+    private val readerVisible = MutableStateFlow(true)
+
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        readerVisible.value = !hidden
+    }
+
+    @Composable
+    override fun PageIndicator(progress: ReadingProgress) {
+        if (publication.metadata.layout == Layout.FIXED) {
+            super.PageIndicator(progress)
+            return
+        }
+        val numbers by paginationDisplay.numbers.asStateWhenStarted()
+        val calculation by paginationDisplay.calculation.asStateWhenStarted()
+        numbers?.let { page ->
+            ReaderPageIndicator(
+                currentPage = page.current,
+                totalPages = page.total,
+                cumulativePending = page.cumulativePending,
+                calculation = calculation,
+            )
+        }
+    }
 
     private lateinit var menuSearch: MenuItem
     lateinit var menuSearchView: SearchView
@@ -80,6 +130,22 @@ class EpubReaderFragment : VisualReaderFragment() {
                 initialLocator = readerData.initialLocation,
                 initialPreferences = readerData.preferencesManager.preferences.value,
                 listener = model,
+                paginationListener = object : EpubNavigatorFragment.PaginationListener {
+                    override fun onPageChanged(pageIndex: Int, totalPages: Int, locator: Locator) {
+                        if (totalPages > 0 && ::navigator.isInitialized) {
+                            val request = PaginationRequest(
+                                pageIndex, totalPages, locator.href,
+                                navigator.view?.width ?: 0, navigator.view?.height ?: 0,
+                            )
+                            // Publishing page numbers does not wait for a coroutine, cache or TTS.
+                            paginationDisplay.showPage(
+                                PaginationContext(request.href, navigator.settings.value, request.width, request.height),
+                                pageIndex, totalPages,
+                            )
+                            paginationRequest.value = request
+                        }
+                    }
+                },
                 configuration = EpubNavigatorFragment.Configuration {
                     // To customize the text selection menu.
                     selectionActionModeCallback = customSelectionActionModeCallback
@@ -648,7 +714,66 @@ class EpubReaderFragment : VisualReaderFragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        // Observe input before the handlers that consume it, and never consume it ourselves.
+        val paginationInput = object : InputListener {
+            private fun markActivity(): Boolean {
+                paginationActivity.value = SystemClock.elapsedRealtimeNanos()
+                return false
+            }
+            override fun onTap(event: TapEvent): Boolean = markActivity()
+            override fun onDrag(event: DragEvent): Boolean = markActivity()
+            override fun onKey(event: KeyEvent): Boolean = markActivity()
+        }
+        navigator.addInputListener(paginationInput)
+        viewLifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onDestroy(owner: androidx.lifecycle.LifecycleOwner) {
+                navigator.removeInputListener(paginationInput)
+            }
+        })
         super.onViewCreated(view, savedInstanceState)
+        readerVisible.value = !isHidden
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                combine(
+                    paginationRequest,
+                    paginationActivity,
+                    navigator.settings,
+                    navigator.isNavigating,
+                    readerVisible,
+                ) { request, activity, settings, navigating, visible ->
+                    if (request == null || navigating || !visible) return@combine null
+                    val context = PaginationContext(request.href, settings, request.width, request.height)
+                    paginationDisplay.showPage(context, request.pageIndex, request.totalPages)
+                    PaginationWork(context, activity)
+                }.distinctUntilChanged()
+                    .collectLatest { work ->
+                        work ?: return@collectLatest
+                        val context = work.context
+                        if (paginationDisplay.hasPagination(context)) return@collectLatest
+                        paginationDisplay.setCalculation(context, ReaderPaginationDisplay.Calculation.WaitingForIdle)
+                        // Reuse known counts first; missing counts also run during TTS playback.
+                        val cached = navigator.paginationFor(context.href, cachedOnly = true)
+                        if (cached != null) {
+                            paginationDisplay.acceptPagination(context, cached.pagesBefore, cached.totalPages)
+                            return@collectLatest
+                        }
+                        // Leave first paint and user navigation priority before background work.
+                        delay(1000)
+                        repeat(3) { attempt ->
+                            val book = navigator.paginationFor(context.href) { completed, total ->
+                                paginationDisplay.setCalculation(context, ReaderPaginationDisplay.Calculation.Counting(completed, total))
+                            }
+                            if (book != null) {
+                                paginationDisplay.acceptPagination(context, book.pagesBefore, book.totalPages)
+                                return@collectLatest
+                            }
+                            paginationDisplay.setCalculation(context, ReaderPaginationDisplay.Calculation.Failed)
+                            if (attempt < 2) delay(2000L * (attempt + 1))
+                        }
+                    }
+            }
+        }
 
         @Suppress("Unchecked_cast")
         (model.settings as UserPreferencesViewModel<EpubSettings, EpubPreferences>)

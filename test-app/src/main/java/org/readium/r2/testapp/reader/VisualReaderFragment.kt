@@ -66,6 +66,7 @@ import org.readium.r2.navigator.util.BaseActionModeCallback
 import org.readium.r2.navigator.util.DirectionalNavigationAdapter
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
+import org.readium.r2.shared.publication.flatten
 import org.readium.r2.shared.publication.services.content.Content
 import org.readium.r2.shared.util.Language
 import org.readium.r2.testapp.R
@@ -173,6 +174,22 @@ binding.fragmentReaderContainer.setOnApplyWindowInsetsListener { container, inse
             insets
         }
 
+        binding.chapterTitle.setContent {
+            AppTheme {
+                val locator by navigator.currentLocator.asStateWhenStarted()
+                val chapters = remember(publication) {
+                    publication.tableOfContents.flatten().filter { !it.title.isNullOrBlank() }
+                }
+                val title = remember(locator.href, locator.title, chapters) {
+                    locator.title?.takeIf { it.isNotBlank() }
+                        ?: chapters.firstOrNull {
+                            it.url().removeFragment().isEquivalent(locator.href.removeFragment())
+                        }?.title
+                }
+                ReaderChapterTitle(title)
+            }
+        }
+
         binding.overlay.setContent {
             AppTheme {
                 Overlay()
@@ -245,65 +262,72 @@ override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
             )
         }
 
-        AnimatedVisibility(
-            visible = showControls,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
+            PageIndicator(progress)
+            AnimatedVisibility(
+                visible = showControls,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                model.tts?.let { tts ->
-                    ReaderListenButton(
-                        model = tts,
-                        onClick = {
-                            showPlayer = true
-                            if (!tts.showControls.value) tts.start(navigator)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    model.tts?.let { tts ->
+                        ReaderListenButton(
+                            model = tts,
+                            onClick = {
+                                showPlayer = true
+                                if (!tts.showControls.value) tts.start(navigator)
+                            },
+                        )
+                    }
+                    if (showProgress) ReadingProgressBar(
+                        progress = progress,
+                        canSeek = positions.isNotEmpty(),
+                        onSeek = { fraction ->
+                            val index = indexForProgressFraction(fraction, positions.size)
+                            positions.getOrNull(index)?.let { target ->
+                                navigator.go(target, animated = false)
+                            }
                         },
                     )
+                    ReaderBottomToolbar(
+                        showSettings = model.settings != null,
+                        showTheme = model.settings?.editor?.value is EpubPreferencesEditor,
+                        onOutline = {
+                            model.activityChannel.send(ReaderViewModel.ActivityCommand.OpenOutlineRequested)
+                        },
+                        onProgress = { showProgress = !showProgress },
+                        onTheme = {
+                            val settings = model.settings
+                            val editor = settings?.editor?.value as? EpubPreferencesEditor
+                            editor?.let {
+                                it.theme.set(if (it.theme.effectiveValue == Theme.DARK) {
+                                    Theme.LIGHT
+                                } else {
+                                    Theme.DARK
+                                })
+                                settings.commit()
+                            }
+                        },
+                        onBrightness = { showBrightness = !showBrightness },
+                        onSettings = {
+                            MainPreferencesBottomSheetDialogFragment()
+                                .show(childFragmentManager, "Settings")
+                        },
+                        showBrightness = showBrightness,
+                        window = requireActivity().window,
+                    )
                 }
-                if (showProgress) ReadingProgressBar(
-                    progress = progress,
-                    canSeek = positions.isNotEmpty(),
-                    onSeek = { fraction ->
-                        val index = indexForProgressFraction(fraction, positions.size)
-                        positions.getOrNull(index)?.let { target ->
-                            navigator.go(target, animated = false)
-                        }
-                    },
-                )
-                ReaderBottomToolbar(
-                    showSettings = model.settings != null,
-                    showTheme = model.settings?.editor?.value is EpubPreferencesEditor,
-                    onOutline = {
-                        model.activityChannel.send(ReaderViewModel.ActivityCommand.OpenOutlineRequested)
-                    },
-                    onProgress = { showProgress = !showProgress },
-                    onTheme = {
-                        val settings = model.settings
-                        val editor = settings?.editor?.value as? EpubPreferencesEditor
-                        editor?.let {
-                            it.theme.set(if (it.theme.effectiveValue == Theme.DARK) {
-                                Theme.LIGHT
-                            } else {
-                                Theme.DARK
-                            })
-                            settings.commit()
-                        }
-                    },
-                    onBrightness = { showBrightness = !showBrightness },
-                    onSettings = {
-                        MainPreferencesBottomSheetDialogFragment()
-                            .show(childFragmentManager, "Settings")
-                    },
-                    showBrightness = showBrightness,
-                    window = requireActivity().window,
-                )
             }
         }
+    }
+
+    @Composable
+    protected open fun PageIndicator(progress: ReadingProgress) {
+        ReaderPageIndicator(progress.position, progress.total)
     }
 
     private fun setupObservers() {
