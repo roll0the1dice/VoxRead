@@ -1,3 +1,47 @@
+# Readium Kotlin Toolkit / VoxRead Desktop
+
+> **VoxRead 桌面端** 是一款基于 Compose Multiplatform + JavaFX 的现代化跨平台电子书阅读器，支持 EPUB 渲染与 Edge TTS 在线语音朗读。
+
+---
+
+## 🚀 VoxRead 桌面端 (Linux / Ubuntu)
+
+### 1. 免安装单文件运行 (AppImage)
+
+项目支持打包为类似 Windows `.exe` 单文件的独立免安装可执行程序（`.AppImage`）。该文件内嵌了 **Java 21 JRE**、**JavaFX**、**Compose Desktop** 以及所有依赖，在没有安装 Java 的 Linux (x86_64) 环境中也可直接双击或执行。
+
+#### 运行方式：
+```bash
+# 赋予可执行权限（首次）
+chmod +x VoxRead-x86_64.AppImage
+
+# 命令行运行或文件管理器双击
+./VoxRead-x86_64.AppImage
+```
+
+#### 重新打包 AppImage：
+如修改了代码并需要重新生成 AppImage 单文件程序，可在项目根目录下执行以下任一命令：
+
+```bash
+# 方式 1：执行打包脚本
+./scripts/package-appimage.sh
+
+# 方式 2：通过 Gradle 任务打包
+./gradlew :desktop-app:packageAppImage
+```
+打包成功后，单文件程序将输出至根目录：`VoxRead-x86_64.AppImage`。
+
+### 2. 源码开发与直接启动
+
+若在本地进行源码开发调试，可通过以下命令直接启动：
+```bash
+./scripts/run-desktop.sh
+# 或
+./gradlew :desktop-app:run
+```
+
+---
+
 # Readium Kotlin Toolkit
 
 [Readium Mobile](https://github.com/readium/mobile) is a toolkit for ebooks, audiobooks and comics written in Swift & Kotlin.

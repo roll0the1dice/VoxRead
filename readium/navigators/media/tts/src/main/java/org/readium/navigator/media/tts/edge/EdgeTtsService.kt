@@ -197,6 +197,8 @@ public class EdgeTtsService : TextToSpeechService() {
 
         val rate = (request.speechRate / 100.0).coerceIn(0.1, 3.0)
         val pitch = (request.pitch / 100.0).coerceIn(0.1, 2.0)
+        val volume = EdgeTtsVoiceStore.getGain(this)
+        val drcEnabled = EdgeTtsVoiceStore.isDrcEnabled(this)
 
         val startStatus = callback.start(
             EdgeTtsConstants.SAMPLE_RATE_HZ,
@@ -218,7 +220,9 @@ public class EdgeTtsService : TextToSpeechService() {
                     text = text,
                     voice = voice.shortName,
                     rate = rate,
-                    pitch = pitch
+                    pitch = pitch,
+                    volume = volume,
+                    drcEnabled = drcEnabled
                 ),
                 cancelled = cancelled,
                 listener = object : EdgeTtsSynthesizer.Listener {

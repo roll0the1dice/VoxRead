@@ -3,6 +3,7 @@ package org.readium.r2.testapp.reader.tts
 import android.graphics.Bitmap
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.math.roundToInt
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +32,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.readium.navigator.media.tts.edge.EdgeTtsVoiceStore
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
@@ -55,6 +58,7 @@ internal fun TtsPlayerScreen(
     onPreferences: () -> Unit,
     onHighlightColor: () -> Unit,
 ) {
+    val context = LocalContext.current
     val playing by model.isPlaying.asStateWhenStarted()
     val ready by model.showControls.asStateWhenStarted()
     val location by model.position.asStateWhenStarted()
@@ -64,6 +68,9 @@ internal fun TtsPlayerScreen(
     val progress = readingProgress(location ?: fallbackLocator, positions.size)
     var showTimer by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
+    var showGain by remember { mutableStateOf(false) }
+    var currentGain by remember { mutableStateOf(EdgeTtsVoiceStore.getGain(context)) }
+    var drcEnabled by remember { mutableStateOf(EdgeTtsVoiceStore.isDrcEnabled(context)) }
     var drag by remember { mutableStateOf<Float?>(null) }
     val cover by produceState<Bitmap?>(null, publication) {
         value = withContext(Dispatchers.IO) { publication.cover() }
@@ -118,6 +125,8 @@ internal fun TtsPlayerScreen(
                         PlayerAction(R.drawable.ic_baseline_headphones_24, "音色", onPreferences)
                         PlayerAction(R.drawable.ic_reader_compass,
                             "语速 ${formatSpeechSpeed(editor?.speed?.effectiveValue ?: 1.0)}x", { showSpeed = true })
+                        PlayerAction(R.drawable.ic_reader_brightness,
+                            "增益 ${(currentGain * 100).roundToInt()}%", { showGain = true })
                         PlayerAction(R.drawable.palette, "高亮颜色", onHighlightColor)
                     }
                     Spacer(Modifier.height(28.dp))
@@ -183,6 +192,52 @@ internal fun TtsPlayerScreen(
             PlayerChoiceDialog("语速", speeds.map { "${formatSpeechSpeed(it)}x" }, onDismiss = { showSpeed = false }) { index ->
                 editor?.speed?.set(speeds[index]); model.preferencesModel.commit(); showSpeed = false
             }
+        }
+        if (showGain) {
+            AlertDialog(
+                onDismissRequest = { showGain = false },
+                title = { Text("音量增益与响度增强") },
+                text = {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(
+                            "增益倍率: ${(currentGain * 100).roundToInt()}%",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF252A32)
+                        )
+                        Slider(
+                            value = currentGain.toFloat().coerceIn(0.5f, 3.0f),
+                            onValueChange = { v ->
+                                val stepped = (v * 20f).roundToInt() / 20.0
+                                currentGain = stepped.coerceIn(0.5, 3.0)
+                                EdgeTtsVoiceStore.saveGain(context, currentGain)
+                            },
+                            valueRange = 0.5f..3.0f,
+                            colors = SliderDefaults.colors(thumbColor = PlayerBlue, activeTrackColor = PlayerBlue)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("动态范围压缩 (DRC)", fontWeight = FontWeight.Bold, color = Color(0xFF252A32))
+                                Text("自动拉升轻音并防止爆音，对齐流媒体视频响度", fontSize = 12.sp, color = PlayerInk)
+                            }
+                            Switch(
+                                checked = drcEnabled,
+                                onCheckedChange = { enabled ->
+                                    drcEnabled = enabled
+                                    EdgeTtsVoiceStore.saveDrcEnabled(context, enabled)
+                                }
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showGain = false }) { Text("完成") }
+                }
+            )
         }
     }
 }

@@ -69,4 +69,32 @@ class EdgeTtsSsmlTest {
         assertTrue(frame.contains("Path:ssml"))
         assertTrue(frame.contains("<speak/>"))
     }
+
+    @Test
+    fun `volume defaults to plus 100 percent and scales with gain factor`() {
+        val defaultSsml = EdgeTtsSsml.wrap("测试", "zh-CN-XiaoxiaoNeural", 1.0, 1.0)
+        assertTrue(defaultSsml.contains("volume='+100%'"))
+        assertEquals("+0%", EdgeTtsSsml.volumeToSsml(1.0))
+        assertEquals("+50%", EdgeTtsSsml.volumeToSsml(1.25))
+        assertEquals("+100%", EdgeTtsSsml.volumeToSsml(2.0))
+        assertEquals("-50%", EdgeTtsSsml.volumeToSsml(0.5))
+    }
+
+    @Test
+    fun `pcm processor boosts quiet signal without clipping`() {
+        val processor = EdgeTtsPcmProcessor(gainFactor = 2.0, drcEnabled = true)
+        val pcm = ByteArray(200)
+        // Fill with a moderate 16-bit amplitude (4000 out of 32767)
+        for (i in 0 until 100) {
+            val sample = 4000
+            pcm[i * 2] = (sample and 0xFF).toByte()
+            pcm[i * 2 + 1] = ((sample ushr 8) and 0xFF).toByte()
+        }
+        processor.processInPlace(pcm)
+        val lastLo = pcm[198].toInt() and 0xFF
+        val lastHi = pcm[199].toInt()
+        val boosted = (lastHi shl 8) or lastLo
+        assertTrue(boosted > 6000, "Expected boosted sample > 6000, got $boosted")
+        assertTrue(boosted <= 32767)
+    }
 }

@@ -18,6 +18,10 @@ internal object EdgeTtsConstants {
 
     const val DEFAULT_VOICE: String = "en-US-EmmaMultilingualNeural"
 
+    const val DEFAULT_VOLUME_FACTOR: Double = 2.0
+
+    const val DEFAULT_DRC_ENABLED: Boolean = true
+
     const val OUTPUT_FORMAT: String = "audio-24khz-48kbitrate-mono-mp3"
 
     const val SAMPLE_RATE_HZ: Int = 24_000

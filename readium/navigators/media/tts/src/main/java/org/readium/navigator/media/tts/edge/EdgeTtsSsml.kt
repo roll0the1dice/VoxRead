@@ -30,9 +30,15 @@ internal object EdgeTtsSsml {
             "Path:ssml\r\n\r\n" +
             ssml
 
-    fun wrap(text: String, voice: String, rate: Double, pitch: Double): String {
+    fun wrap(
+        text: String,
+        voice: String,
+        rate: Double,
+        pitch: Double,
+        volume: Double = EdgeTtsConstants.DEFAULT_VOLUME_FACTOR,
+    ): String {
         val escaped = escapeXml(removeIncompatibleCharacters(text))
-        return wrapEscaped(escaped, voice, rate, pitch)
+        return wrapEscaped(escaped, voice, rate, pitch, volume)
     }
 
     fun chunkText(text: String, maxBytes: Int = MAX_SSML_BYTES): List<String> {
@@ -59,7 +65,13 @@ internal object EdgeTtsSsml {
         return chunks.ifEmpty { listOf("") }
     }
 
-    fun wrapEscaped(escapedText: String, voice: String, rate: Double, pitch: Double): String {
+    fun wrapEscaped(
+        escapedText: String,
+        voice: String,
+        rate: Double,
+        pitch: Double,
+        volume: Double = EdgeTtsConstants.DEFAULT_VOLUME_FACTOR,
+    ): String {
         val entry = EdgeTtsVoices.normalize(voice)
         val official = entry?.shortName
             ?: EdgeTtsVoices.sanitizeIdentifier(voice)
@@ -68,13 +80,23 @@ internal object EdgeTtsSsml {
             ?: EdgeTtsVoices.xmlLangFromName(official)
         return "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='$lang'>" +
             "<voice name='$official'>" +
-            "<prosody pitch='${pitchToSsml(pitch)}' rate='${rateToSsml(rate)}' volume='+0%'>" +
+            "<prosody pitch='${pitchToSsml(pitch)}' rate='${rateToSsml(rate)}' volume='${volumeToSsml(volume)}'>" +
             escapedText +
             "</prosody></voice></speak>"
     }
 
     fun rateToSsml(rate: Double): String =
         formatSignedPercent(rate)
+
+    fun volumeToSsml(volume: Double): String {
+        val clamped = volume.coerceIn(0.1, 3.0)
+        val percent = when {
+            clamped >= 1.5 -> 100
+            clamped >= 1.0 -> ((clamped - 1.0) * 200.0).roundToInt().coerceIn(0, 100)
+            else -> ((clamped - 1.0) * 100.0).roundToInt().coerceIn(-90, 0)
+        }
+        return if (percent >= 0) "+$percent%" else "$percent%"
+    }
 
     fun pitchToSsml(pitch: Double): String {
         val percent = ((pitch - 1.0) * 100.0).roundToInt()

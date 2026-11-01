@@ -50,6 +50,8 @@ internal class EdgeTtsSynthesizer(
         val voice: String,
         val rate: Double,
         val pitch: Double,
+        val volume: Double = EdgeTtsConstants.DEFAULT_VOLUME_FACTOR,
+        val drcEnabled: Boolean = EdgeTtsConstants.DEFAULT_DRC_ENABLED,
     )
 
     interface Listener {
@@ -101,6 +103,11 @@ internal class EdgeTtsSynthesizer(
     ) {
         val key = cacheKey(request)
 
+        val pcmProcessor = EdgeTtsPcmProcessor(
+            gainFactor = request.volume,
+            drcEnabled = request.drcEnabled
+        )
+
         // 🌟 1. 优先检查 LRU 缓存：如果命中，0 毫秒极速播放！
         val cached = audioCache.get(key)
         if (cached != null) {
@@ -110,7 +117,9 @@ internal class EdgeTtsSynthesizer(
                     listener.onRange(range.start, range.end, range.frame)
                 }
                 for (pcm in cached.pcmChunks) {
-                    if (cancelled.get() || !listener.onPcm(pcm)) {
+                    val outPcm = pcm.clone()
+                    pcmProcessor.processInPlace(outPcm)
+                    if (cancelled.get() || !listener.onPcm(outPcm)) {
                         return
                     }
                 }
@@ -133,7 +142,9 @@ internal class EdgeTtsSynthesizer(
         val recordingListener = object : Listener {
             override fun onPcm(pcm: ByteArray): Boolean {
                 recordedPcm.add(pcm.clone())
-                return listener.onPcm(pcm)
+                val outPcm = pcm.clone()
+                pcmProcessor.processInPlace(outPcm)
+                return listener.onPcm(outPcm)
             }
 
             override fun onRange(start: Int, end: Int, frame: Int) {
@@ -154,7 +165,7 @@ internal class EdgeTtsSynthesizer(
             if (cancelled.get()) {
                 return
             }
-            val ssml = EdgeTtsSsml.wrapEscaped(chunk, request.voice, request.rate, request.pitch)
+            val ssml = EdgeTtsSsml.wrapEscaped(chunk, request.voice, request.rate, request.pitch, request.volume)
             var outcome = runTurn(ssml, request.text, cancelled, recordingListener, forceFresh = false)
 
             if (outcome is TurnOutcome.Failure && !outcome.forbidden && !cancelled.get()) {

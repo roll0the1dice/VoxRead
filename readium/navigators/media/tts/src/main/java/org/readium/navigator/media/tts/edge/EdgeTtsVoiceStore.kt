@@ -21,12 +21,63 @@ public object EdgeTtsVoiceStore {
     private const val PREFS_NAME: String = "readium_edge_tts"
     private const val KEY_LAST: String = "voice.last"
     private const val KEY_PREFIX: String = "voice.lang."
+    private const val KEY_GAIN: String = "audio.gain"
+    private const val KEY_DRC: String = "audio.drc"
 
     @Volatile
     private var requestedVoice: String? = null
 
+    @Volatile
+    private var cachedGain: Double = EdgeTtsConstants.DEFAULT_VOLUME_FACTOR
+
+    @Volatile
+    private var cachedDrc: Boolean = EdgeTtsConstants.DEFAULT_DRC_ENABLED
+
     // 内存极速缓存，同进程内 0 延迟且绝不触发 Android 系统的 ContextImpl 存储报错
     private val memoryCache = ConcurrentHashMap<String, String>()
+
+    public fun saveGain(context: Context, gainFactor: Double) {
+        val clamped = gainFactor.coerceIn(0.5, 3.0)
+        cachedGain = clamped
+        memoryCache[KEY_GAIN] = clamped.toString()
+        try {
+            prefs(context).edit().putString(KEY_GAIN, clamped.toString()).commit()
+        } catch (e: Throwable) {
+            Timber.w(e, "Edge TTS: 写入 gain 失败")
+        }
+    }
+
+    public fun getGain(context: Context? = null): Double {
+        if (context == null) return cachedGain
+        val raw = property(context, KEY_GAIN)
+        val parsed = raw?.toDoubleOrNull()?.coerceIn(0.5, 3.0)
+        if (parsed != null) {
+            cachedGain = parsed
+            return parsed
+        }
+        return cachedGain
+    }
+
+    public fun saveDrcEnabled(context: Context, enabled: Boolean) {
+        cachedDrc = enabled
+        memoryCache[KEY_DRC] = enabled.toString()
+        try {
+            prefs(context).edit().putString(KEY_DRC, enabled.toString()).commit()
+        } catch (e: Throwable) {
+            Timber.w(e, "Edge TTS: 写入 drc 失败")
+        }
+    }
+
+    public fun isDrcEnabled(context: Context? = null): Boolean {
+        if (context == null) return cachedDrc
+        val raw = property(context, KEY_DRC)
+        val parsed = raw?.toBooleanStrictOrNull()
+        if (parsed != null) {
+            cachedDrc = parsed
+            return parsed
+        }
+        return cachedDrc
+    }
 
     public fun request(voiceName: String) {
         requestedVoice = EdgeTtsVoices.normalize(voiceName)?.shortName

@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.ktlint)
     alias(libs.plugins.compose.compiler) apply false
     id("org.jetbrains.dokka")
+    id("org.jetbrains.compose") version "1.12.1" apply false
 }
 
 subprojects {

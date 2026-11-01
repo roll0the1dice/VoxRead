@@ -102,3 +102,12 @@ readium/navigators/web/scripts/dist/
 **/android-ndk-r26b/
 
 **/target/
+
+SKILL*
+
+.agents/
+
+.claude/
+.github/
+
+VoxRead*
